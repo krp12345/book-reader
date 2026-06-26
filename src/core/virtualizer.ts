@@ -82,6 +82,12 @@ export interface Virtualizer {
   getHeight(id: string): number;
   /** Whether `id` has a real measurement (vs. the estimate). */
   isMeasured(id: string): boolean;
+  /**
+   * Absolute top offset (px) of the node at `index` in `ids` — the sum of the
+   * heights in use before it. Used to scroll a (possibly off-screen) node to the
+   * top of the viewport. Clamped: `index ≤ 0` ⇒ 0; past the end ⇒ total height.
+   */
+  offsetAt(ids: string[], index: number): number;
   /** Forget a node's measurement (e.g. it left the book). */
   delete(id: string): boolean;
   /** Compute the mounted window for a scroll state. */
@@ -105,6 +111,16 @@ export function createVirtualizer(config: VirtualizerConfig = {}): Virtualizer {
       const delta = height - getHeight(id);
       measured.set(id, height);
       return delta;
+    },
+
+    offsetAt(ids, index) {
+      const upto = Math.min(Math.max(0, index), ids.length);
+      let acc = 0;
+      for (let i = 0; i < upto; i++) {
+        const id = ids[i];
+        if (id !== undefined) acc += getHeight(id);
+      }
+      return acc;
     },
 
     delete(id) {

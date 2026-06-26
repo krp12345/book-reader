@@ -38,6 +38,48 @@ export interface BookNode<Meta = unknown> {
 export type ReadingDirection = 'forward' | 'backward';
 
 /**
+ * Context handed to the reading-order overrides (`getNextNode`/`getPrevNode`).
+ * Mirrors {@link FetchContext} minus the abort signal — resolving "what reads
+ * next" is a synchronous structural decision, not an I/O one.
+ */
+export interface ReadingOrderContext<Meta = unknown> {
+  /** The node whose neighbour is being resolved. */
+  node: BookNode<Meta>;
+  /** Ancestor ids from root → parent (excludes `node.id`). */
+  path: string[];
+  /** Which way the reader is heading. */
+  direction: ReadingDirection;
+}
+
+/**
+ * Overrides depth-first reading order: given a node (+ context), return the node
+ * that reads *after* it, or `null` for "end of book". Default: pre-order DFS.
+ * Returned nodes are expected to already live in the tree.
+ */
+export type GetNextNode<Meta = unknown> = (
+  node: BookNode<Meta>,
+  ctx: ReadingOrderContext<Meta>,
+) => BookNode<Meta> | null;
+
+/** Mirror of {@link GetNextNode} for the node that reads *before* a given one. */
+export type GetPrevNode<Meta = unknown> = (
+  node: BookNode<Meta>,
+  ctx: ReadingOrderContext<Meta>,
+) => BookNode<Meta> | null;
+
+/**
+ * Reading position (§4): the active node plus an optional scroll offset into it.
+ * Exposed as controlled (`location` + `onLocationChange`) or uncontrolled
+ * (`defaultLocation`); the consumer owns any persistence.
+ */
+export interface BookLocation {
+  /** Id of the node the reader is currently on. */
+  nodeId: string;
+  /** Pixels scrolled past the active node's top. Omitted ⇒ align to its top. */
+  offset?: number | undefined;
+}
+
+/**
  * Context handed to `loadChildren` when a lazy node is expanded. Carries what a
  * loader needs to resolve a node's children without walking back into the tree.
  */
@@ -201,6 +243,8 @@ export interface BookReaderClassNames {
   root?: string | undefined;
   /** The tree (left/right) pane. */
   tree?: string | undefined;
+  /** Each tree row (the `data-part="tree-node"` element). */
+  treeNode?: string | undefined;
   /** The scrollable content pane. */
   content?: string | undefined;
   /** A single content node wrapper within the content pane. */
@@ -221,6 +265,20 @@ export interface BookReaderProps<Meta = unknown> {
   loadChildren?: LoadChildren<Meta> | undefined;
   /** Resolves each node's readable HTML body. Required. */
   fetchContent: FetchContent<Meta>;
+
+  // --- reading order (optional overrides) ---
+  /** Override the forward reading order used by scroll auto-advance. */
+  getNextNode?: GetNextNode<Meta> | undefined;
+  /** Override the backward reading order. */
+  getPrevNode?: GetPrevNode<Meta> | undefined;
+
+  // --- position (controlled or uncontrolled; consumer owns persistence) ---
+  /** Controlled reading position (active node id + scroll offset). */
+  location?: BookLocation | undefined;
+  /** Initial reading position when uncontrolled. */
+  defaultLocation?: BookLocation | undefined;
+  /** Notified when the reading position changes (scroll or navigation). */
+  onLocationChange?: ((location: BookLocation) => void) | undefined;
 
   /**
    * Bounded content-cache configuration (§3 layer 1). Sanitized HTML is cached

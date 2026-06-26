@@ -8,19 +8,16 @@
 ---
 
 ## ▶ STATUS — keep this block current (update at end of every session)
-- **Current milestone:** M6 — Scroll ⟷ tree sync & auto-advance (NEXT)
-- **Overall progress:** 5 / 9 milestones complete (M0, M2, M3, M4, M5 done; M1 core types done)
-- **Next action:** M6 cross-pane sync. Scroll position → active node detection →
-  tree highlight + ancestor auto-expand; scroll-to-bottom auto-fetch & append next
-  node; tree click → scroll content to node; `location` controlled/uncontrolled +
-  `onLocationChange`. The virtualizer already exposes per-node offsets (`getWindow`)
-  to drive active-node detection; reading-order overrides (`getNextNode`/`getPrevNode`)
-  finally get consumed here.
+- **Current milestone:** M8 — Hardening, docs, release prep (NEXT)
+- **Overall progress:** 7 / 9 milestones complete (M0, M2–M7 done; M1 core types done)
+- **Next action:** M8 hardening. README (quickstart + full prop reference, incl.
+  the M7 styling tiers + `import 'book-reader/styles.css'`), accessibility pass,
+  core coverage review, bundle-size / tree-shake verification, decide package
+  name/scope, `npm publish --dry-run`.
 - **Blocked on:** nothing. Package name = `book-reader`. pnpm is the package manager.
-- **Deferred to later milestones:** cross-pane scroll⟷tree sync, controlled
-  `location`, and reading-order overrides (`getNextNode`/`getPrevNode`) → M6;
-  styling tiers → M7.
-- **Last updated:** 2026-06-26
+- **Deferred to later milestones:** README + a11y pass + bundle-size/tree-shaking
+  checks + publish dry-run → M8.
+- **Last updated:** 2026-06-27
 
 ---
 
@@ -116,21 +113,47 @@ Re-entering a node is a synchronous cache hit — verified by RTL test.)
 `ContentPane` driving `cache.setPinned()`; 3 integration tests stub scroll geometry.
 Demo adds a 5,000-section sync book. 115 tests green.)
 
-## M6 — Scroll ⟷ tree sync & auto-advance
+## M6 — Scroll ⟷ tree sync & auto-advance ✅
 **Goal:** the two panes move together.
-- [ ] Scroll position → active node detection → tree highlight + ancestor auto-expand.
-- [ ] Scroll-to-bottom auto-fetches & appends next node.
-- [ ] Tree click → scroll content to node.
-- [ ] `location` controlled/uncontrolled + `onLocationChange`.
-**Done when:** reading scrolls the tree; clicking the tree scrolls the reading.
+- [x] Scroll position → active node detection → tree highlight + ancestor auto-expand
+      (`core/scrollSync.ts` `activeNodeAt`; `BookReader` lifts one `useTreeState`,
+      highlights the active node, and auto-expands its path deepest-first only when
+      the active node changes).
+- [x] Scroll-to-bottom auto-fetches & appends next node (`isNearBottom` +
+      `nextNodeToLoad` → `onNeedNode` → `useTreeState.load`, de-duped; version bump
+      regrows the sequence). Reading-order overrides (`getNextNode`/`getPrevNode`)
+      consumed via `withReadingOverrides`.
+- [x] Tree click → scroll content to node (`virtualizer.offsetAt` +
+      `useVirtualList.scrollToId`, driven by a tokened `scrollRequest` prop).
+- [x] `location` controlled/uncontrolled + `onLocationChange` (active node id +
+      offset; echo-guard stops a controlled `location` from bouncing the view).
+**Done when:** reading scrolls the tree; clicking the tree scrolls the reading. ✅
+(Pure mapping in `core/scrollSync.ts` (15 tests) + `virtualizer.offsetAt`; React
+wiring in `useVirtualList` (now tracks live scroll), `ContentPane`, `BookReader`;
+3 RTL scroll-sync integration tests. **134 tests green.** Also closed an M5 gap:
+the virtual list had no scroll listener, so the window never recomputed on scroll —
+M6 adds it.)
 
-## M7 — Styling system
+## M7 — Styling system ✅
 **Goal:** great defaults, progressive override.
-- [ ] Default stylesheet (importable CSS).
-- [ ] `--reader-*` custom properties for theming.
-- [ ] Stable `data-part` hooks + per-slot `className`s.
-- [ ] Demo showcases default, themed, and fully-custom skins.
-**Done when:** all three styling tiers demonstrated in the demo.
+- [x] Default stylesheet (importable CSS) — `src/styles/book-reader.css`, emitted
+      to `dist/book-reader.css` by a Vite plugin (`emitDefaultStylesheet`) and
+      exposed as `book-reader/styles.css`. *Not* imported by the JS graph, so it's
+      opt-in + tree-shake-safe (verified: no `.css` ref in the JS bundle).
+- [x] `--reader-*` custom properties for theming — full token set on
+      `[data-part="book-reader"]` (font/colors/surfaces/spacing/indent/radius);
+      every rule reads tokens. `--reader-tree-indent` still drives row inset inline.
+- [x] Stable `data-part` hooks + per-slot `className`s — audited all hooks (present);
+      wired the previously-unapplied `classNames.root` and added `classNames.treeNode`
+      (threaded through `TreePaneView`/`TreePane` via `treeNodeClassName`).
+- [x] Demo showcases default, themed, and fully-custom skins — a skin switcher
+      (default / themed token-override / fully-custom render-props), M6 location
+      readout kept.
+**Done when:** all three styling tiers demonstrated in the demo. ✅
+(`src/styles/book-reader.css` + Vite emit plugin; `classNames.root`/`treeNode`
+wired; 3 RTL styling tests assert data-part hooks + classNames threading + token
+consumption. **137 tests green.** Default skin works without the stylesheet
+because functional layout stays inline; the CSS layers presentation only.)
 
 ## M8 — Hardening, docs, release prep
 **Goal:** ship-ready.
@@ -144,6 +167,76 @@ Demo adds a 5,000-section sync book. 115 tests green.)
 ---
 
 ## Session log (append newest on top)
+- 2026-06-27 — **M7 done: styling system.** Shipped the importable default skin
+  `src/styles/book-reader.css` — purely *presentation* (font/colors/typography/
+  spacing) scoped under `[data-part="book-reader"]` so it can't leak into a host
+  app, layered on top of the structural layout the components keep inline
+  (flex/overflow/height/position). Key decision: **functional layout stays inline,
+  presentation lives in the opt-in CSS** — so the reader still works if the
+  stylesheet is never imported, and inline styles never fight the sheet (they
+  agree on the few overlapping props; tokens are only set in CSS). Tier 1: a full
+  `--reader-*` token set (font, `--reader-content-font`, colors incl. accent/
+  accent-soft/hover/error, surfaces, spacing, `--reader-tree-indent` (already
+  consumed inline by TreePane), radius, focus-ring) declared on the root data-part;
+  every rule reads tokens, so retheming is token-only. Tier 2: audited the
+  `data-part` hooks (all present — book-reader/tree-pane/tree/tree-node(+caret/
+  label/spinner)/content-pane/content/content-node/content-html/loading/empty/
+  error/retry/spacers) and the per-slot `classNames` — **wired `classNames.root`**
+  (was defined but never applied; root now joins `br-reader`+`className`+`root`)
+  and **added `classNames.treeNode`** (new `treeNodeClassName` threaded through
+  `TreePaneView`+`TreePane` onto every `data-part="tree-node"` row). Tier 3:
+  render-props already existed (M3/M6) — demo exercises them. **Build wiring:**
+  a tiny Vite plugin `emitDefaultStylesheet()` copies the plain CSS to
+  `dist/book-reader.css` via `this.emitFile` in `generateBundle` (no transform
+  needed); the CSS is deliberately **not** imported by `src/index.ts`, so the JS
+  bundle has zero `.css` references → `import 'book-reader/styles.css'` is opt-in
+  and tree-shake-safe (`package.json` exports + `sideEffects:["**/*.css"]` were
+  already in place from M0). Demo rewritten with a 3-way skin switcher (default /
+  themed sepia via token overrides only / fully-custom dark terminal skin via
+  `classNames`+`data-part`+all five render-props), `key={skin}` for a clean remount,
+  M6 location readout kept; `demo/demo.css` holds the themed + custom skins. TDD
+  bent for CSS (visual) per CONVENTIONS — added `BookReader.styling.test.tsx`
+  (3 RTL tests: every `data-part` hook renders, all five `classNames` thread to the
+  right elements with base classes preserved, row indent consumes the
+  `--reader-tree-indent` token). build+typecheck+lint clean, **137 tests green**
+  (was 134, +3). No-flicker/stable-scroll (M5) and cross-pane sync (M6) untouched.
+  Next: M8 hardening/docs/release.
+- 2026-06-26 — **M6 done: scroll ⟷ tree sync & auto-advance.** Pure core **TDD-first**
+  (red→green→refactor): `core/scrollSync.ts` — `activeNodeAt(spans, refLine)` (the
+  node whose span holds the scroll reference line; clamps both ends), `isNearBottom`
+  (bottom-approach cue; true when the whole book fits), `nextNodeToLoad(store, seq,
+  fromId)` (first expandable-but-unloaded node at/after `fromId` — the next lazy
+  subtree to fetch), and `withReadingOverrides(store, base, {getNextNode,getPrevNode})`
+  which layers the consumer overrides over the base DFS order (node→id translation,
+  visited-guarded `getSequence` so a cyclic override can't spin). 15 tests. Added
+  `virtualizer.offsetAt(ids, index)` (absolute start of a possibly-off-screen node;
+  +1 test). Then the React layer (TDD bent for scroll geometry): **`useVirtualList`
+  now tracks live scroll** (a `scroll` listener was missing in M5, so the window
+  never recomputed on scroll — fixed; metrics setter bails when unchanged) and
+  exposes `activeId`/`activeOffset` (from `activeNodeAt` over the mounted window),
+  `atBottom` (`isNearBottom`), and `scrollToId(id, offset)` (`offsetAt` → set
+  scrollTop). `ContentPane` builds an override-aware sequence (`fullSeq` for loading,
+  `ids` = content-bearing for layout), reports active changes, asks `onNeedNode`
+  for the next lazy subtree when near bottom (or when the active node is itself
+  unloaded), and honours a tokened `scrollRequest`. **`BookReader` is now the
+  coordinator**: lifted one shared `useTreeState` (split `TreePane`→`TreePaneView`
+  to inject it; standalone `TreePane` API unchanged), highlights the active node,
+  auto-expands its path deepest-first **only when the active node changes** (via a
+  ref so a manual collapse isn't fought), threads `version` into `ContentPane` (an
+  M5 gap — lazy loads now regrow the reading sequence), and implements
+  controlled/uncontrolled `location` + `onLocationChange` with an echo-guard so a
+  controlled `location` that's just our own scroll echo doesn't bounce the view.
+  Added `useTreeState.load(id)` (load lazy children without expanding the row).
+  New public types/props: `ReadingOrderContext`, `GetNextNode`/`GetPrevNode`,
+  `BookLocation`, and `getNextNode`/`getPrevNode`/`location`/`defaultLocation`/
+  `onLocationChange` on `BookReaderProps`; exported scrollSync + new types from
+  `index.ts`. 3 RTL scroll-sync integration tests (stub RO/clientHeight/GBCR, drive
+  real `scroll` events) prove active-highlight+auto-expand+onLocationChange,
+  tree-click→scroll, and bottom→lazy-load. Demo wires `onLocationChange` to a live
+  reading-position readout. build+typecheck+lint clean, **134 tests green** (was
+  115; +19). No-flicker/stable-scroll guarantee preserved (scroll-to lands a node
+  at the viewport top so anchor correction has nothing above to fix; appended lazy
+  nodes are always below the fold). Next: M7 styling system.
 - 2026-06-26 — **M5 done: virtualization + stable scroll.** Built the pure core
   **TDD-first** (red→green→refactor): `core/virtualizer.ts` `createVirtualizer` —
   a **height map** (`setHeight` remembers measured px and returns the delta from

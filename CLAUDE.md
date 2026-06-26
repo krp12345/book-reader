@@ -31,16 +31,19 @@ src/
     treeStore.ts      # normalized id-indexed tree; sync + lazy loadChildren
     traversal.ts      # depth-first next/prev reading order
     cache.ts          # bounded LRU content cache (maxChars), pinning, dedup
-    virtualizer.ts    # windowing + height map + anchor correction
-    scrollSync.ts     # scroll <-> active node <-> tree expansion
+    virtualizer.ts    # windowing + height map + anchor correction + offsetAt
+    scrollSync.ts     # active-node detection, near-bottom, reading-order overrides,
+                      #   next-lazy-subtree-to-load (pure; React-free)
   tree/               # left pane: TreePane.tsx, useTreeState.ts, flatten.ts,
                       #   defaultTreeNode.tsx (+ tests)
   content/            # right pane: ContentPane (virtualized scroll surface),
                       #   ContentNode, useNodeContent, useVirtualList (windowing +
                       #   measurement + anchor correction + pin/prefetch driver),
                       #   prefetchNodeContent, sanitize
-  styles/             # default stylesheet + --reader-* tokens
-demo/                 # Vite dev harness with sample books
+  styles/             # book-reader.css: default skin (presentation only) +
+                      #   --reader-* tokens; emitted to dist/book-reader.css by a
+                      #   Vite plugin, exported as `book-reader/styles.css` (opt-in)
+demo/                 # Vite dev harness (main.tsx + demo.css): 3-tier skin switcher
 ```
 
 ## Key design invariants (do not break)
@@ -65,8 +68,52 @@ demo/                 # Vite dev harness with sample books
 - Run `pnpm build && pnpm test` before declaring a milestone done.
 
 ## Current status
-M0–M4 done (tree model + TreePane UI + right pane + caching layer). **M5 done**:
-virtualization + stable scroll. `core/virtualizer.ts` (`createVirtualizer`, pure):
+M0–M7 done. **M7 (styling system)**: `src/styles/book-reader.css` is the importable
+default skin — **presentation only** (font/colors/typography/spacing), scoped under
+`[data-part="book-reader"]`, layered on top of the **functional layout the components
+keep inline** (flex/overflow/height/position) so the reader works even without the
+sheet. Three tiers (REQUIREMENTS §2.5): (1) override the `--reader-*` tokens declared
+on the root data-part — full set (font, `--reader-content-font`, accent/soft/hover/
+error colors, surfaces, spacing, `--reader-tree-indent`, radius, focus-ring); (2)
+target the stable `data-part` hooks / per-slot `classNames` — `classNames.root`
+(newly wired), `tree`, `treeNode` (new — `treeNodeClassName` through `TreePaneView`/
+`TreePane`), `content`, `contentNode`; (3) render-props (M3/M6). Build: a Vite plugin
+`emitDefaultStylesheet()` copies the CSS to `dist/book-reader.css` (`generateBundle` →
+`emitFile`); the CSS is **not** imported by `src/index.ts`, so `import
+'book-reader/styles.css'` is opt-in + tree-shake-safe (`package.json` exports +
+`sideEffects:["**/*.css"]`). Demo: 3-way skin switcher (default / themed token-only /
+fully-custom render-props), M6 location readout kept; `demo/demo.css` holds the themed
++ custom skins. 3 RTL styling tests (data-part hooks, classNames threading, token
+consumption). **137 tests green.** **Next: M8** — README + prop reference, a11y pass,
+core coverage review, bundle-size/tree-shake check, package name decision, `npm
+publish --dry-run`.
+
+### M6 reference (scroll ⟷ tree sync & auto-advance)
+Pure mapping in
+`core/scrollSync.ts` — `activeNodeAt` (node under the scroll reference line),
+`isNearBottom`, `nextNodeToLoad` (next expandable-but-unloaded node = next lazy
+subtree to fetch), `withReadingOverrides` (layers `getNextNode`/`getPrevNode` over
+the base DFS order; visited-guarded `getSequence`); plus `virtualizer.offsetAt`
+(absolute start of an off-screen node). React wiring: `useVirtualList` now tracks
+**live scroll** (added the missing scroll listener) and exposes `activeId`/
+`activeOffset`/`atBottom`/`scrollToId`; `ContentPane` builds an override-aware
+sequence, reports active changes, asks `onNeedNode` to load the next lazy subtree
+near the bottom, and honours a tokened `scrollRequest`; **`BookReader` is the
+coordinator** — lifts one shared `useTreeState` (`TreePane` split into
+`TreePaneView`+`TreePane`), highlights the active node, auto-expands its path
+deepest-first only when the active node changes, threads `version` into the content
+pane (so lazy loads regrow the reading sequence), and implements controlled/
+uncontrolled `location` + `onLocationChange` with an echo-guard. New props:
+`getNextNode`/`getPrevNode`/`location`/`defaultLocation`/`onLocationChange`. New
+types: `ReadingOrderContext`, `GetNextNode`/`GetPrevNode`, `BookLocation`. 134 tests
+green; build+lint+typecheck clean. **Next: M7 styling system** (importable default
+CSS, `--reader-*` tokens, `data-part` hooks — most already on elements — per-slot
+classNames, demo skins).
+
+---
+
+### M5 reference (virtualization + stable scroll)
+`core/virtualizer.ts` (`createVirtualizer`, pure):
 **height map** (`setHeight` remembers measured px, returns the delta vs the prior
 height; `getHeight` estimates unknowns, default 200) + **windowing** (`getWindow` →
 mounted items with absolute starts + top/bottom spacer paddings + totalHeight;
@@ -81,12 +128,10 @@ and drives `cache.setPinned(pinnedIds(...))` + warms `prefetchIds(...)` via
 no React state). `ContentPane` is now the scroll surface (spacer divs + windowed
 `ContentNode`s; `ContentNode` has a `measureRef`). New props: `overscan` (2),
 `prefetchCount` (2), `estimateHeight`. `resolveSanitizer` lives in `sanitize.ts`
-(shared). 115 tests green; build+lint+typecheck clean.
-**Next: M6 scroll⟷tree sync + auto-advance + `location`/`onLocationChange`.**
-Notes for M6: the virtualizer exposes per-node offsets (`getWindow`) to drive
-active-node detection from scrollTop; cross-pane scroll⟷tree sync, controlled
-`location`, and reading-order overrides (`getNextNode`/`getPrevNode`) are still
-deferred to M6 (the content pane recomputes its sequence from a `version` prop).
+(shared). `resolveSanitizer` lives in `sanitize.ts` (shared).
+
+---
+
 Package name = `book-reader`. Package manager = **pnpm** (not npm).
 Note: `tsconfig` has `exactOptionalPropertyTypes` — public optional props must be
 typed `?: T | undefined` so consumers can forward maybe-undefined values.

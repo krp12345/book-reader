@@ -1,7 +1,23 @@
-import { StrictMode } from 'react';
+import { StrictMode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BookReader, VERSION } from '../src/index';
-import type { BookNode, FetchContent, LoadChildren } from '../src/types';
+import type {
+  BookLocation,
+  BookNode,
+  BookReaderClassNames,
+  BookReaderProps,
+  FetchContent,
+  LoadChildren,
+  RenderContent,
+  RenderEmpty,
+  RenderError,
+  RenderLoading,
+  RenderTreeNode,
+} from '../src/types';
+// The default skin (tier-0). A consumer writes zero CSS and imports just this.
+import '../src/styles/book-reader.css';
+// Demo-only styles: the themed (token-override) and fully-custom skins.
+import './demo.css';
 
 // --- A small, fully in-memory (sync) book -----------------------------------
 const syncBook: BookNode = {
@@ -62,13 +78,105 @@ const fetchContent: FetchContent = async (node, ctx) => {
     'Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>';
 };
 
+type Skin = 'default' | 'themed' | 'custom';
+
+const SKINS: { id: Skin; label: string; blurb: string }[] = [
+  { id: 'default', label: 'Default', blurb: 'Zero CSS — just import the stylesheet.' },
+  {
+    id: 'themed',
+    label: 'Themed',
+    blurb: 'Tier 1 — override --reader-* tokens only (a sepia skin).',
+  },
+  {
+    id: 'custom',
+    label: 'Fully custom',
+    blurb: 'Tiers 2 + 3 — per-slot classNames, data-part hooks, and render-props.',
+  },
+];
+
+// --- Tier 3 render-props: a fully bespoke look that owns the markup ----------
+const customClassNames: BookReaderClassNames = {
+  root: 'cs-root',
+  tree: 'cs-tree',
+  treeNode: 'cs-row',
+  content: 'cs-content',
+  contentNode: 'cs-node',
+};
+const renderTreeNode: RenderTreeNode = (node, state) => (
+  <span className="cs-label">
+    {state.expandable ? (state.expanded ? '📂' : '📁') : '📄'} {node.title}
+  </span>
+);
+const renderContent: RenderContent = (_node, html) => (
+  <div className="cs-body" dangerouslySetInnerHTML={{ __html: html }} />
+);
+const renderLoading: RenderLoading = () => <div className="cs-loading">▌ loading…</div>;
+const renderError: RenderError = (_node, _error, retry) => (
+  <div className="cs-error">
+    ✗ fetch failed
+    <button type="button" onClick={retry}>
+      retry
+    </button>
+  </div>
+);
+const renderEmpty: RenderEmpty = () => <div className="cs-empty">— no content —</div>;
+
+function readerProps(skin: Skin): Partial<BookReaderProps> {
+  switch (skin) {
+    case 'themed':
+      return { className: 'skin-sepia' };
+    case 'custom':
+      return {
+        classNames: customClassNames,
+        renderTreeNode,
+        renderContent,
+        renderLoading,
+        renderError,
+        renderEmpty,
+      };
+    default:
+      return {};
+  }
+}
+
 function App() {
+  const [location, setLocation] = useState<BookLocation | undefined>(undefined);
+  const [skin, setSkin] = useState<Skin>('default');
+  const active = SKINS.find((s) => s.id === skin)!;
+
   return (
     <main style={{ fontFamily: 'system-ui', padding: '1.5rem' }}>
       <h1>book-reader demo</h1>
       <p style={{ color: '#666' }}>
-        Library version {VERSION}. M3 — section tree (left) + continuous content
-        (right). Chapter 2 loads slowly; Chapter 3 fails (Retry to recover).
+        Library version {VERSION}. M7 — the styling system. Three tiers of
+        progressive override (REQUIREMENTS §2.5): the default skin out of the box,
+        a themed skin via <code>--reader-*</code> token overrides only, and a
+        fully-custom skin via per-slot <code>classNames</code> /{' '}
+        <code>data-part</code> hooks plus render-props. Chapter 2 loads slowly;
+        Chapter 3 fails (Retry to recover).
+      </p>
+
+      <div className="skin-tabs" role="group" aria-label="Styling tier">
+        {SKINS.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            aria-pressed={s.id === skin}
+            onClick={() => setSkin(s.id)}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+      <p style={{ color: '#444', fontSize: '0.85rem' }}>{active.blurb}</p>
+
+      <p style={{ color: '#444', fontSize: '0.85rem' }} aria-live="polite">
+        Reading position:{' '}
+        <code>
+          {location
+            ? `${location.nodeId} (+${Math.round(location.offset ?? 0)}px)`
+            : '—'}
+        </code>
       </p>
       <div
         style={{
@@ -79,17 +187,22 @@ function App() {
         }}
       >
         <BookReader
+          // `key` forces a clean remount per skin so the demo always starts at
+          // the top — not a requirement of the library, just tidy for the demo.
+          key={skin}
           tree={[syncBook, bigBook, lazyBook]}
           loadChildren={loadChildren}
           fetchContent={fetchContent}
           treeWidth={280}
+          onLocationChange={setLocation}
+          {...readerProps(skin)}
         />
       </div>
       <p style={{ color: '#999', fontSize: '0.8rem', marginTop: '1rem' }}>
-        Lazy-tree expansion (the &ldquo;{lazyBook.title}&rdquo; pattern) drives the
-        left pane. M5 — the right pane is virtualized: the 5,000-section book mounts
-        only the viewport + overscan, remembers measured heights, and never jumps on
-        scroll-back (synchronous cache hits). Cross-pane scroll⟷tree sync arrives in M6.
+        Switching tiers restyles the same component — same data, virtualization
+        (M5), and cross-pane scroll sync (M6) underneath. The default and themed
+        tiers add <em>zero</em> markup; the custom tier swaps in its own
+        renderers. Reading-position readout is fed by <code>onLocationChange</code>.
       </p>
     </main>
   );

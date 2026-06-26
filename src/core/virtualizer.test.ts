@@ -40,6 +40,18 @@ describe('virtualizer — height map (measure / remember / estimate)', () => {
     expect(v.setHeight('x', 70)).toBe(0);
   });
 
+  it('computes a node’s absolute offset from heights in use', () => {
+    const v = createVirtualizer({ estimateHeight: 100 });
+    const list = ids(5);
+    v.setHeight('n0', 150); // measured; others use the 100 estimate
+    expect(v.offsetAt(list, 0)).toBe(0);
+    expect(v.offsetAt(list, 1)).toBe(150); // past n0 (measured 150)
+    expect(v.offsetAt(list, 3)).toBe(150 + 100 + 100);
+    // Clamped at both ends.
+    expect(v.offsetAt(list, -2)).toBe(0);
+    expect(v.offsetAt(list, 99)).toBe(150 + 100 * 4);
+  });
+
   it('forgets a measurement with delete', () => {
     const v = createVirtualizer({ estimateHeight: 50 });
     v.setHeight('x', 80);

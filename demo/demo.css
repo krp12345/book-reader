@@ -1,0 +1,101 @@
+/* Demo-only styles showcasing the two override tiers above the default skin. */
+
+/* --- Tier 1: themed skin — override --reader-* tokens ONLY (no JS, no markup). */
+.skin-sepia {
+  --reader-color-bg: #f6efdd;
+  --reader-color-fg: #463a26;
+  --reader-color-muted: #93805d;
+  --reader-color-border: #e0d2ad;
+  --reader-color-accent: #9a5b27;
+  --reader-color-accent-fg: #fff;
+  --reader-color-accent-soft: #ece0c2;
+  --reader-color-hover: #efe5cb;
+  --reader-tree-bg: #efe4c8;
+  --reader-content-font: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  --reader-line-height: 1.8;
+}
+
+/* --- Tier 3: fully-custom skin — per-slot classNames + data-part hooks.
+   Deliberately ignores the --reader-* tokens to prove total control. */
+.cs-root {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  background: #0d1117;
+  color: #c9d1d9;
+}
+.cs-tree {
+  background: #010409;
+  border-inline-end: 1px solid #30363d;
+}
+.cs-tree [data-part='tree'] {
+  padding: 0.75rem 0.5rem;
+}
+.cs-row {
+  border-radius: 4px;
+  color: #8b949e;
+  font-size: 0.85rem;
+}
+.cs-row:hover {
+  background: #161b22;
+  color: #c9d1d9;
+}
+.cs-row[data-selected] {
+  background: #1f6feb33;
+  color: #58a6ff;
+  font-weight: 600;
+}
+.cs-row [data-part='tree-node-caret'] {
+  color: #6e7681;
+}
+.cs-content {
+  background: #0d1117;
+}
+.cs-node {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  border-bottom: 1px solid #21262d;
+}
+.cs-node .cs-body h3 {
+  color: #58a6ff;
+  margin-top: 0;
+}
+.cs-loading {
+  color: #6e7681;
+  font-style: italic;
+}
+.cs-error {
+  color: #f85149;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.cs-error button {
+  background: #21262d;
+  color: #f0f6fc;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  padding: 0.15rem 0.6rem;
+  cursor: pointer;
+  font: inherit;
+}
+.cs-empty {
+  color: #6e7681;
+}
+
+/* Demo chrome */
+.skin-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.5rem 0 1rem;
+}
+.skin-tabs button {
+  padding: 0.35rem 0.9rem;
+  border: 1px solid #ccc;
+  border-radius: 999px;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+.skin-tabs button[aria-pressed='true'] {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+}

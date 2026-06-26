@@ -23,6 +23,7 @@ import {
   prefetchIds,
   type VirtualItem,
 } from '../core/virtualizer';
+import { activeNodeAt, isNearBottom } from '../core/scrollSync';
 
 export interface UseVirtualListOptions {
   /** The full reading sequence, in order. */
@@ -52,6 +53,14 @@ export interface VirtualList {
   totalHeight: number;
   /** Ref callback factory for measuring a mounted node's height. */
   measureRef: (id: string) => (el: HTMLElement | null) => void;
+  /** The node currently at the top of the viewport (drives tree sync). */
+  activeId: string | undefined;
+  /** Pixels scrolled past the active node's top (for `location`). */
+  activeOffset: number;
+  /** Whether the viewport is within one screen of the end of the surface. */
+  atBottom: boolean;
+  /** Scroll a (possibly off-screen) node to the top of the viewport. */
+  scrollToId: (id: string, offset?: number) => void;
 }
 
 interface Metrics {
@@ -99,17 +108,30 @@ export function useVirtualList(options: UseVirtualListOptions): VirtualList {
   const syncMetrics = useCallback(() => {
     const el = scrollRef.current;
     if (el === null) return;
-    setMetrics({ scrollTop: el.scrollTop, viewportHeight: el.clientHeight });
+    // Bail when nothing changed so programmatic scrolls / RO ticks don't churn
+    // renders (a fresh object would always re-render otherwise).
+    setMetrics((prev) =>
+      prev.scrollTop === el.scrollTop && prev.viewportHeight === el.clientHeight
+        ? prev
+        : { scrollTop: el.scrollTop, viewportHeight: el.clientHeight },
+    );
   }, []);
 
-  // Initial viewport measurement + keep it current as the container resizes.
+  // Initial viewport measurement + keep it current as the reader scrolls and as
+  // the container resizes. (M5 windowed only at mount/resize; live scroll
+  // tracking is what M6 needs for active-node detection + auto-advance.)
   useLayoutEffect(() => {
     syncMetrics();
     const el = scrollRef.current;
-    if (el === null || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(syncMetrics);
-    ro.observe(el);
-    return () => ro.disconnect();
+    if (el === null) return;
+    el.addEventListener('scroll', syncMetrics, { passive: true });
+    const ro =
+      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(syncMetrics) : null;
+    ro?.observe(el);
+    return () => {
+      el.removeEventListener('scroll', syncMetrics);
+      ro?.disconnect();
+    };
   }, [syncMetrics]);
 
   // One ResizeObserver measures every mounted node. On a height change we update
@@ -184,6 +206,38 @@ export function useVirtualList(options: UseVirtualListOptions): VirtualList {
     for (const id of prefetchIds(ids, window, prefetchCount)) prefetch(id);
   }, [prefetch, ids, window, prefetchCount]);
 
+  // The active node = the one at the top of the viewport. It is always within the
+  // mounted window (it's on screen), so we read it off `window.items`.
+  const { activeId, activeOffset } = useMemo(() => {
+    const id = activeNodeAt(window.items, metrics.scrollTop);
+    const item = window.items.find((i) => i.id === id);
+    return {
+      activeId: id,
+      activeOffset: item === undefined ? 0 : Math.max(0, metrics.scrollTop - item.start),
+    };
+  }, [window, metrics.scrollTop]);
+
+  // Within one viewport of the end → cue the content pane to auto-fetch the next
+  // node. A measured viewport is required (threshold 0 before it arrives).
+  const atBottom = isNearBottom(
+    metrics.scrollTop,
+    metrics.viewportHeight,
+    window.totalHeight,
+    metrics.viewportHeight,
+  );
+
+  const scrollToId = useCallback(
+    (id: string, offset = 0) => {
+      const el = scrollRef.current;
+      if (el === null) return;
+      const index = ids.indexOf(id);
+      if (index === -1) return;
+      el.scrollTop = virtualizer.offsetAt(ids, index) + offset;
+      syncMetrics();
+    },
+    [ids, virtualizer, syncMetrics],
+  );
+
   return {
     scrollRef,
     items: window.items,
@@ -191,5 +245,9 @@ export function useVirtualList(options: UseVirtualListOptions): VirtualList {
     paddingBottom: window.paddingBottom,
     totalHeight: window.totalHeight,
     measureRef,
+    activeId,
+    activeOffset,
+    atBottom,
+    scrollToId,
   };
 }

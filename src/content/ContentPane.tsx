@@ -13,12 +13,15 @@
  * about-to-enter nodes are synchronous cache hits (no flicker, no re-fetch).
  * Pass a bumping `version` to recompute the sequence after lazy children load.
  */
-import { useCallback, useMemo, type JSX } from 'react';
+import { useCallback, useEffect, useMemo, useRef, type JSX } from 'react';
 import type { ContentCache } from '../core/cache';
 import type { TreeStore } from '../core/treeStore';
 import { createReadingOrder } from '../core/traversal';
+import { nextNodeToLoad, withReadingOverrides } from '../core/scrollSync';
 import type {
   FetchContent,
+  GetNextNode,
+  GetPrevNode,
   RenderContent,
   RenderEmpty,
   RenderError,
@@ -28,6 +31,13 @@ import type {
 import { ContentNode } from './ContentNode';
 import { prefetchNodeContent } from './prefetchNodeContent';
 import { useVirtualList } from './useVirtualList';
+
+/** An imperative request to scroll a node to the top; `token` retriggers it. */
+export interface ScrollRequest {
+  id: string;
+  offset?: number | undefined;
+  token: number;
+}
 
 export interface ContentPaneProps<Meta = unknown> {
   /** The indexed tree whose nodes are read in order. */
@@ -44,6 +54,16 @@ export interface ContentPaneProps<Meta = unknown> {
   prefetchCount?: number | undefined;
   /** Height (px) assumed for not-yet-measured nodes. */
   estimateHeight?: number | undefined;
+  /** Override the forward reading order (auto-advance "next node"). */
+  getNextNode?: GetNextNode<Meta> | undefined;
+  /** Override the backward reading order. */
+  getPrevNode?: GetPrevNode<Meta> | undefined;
+  /** Notified when the node at the top of the viewport changes (scroll → tree sync). */
+  onActiveChange?: ((id: string, offset: number) => void) | undefined;
+  /** Asked to load a lazy subtree so reading can continue past the loaded frontier. */
+  onNeedNode?: ((id: string) => void) | undefined;
+  /** Imperative scroll-to-node request (tree click / controlled location). */
+  scrollRequest?: ScrollRequest | undefined;
   renderContent?: RenderContent<Meta> | undefined;
   renderLoading?: RenderLoading<Meta> | undefined;
   renderError?: RenderError<Meta> | undefined;
@@ -66,16 +86,29 @@ export function ContentPane<Meta = unknown>(
     overscan = 2,
     prefetchCount = 2,
     estimateHeight,
+    getNextNode,
+    getPrevNode,
+    onActiveChange,
+    onNeedNode,
+    scrollRequest,
   } = props;
 
-  // Reading order reflects the store's *current* knowledge; recompute when lazy
-  // children land (signalled via `version`).
-  const ids = useMemo(() => {
-    const order = createReadingOrder(store);
-    return order
-      .getSequence()
-      .filter((id) => store.getNode(id)?.hasContent !== false);
-  }, [store, version]);
+  // Reading order reflects the store's *current* knowledge (override-aware) and
+  // recomputes when lazy children land (signalled via `version`). `fullSeq`
+  // includes organisational branches; `ids` (rendered) drops the no-content ones.
+  const fullSeq = useMemo(() => {
+    const order = withReadingOverrides(store, createReadingOrder(store), {
+      getNextNode,
+      getPrevNode,
+    });
+    return order.getSequence();
+    // version drives recompute; the store mutates in place.
+  }, [store, version, getNextNode, getPrevNode]);
+
+  const ids = useMemo(
+    () => fullSeq.filter((id) => store.getNode(id)?.hasContent !== false),
+    [fullSeq, store],
+  );
 
   // Warm a node's content into the cache ahead of view (no-op without a cache).
   const prefetch = useCallback(
@@ -93,15 +126,50 @@ export function ContentPane<Meta = unknown>(
     [store, cache, fetchContent, sanitize],
   );
 
-  const { scrollRef, items, paddingTop, paddingBottom, totalHeight, measureRef } =
-    useVirtualList({
-      ids,
-      overscan,
-      prefetchCount,
-      estimateHeight,
-      cache,
-      prefetch: cache !== undefined ? prefetch : undefined,
-    });
+  const {
+    scrollRef,
+    items,
+    paddingTop,
+    paddingBottom,
+    totalHeight,
+    measureRef,
+    activeId,
+    activeOffset,
+    atBottom,
+    scrollToId,
+  } = useVirtualList({
+    ids,
+    overscan,
+    prefetchCount,
+    estimateHeight,
+    cache,
+    prefetch: cache !== undefined ? prefetch : undefined,
+  });
+
+  // Scroll → tree sync: report the node at the top of the viewport.
+  useEffect(() => {
+    if (activeId !== undefined) onActiveChange?.(activeId, activeOffset);
+  }, [activeId, activeOffset, onActiveChange]);
+
+  // Auto-advance: when the reader nears the bottom (or the active node is itself a
+  // not-yet-loaded subtree), ask the owner to fetch the next lazy subtree so the
+  // reading order can grow. `load` de-dupes, so re-firing while in flight is safe.
+  useEffect(() => {
+    if (onNeedNode === undefined) return;
+    const candidate = nextNodeToLoad(store, fullSeq, activeId);
+    if (candidate !== undefined && (atBottom || candidate === activeId)) {
+      onNeedNode(candidate);
+    }
+  }, [onNeedNode, store, fullSeq, activeId, atBottom]);
+
+  // Imperative scroll-to (tree click / controlled location); `token` retriggers.
+  const lastScrollToken = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (scrollRequest === undefined) return;
+    if (scrollRequest.token === lastScrollToken.current) return;
+    lastScrollToken.current = scrollRequest.token;
+    scrollToId(scrollRequest.id, scrollRequest.offset);
+  }, [scrollRequest, scrollToId]);
 
   return (
     <div

@@ -5,10 +5,10 @@ export const VERSION = '0.0.0';
 
 // --- components ---
 export { BookReader } from './BookReader';
-export { TreePane } from './tree/TreePane';
-export type { TreePaneProps } from './tree/TreePane';
+export { TreePane, TreePaneView } from './tree/TreePane';
+export type { TreePaneProps, TreePaneViewProps } from './tree/TreePane';
 export { ContentPane } from './content/ContentPane';
-export type { ContentPaneProps } from './content/ContentPane';
+export type { ContentPaneProps, ScrollRequest } from './content/ContentPane';
 export { ContentNode } from './content/ContentNode';
 export type { ContentNodeProps } from './content/ContentNode';
 
@@ -32,6 +32,13 @@ export type {
   VirtualWindow,
   WindowInput,
 } from './core/virtualizer';
+export {
+  activeNodeAt,
+  isNearBottom,
+  nextNodeToLoad,
+  withReadingOverrides,
+} from './core/scrollSync';
+export type { NodeSpan, ReadingOverrides } from './core/scrollSync';
 export { sanitizeHtml } from './content/sanitize';
 export { defaultTreeNode } from './tree/defaultTreeNode';
 
@@ -41,6 +48,10 @@ export type {
   BookReaderProps,
   BookReaderClassNames,
   ReadingDirection,
+  ReadingOrderContext,
+  GetNextNode,
+  GetPrevNode,
+  BookLocation,
   LoadChildren,
   LoadChildrenContext,
   TreeNodeState,

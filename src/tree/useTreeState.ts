@@ -31,6 +31,13 @@ export interface TreeState {
   expand(id: string): void;
   collapse(id: string): void;
   select(id: string): void;
+  /**
+   * Ensure a node's lazy children are loaded *without* expanding it in the tree.
+   * Drives content auto-advance: reading scrolls into a not-yet-loaded subtree,
+   * so its children must be fetched even though the tree row stays as the user
+   * left it. De-dupes against in-flight loads; no-op for already-loaded nodes.
+   */
+  load(id: string): void;
 }
 
 export function useTreeState<Meta = unknown>(
@@ -130,5 +137,6 @@ export function useTreeState<Meta = unknown>(
     expand,
     collapse,
     select,
+    load: ensureLoaded,
   };
 }

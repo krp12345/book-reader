@@ -1,0 +1,228 @@
+/**
+ * book-reader — default stylesheet (importable, opt-in).
+ *
+ *   import 'book-reader/styles.css';
+ *
+ * This is the polished out-of-the-box skin (REQUIREMENTS §2.5). It is purely
+ * *presentation* — colors, typography, spacing — layered on top of the
+ * structural layout the components set inline (flex/overflow/height/position),
+ * so the reader still functions if this file is never imported.
+ *
+ * Three tiers of override, least to most invasive:
+ *   1. Retheme by overriding the `--reader-*` custom properties below. No JS.
+ *      Scope them to `[data-part="book-reader"]` (every instance) or to your
+ *      own className / `classNames.root` (one instance).
+ *   2. Target the stable `data-part="..."` hooks or pass per-slot `classNames`
+ *      to restyle individual slots.
+ *   3. Pass `renderTreeNode` / `renderContent` / `renderLoading|Error|Empty`
+ *      for full markup control.
+ *
+ * Every rule is scoped under `[data-part="book-reader"]` so importing this file
+ * cannot leak styles into the rest of a host application.
+ */
+
+/* ---------------------------------------------------------------------------
+ * Tier 1 — design tokens. Override any of these to retheme.
+ * ------------------------------------------------------------------------- */
+[data-part='book-reader'] {
+  /* Typography */
+  --reader-font:
+    system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --reader-content-font: Georgia, 'Times New Roman', serif;
+  --reader-font-size: 0.95rem;
+  --reader-line-height: 1.65;
+
+  /* Palette */
+  --reader-color-bg: #ffffff;
+  --reader-color-fg: #1f2328;
+  --reader-color-muted: #6a737d;
+  --reader-color-border: #e2e5e9;
+  --reader-color-accent: #2563eb;
+  --reader-color-accent-fg: #ffffff;
+  --reader-color-accent-soft: #e8f0fe;
+  --reader-color-hover: #f1f3f5;
+  --reader-color-error: #b3261e;
+
+  /* Surfaces */
+  --reader-tree-bg: #fafbfc;
+  --reader-content-bg: var(--reader-color-bg);
+
+  /* Spacing & shape */
+  --reader-tree-indent: 1rem;
+  --reader-tree-row-padding-block: 0.3rem;
+  --reader-tree-row-padding-inline: 0.5rem;
+  --reader-tree-gap: 0.35rem;
+  --reader-content-padding: 1.5rem 2rem;
+  --reader-content-max-width: 42rem;
+  --reader-radius: 6px;
+  --reader-focus-ring: 2px solid var(--reader-color-accent);
+
+  font-family: var(--reader-font);
+  font-size: var(--reader-font-size);
+  color: var(--reader-color-fg);
+  background: var(--reader-color-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------------------------------------------------------------------------
+ * Tier 2 — slot presentation, keyed to the stable data-part hooks.
+ * ------------------------------------------------------------------------- */
+
+/* Tree pane (the scrollable sidebar wrapper). */
+[data-part='book-reader'] [data-part='tree-pane'] {
+  background: var(--reader-tree-bg);
+}
+[data-part='book-reader'][style*='row-reverse']
+  [data-part='tree-pane'] {
+  border-inline-start: 1px solid var(--reader-color-border);
+}
+[data-part='book-reader']:not([style*='row-reverse'])
+  [data-part='tree-pane'] {
+  border-inline-end: 1px solid var(--reader-color-border);
+}
+
+/* The ARIA tree itself. */
+[data-part='book-reader'] [data-part='tree'] {
+  padding: 0.5rem;
+}
+
+/* A single tree row. Depth indentation is applied inline by TreePane via
+   --reader-tree-indent; here we own the rest of the row's look. */
+[data-part='book-reader'] [data-part='tree-node'] {
+  display: flex;
+  align-items: center;
+  gap: var(--reader-tree-gap);
+  padding-block: var(--reader-tree-row-padding-block);
+  padding-inline-end: var(--reader-tree-row-padding-inline);
+  border-radius: var(--reader-radius);
+  cursor: pointer;
+  user-select: none;
+  line-height: 1.3;
+  color: var(--reader-color-fg);
+}
+[data-part='book-reader'] [data-part='tree-node']:hover {
+  background: var(--reader-color-hover);
+}
+[data-part='book-reader'] [data-part='tree-node'][data-selected] {
+  background: var(--reader-color-accent-soft);
+  color: var(--reader-color-accent);
+  font-weight: 600;
+}
+[data-part='book-reader'] [data-part='tree-node']:focus-visible {
+  outline: var(--reader-focus-ring);
+  outline-offset: -2px;
+}
+
+/* Expand/collapse caret. */
+[data-part='book-reader'] [data-part='tree-node-caret'] {
+  flex: 0 0 auto;
+  width: 1.1em;
+  height: 1.1em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--reader-color-muted);
+  font-size: 0.7em;
+  line-height: 1;
+  cursor: pointer;
+}
+[data-part='book-reader'] [data-part='tree-node-caret']:hover {
+  color: var(--reader-color-fg);
+}
+
+/* Row label — truncate long titles rather than wrap the row. */
+[data-part='book-reader'] [data-part='tree-node-label'] {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+[data-part='book-reader'] [data-part='tree-node-spinner'] {
+  margin-inline-start: 0.35rem;
+  color: var(--reader-color-muted);
+}
+
+/* Reading surface. */
+[data-part='book-reader'] [data-part='content'] {
+  background: var(--reader-content-bg);
+  color: var(--reader-color-fg);
+}
+
+/* One node's slot. Centred to a comfortable measure for readability. */
+[data-part='book-reader'] [data-part='content-node'] {
+  box-sizing: border-box;
+  max-width: var(--reader-content-max-width);
+  margin-inline: auto;
+  padding: var(--reader-content-padding);
+  font-family: var(--reader-content-font);
+  line-height: var(--reader-line-height);
+}
+
+/* Typography for the fetched HTML body. */
+[data-part='book-reader'] [data-part='content-html'] > :first-child {
+  margin-top: 0;
+}
+[data-part='book-reader'] [data-part='content-html'] > :last-child {
+  margin-bottom: 0;
+}
+[data-part='book-reader'] [data-part='content-html'] h1,
+[data-part='book-reader'] [data-part='content-html'] h2,
+[data-part='book-reader'] [data-part='content-html'] h3,
+[data-part='book-reader'] [data-part='content-html'] h4 {
+  font-family: var(--reader-font);
+  line-height: 1.25;
+  margin: 1.6em 0 0.6em;
+}
+[data-part='book-reader'] [data-part='content-html'] p {
+  margin: 0 0 1em;
+}
+[data-part='book-reader'] [data-part='content-html'] a {
+  color: var(--reader-color-accent);
+}
+[data-part='book-reader'] [data-part='content-html'] img {
+  max-width: 100%;
+  height: auto;
+}
+[data-part='book-reader'] [data-part='content-html'] blockquote {
+  margin: 1em 0;
+  padding-inline-start: 1em;
+  border-inline-start: 3px solid var(--reader-color-border);
+  color: var(--reader-color-muted);
+}
+[data-part='book-reader'] [data-part='content-html'] code {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  background: var(--reader-color-hover);
+  padding: 0.1em 0.3em;
+  border-radius: 4px;
+}
+
+/* Loading / empty / error states. */
+[data-part='book-reader'] [data-part='content-loading'],
+[data-part='book-reader'] [data-part='content-empty'] {
+  color: var(--reader-color-muted);
+  font-style: italic;
+}
+[data-part='book-reader'] [data-part='content-error'] {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--reader-color-error);
+}
+[data-part='book-reader'] [data-part='content-retry'] {
+  cursor: pointer;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid currentColor;
+  border-radius: var(--reader-radius);
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+[data-part='book-reader'] [data-part='content-retry']:hover {
+  background: var(--reader-color-error);
+  color: var(--reader-color-accent-fg);
+}

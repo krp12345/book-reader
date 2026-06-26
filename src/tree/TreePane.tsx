@@ -7,6 +7,12 @@
  * label is delegated to `renderTreeNode` (default: {@link defaultTreeNode}), so
  * custom renderers can't accidentally break accessibility.
  *
+ * Two entry points share the rendering: {@link TreePane} owns its own
+ * {@link useTreeState} (standalone use), while {@link TreePaneView} takes an
+ * injected state so a parent (e.g. `BookReader`) can drive expansion/selection
+ * from the *other* pane — this is how scroll ⟷ tree sync is wired without two
+ * competing copies of the tree state.
+ *
  * Keyboard model (roving tabindex, one tab stop for the whole tree):
  *   ↓/↑ move · Home/End jump · → expand-or-enter · ← collapse-or-parent ·
  *   Enter/Space select.
@@ -15,7 +21,7 @@ import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import type { TreeStore } from '../core/treeStore';
 import type { LoadChildren, RenderTreeNode, TreeNodeState } from '../types';
 import { flattenVisible } from './flatten';
-import { useTreeState } from './useTreeState';
+import { useTreeState, type TreeState } from './useTreeState';
 import { defaultTreeNode } from './defaultTreeNode';
 
 export interface TreePaneProps<Meta = unknown> {
@@ -32,12 +38,44 @@ export interface TreePaneProps<Meta = unknown> {
   /** Override the inner label rendering of a row. */
   renderTreeNode?: RenderTreeNode<Meta> | undefined;
   className?: string | undefined;
+  /** Applied to each tree row (the `data-part="tree-node"` element). */
+  treeNodeClassName?: string | undefined;
   'aria-label'?: string | undefined;
 }
 
+export interface TreePaneViewProps<Meta = unknown> {
+  /** The indexed tree to render. */
+  store: TreeStore<Meta>;
+  /** Expansion/selection/loading state, owned by the caller. */
+  state: TreeState;
+  renderTreeNode?: RenderTreeNode<Meta> | undefined;
+  className?: string | undefined;
+  /** Applied to each tree row (the `data-part="tree-node"` element). */
+  treeNodeClassName?: string | undefined;
+  'aria-label'?: string | undefined;
+}
+
+/** Standalone tree pane: owns its expand/select state. */
 export function TreePane<Meta = unknown>(props: TreePaneProps<Meta>): JSX.Element {
   const { store, loadChildren, selectedId, onSelect, renderTreeNode } = props;
   const state = useTreeState({ store, loadChildren, selectedId, onSelect });
+  return (
+    <TreePaneView
+      store={store}
+      state={state}
+      renderTreeNode={renderTreeNode}
+      className={props.className}
+      treeNodeClassName={props.treeNodeClassName}
+      aria-label={props['aria-label']}
+    />
+  );
+}
+
+/** Tree pane rendering over an externally-owned {@link TreeState}. */
+export function TreePaneView<Meta = unknown>(
+  props: TreePaneViewProps<Meta>,
+): JSX.Element {
+  const { store, state, renderTreeNode, treeNodeClassName } = props;
   const renderNode = renderTreeNode ?? defaultTreeNode;
 
   // `state.version` bumps when lazy children land, so collapsed→loaded rows show.
@@ -148,7 +186,9 @@ export function TreePane<Meta = unknown>(props: TreePaneProps<Meta>): JSX.Elemen
             aria-selected={selected}
             aria-expanded={expandable ? expanded : undefined}
             tabIndex={row.id === activeId ? 0 : -1}
-            className="br-tree-node"
+            className={['br-tree-node', treeNodeClassName]
+              .filter(Boolean)
+              .join(' ')}
             data-part="tree-node"
             data-selected={selected || undefined}
             style={{
