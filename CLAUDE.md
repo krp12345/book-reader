@@ -33,7 +33,8 @@ src/
     cache.ts          # bounded LRU content cache (maxChars), pinning, dedup
     virtualizer.ts    # windowing + height map + anchor correction
     scrollSync.ts     # scroll <-> active node <-> tree expansion
-  tree/               # left pane (TreePane, TreeNode, default renderer)
+  tree/               # left pane: TreePane.tsx, useTreeState.ts, flatten.ts,
+                      #   defaultTreeNode.tsx (+ tests)
   content/            # right pane (ContentPane, ContentNode, sanitize)
   styles/             # default stylesheet + --reader-* tokens
 demo/                 # Vite dev harness with sample books
@@ -58,13 +59,28 @@ demo/                 # Vite dev harness with sample books
   math) is always tested.
 - `core/` must not import React (keeps it pure + unit-testable).
 - Tests with Vitest live next to source as `*.test.ts(x)`.
-- Run `npm run build && npm test` before declaring a milestone done.
+- Run `pnpm build && pnpm test` before declaring a milestone done.
 
 ## Current status
-M0 done (scaffold green: build/test/lint/typecheck). M1 core types done
-(`src/types.ts`). M2 in progress: `src/core/treeStore.ts` done via TDD (9 tests
-green). **Next: `src/core/traversal.ts` (depth-first reading order) via TDD.**
+M0–M3 done (tree model + TreePane UI + right pane). **M4 done**: the caching layer.
+`core/cache.ts` (`createContentCache`): bounded in-memory cache of *sanitized* HTML
+keyed by node id — LRU by `maxChars` (default ~5M) + optional `maxNodes` + custom
+`evict`; eviction fires only when over budget; `setPinned(ids)` exempts a window
+from eviction (pinned ids never offered to a custom `evict`); `dedupe(id, factory)`
+shares one in-flight promise and caches on resolve. Wired through
+`useNodeContent` (synchronous cache hit settles flash-free / no re-fetch; reuses
+`getInFlight`; async routes through `dedupe`) → `ContentNode`/`ContentPane`;
+`BookReader` makes one cache per instance via `useRef` (config captured at mount),
+fed by the new `BookReaderProps.cache`. 91 tests green; build+lint+typecheck clean.
+**Next: M5 virtualization (`core/virtualizer.ts`: windowing, height map, anchor
+correction) + drive `cache.setPinned()` from the viewport+overscan+prefetch window
++ `prefetchCount`.**
+Notes for M5–M6: the cache *supports* pinning but nothing drives `setPinned` yet —
+M5 computes the pinned window. The content pane recomputes its sequence from a
+`version` prop but cross-pane scroll⟷tree sync, `location`, and reading-order
+overrides (`getNextNode`/`getPrevNode`) are deliberately deferred to M6.
 Package name = `book-reader`. Package manager = **pnpm** (not npm).
-Existing source: `src/index.ts`, `src/types.ts`, `src/core/treeStore.ts`(+test).
+Note: `tsconfig` has `exactOptionalPropertyTypes` — public optional props must be
+typed `?: T | undefined` so consumers can forward maybe-undefined values.
 (Authoritative status + session log live in `MILESTONES.md`.)
 ```
