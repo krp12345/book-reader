@@ -35,7 +35,10 @@ src/
     scrollSync.ts     # scroll <-> active node <-> tree expansion
   tree/               # left pane: TreePane.tsx, useTreeState.ts, flatten.ts,
                       #   defaultTreeNode.tsx (+ tests)
-  content/            # right pane (ContentPane, ContentNode, sanitize)
+  content/            # right pane: ContentPane (virtualized scroll surface),
+                      #   ContentNode, useNodeContent, useVirtualList (windowing +
+                      #   measurement + anchor correction + pin/prefetch driver),
+                      #   prefetchNodeContent, sanitize
   styles/             # default stylesheet + --reader-* tokens
 demo/                 # Vite dev harness with sample books
 ```
@@ -62,23 +65,28 @@ demo/                 # Vite dev harness with sample books
 - Run `pnpm build && pnpm test` before declaring a milestone done.
 
 ## Current status
-M0–M3 done (tree model + TreePane UI + right pane). **M4 done**: the caching layer.
-`core/cache.ts` (`createContentCache`): bounded in-memory cache of *sanitized* HTML
-keyed by node id — LRU by `maxChars` (default ~5M) + optional `maxNodes` + custom
-`evict`; eviction fires only when over budget; `setPinned(ids)` exempts a window
-from eviction (pinned ids never offered to a custom `evict`); `dedupe(id, factory)`
-shares one in-flight promise and caches on resolve. Wired through
-`useNodeContent` (synchronous cache hit settles flash-free / no re-fetch; reuses
-`getInFlight`; async routes through `dedupe`) → `ContentNode`/`ContentPane`;
-`BookReader` makes one cache per instance via `useRef` (config captured at mount),
-fed by the new `BookReaderProps.cache`. 91 tests green; build+lint+typecheck clean.
-**Next: M5 virtualization (`core/virtualizer.ts`: windowing, height map, anchor
-correction) + drive `cache.setPinned()` from the viewport+overscan+prefetch window
-+ `prefetchCount`.**
-Notes for M5–M6: the cache *supports* pinning but nothing drives `setPinned` yet —
-M5 computes the pinned window. The content pane recomputes its sequence from a
-`version` prop but cross-pane scroll⟷tree sync, `location`, and reading-order
-overrides (`getNextNode`/`getPrevNode`) are deliberately deferred to M6.
+M0–M4 done (tree model + TreePane UI + right pane + caching layer). **M5 done**:
+virtualization + stable scroll. `core/virtualizer.ts` (`createVirtualizer`, pure):
+**height map** (`setHeight` remembers measured px, returns the delta vs the prior
+height; `getHeight` estimates unknowns, default 200) + **windowing** (`getWindow` →
+mounted items with absolute starts + top/bottom spacer paddings + totalHeight;
+`viewportHeight ≤ 0` ⇒ mount all, the un-measured fallback) + **anchor correction**
+(`correctScrollTop`, pure: a node above the viewport top shifts the view, add the
+delta back) + `pinnedIds`/`prefetchIds`. React wiring in `content/useVirtualList.ts`:
+owns the scroll-container ref + live scrollTop/clientHeight, one `ResizeObserver`
+measures every mounted node (eager lazy-init; per-id **stable** ref callbacks to
+avoid observe churn), applies anchor correction synchronously in the RO callback,
+and drives `cache.setPinned(pinnedIds(...))` + warms `prefetchIds(...)` via
+`prefetchNodeContent` (mirrors `useNodeContent`'s fetch+sanitize+cache pipeline,
+no React state). `ContentPane` is now the scroll surface (spacer divs + windowed
+`ContentNode`s; `ContentNode` has a `measureRef`). New props: `overscan` (2),
+`prefetchCount` (2), `estimateHeight`. `resolveSanitizer` lives in `sanitize.ts`
+(shared). 115 tests green; build+lint+typecheck clean.
+**Next: M6 scroll⟷tree sync + auto-advance + `location`/`onLocationChange`.**
+Notes for M6: the virtualizer exposes per-node offsets (`getWindow`) to drive
+active-node detection from scrollTop; cross-pane scroll⟷tree sync, controlled
+`location`, and reading-order overrides (`getNextNode`/`getPrevNode`) are still
+deferred to M6 (the content pane recomputes its sequence from a `version` prop).
 Package name = `book-reader`. Package manager = **pnpm** (not npm).
 Note: `tsconfig` has `exactOptionalPropertyTypes` — public optional props must be
 typed `?: T | undefined` so consumers can forward maybe-undefined values.

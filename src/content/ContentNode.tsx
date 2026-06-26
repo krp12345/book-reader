@@ -38,6 +38,8 @@ export interface ContentNodeProps<Meta = unknown> {
   renderError?: RenderError<Meta> | undefined;
   renderEmpty?: RenderEmpty<Meta> | undefined;
   className?: string | undefined;
+  /** Attaches the article element to the virtualizer's height measurement. */
+  measureRef?: ((el: HTMLElement | null) => void) | undefined;
 }
 
 function DefaultLoading(): JSX.Element {
@@ -92,6 +94,7 @@ export function ContentNode<Meta = unknown>(
     renderError,
     renderEmpty,
     className,
+    measureRef,
   } = props;
 
   const { status, html, error, retry } = useNodeContent({
@@ -135,6 +138,7 @@ export function ContentNode<Meta = unknown>(
 
   return (
     <article
+      ref={measureRef}
       className={['br-content-node', className].filter(Boolean).join(' ')}
       data-part="content-node"
       data-node-id={node.id}

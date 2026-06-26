@@ -93,6 +93,20 @@ function unwrap(el: Element): void {
   el.replaceWith(...Array.from(el.childNodes));
 }
 
+/**
+ * Turn the `sanitize` prop into the function actually applied to fetched HTML:
+ * `false` → identity (trusted), a function → itself, `true`/`undefined` → the
+ * built-in {@link sanitizeHtml}. Shared by the content hook and prefetch so both
+ * cache identically-sanitized HTML.
+ */
+export function resolveSanitizer(
+  option: import('../types').SanitizeOption | undefined,
+): (html: string) => string {
+  if (option === false) return (html) => html;
+  if (typeof option === 'function') return option;
+  return sanitizeHtml;
+}
+
 export function sanitizeHtml(html: string): string {
   if (html === '') return '';
 

@@ -26,6 +26,16 @@ const syncBook: BookNode = {
   ],
 };
 
+// --- A large sync book: exercises virtualization (only ~viewport is mounted) -
+const bigBook: BookNode = {
+  id: 'big',
+  title: 'A Huge Sync Book (5,000 sections)',
+  children: Array.from({ length: 5000 }, (_, i) => ({
+    id: `big.${i}`,
+    title: `Section ${i + 1}`,
+  })),
+};
+
 // --- A lazily-loaded book: children arrive on expand ------------------------
 const lazyBook: BookNode = { id: 'huge', title: 'A Huge Lazy Book', hasChildren: true };
 
@@ -69,7 +79,7 @@ function App() {
         }}
       >
         <BookReader
-          tree={[syncBook, lazyBook]}
+          tree={[syncBook, bigBook, lazyBook]}
           loadChildren={loadChildren}
           fetchContent={fetchContent}
           treeWidth={280}
@@ -77,7 +87,9 @@ function App() {
       </div>
       <p style={{ color: '#999', fontSize: '0.8rem', marginTop: '1rem' }}>
         Lazy-tree expansion (the &ldquo;{lazyBook.title}&rdquo; pattern) drives the
-        left pane; cross-pane scroll⟷tree sync arrives in M6.
+        left pane. M5 — the right pane is virtualized: the 5,000-section book mounts
+        only the viewport + overscan, remembers measured heights, and never jumps on
+        scroll-back (synchronous cache hits). Cross-pane scroll⟷tree sync arrives in M6.
       </p>
     </main>
   );

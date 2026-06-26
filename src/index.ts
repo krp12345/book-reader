@@ -19,6 +19,19 @@ export { createReadingOrder } from './core/traversal';
 export type { ReadingOrder } from './core/traversal';
 export { createContentCache } from './core/cache';
 export type { ContentCache } from './core/cache';
+export {
+  createVirtualizer,
+  correctScrollTop,
+  pinnedIds,
+  prefetchIds,
+} from './core/virtualizer';
+export type {
+  Virtualizer,
+  VirtualizerConfig,
+  VirtualItem,
+  VirtualWindow,
+  WindowInput,
+} from './core/virtualizer';
 export { sanitizeHtml } from './content/sanitize';
 export { defaultTreeNode } from './tree/defaultTreeNode';
 

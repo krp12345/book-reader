@@ -229,6 +229,13 @@ export interface BookReaderProps<Meta = unknown> {
    */
   cache?: CacheConfig<string> | undefined;
 
+  /**
+   * Bounded content-cache configuration's prefetch knob (§3.1): how many nodes
+   * past the mounted window to keep pinned and warm ahead of view, so entering
+   * them is a synchronous cache hit. Default `2`.
+   */
+  prefetchCount?: number | undefined;
+
   // --- view ---
   /** Which side the section tree sits on. Default `'left'`. */
   treeSide?: 'left' | 'right' | undefined;
@@ -236,6 +243,17 @@ export interface BookReaderProps<Meta = unknown> {
   treeWidth?: number | string | undefined;
   /** HTML sanitization control. Default `true`. */
   sanitize?: SanitizeOption | undefined;
+  /**
+   * Extra content nodes mounted on each side of the viewport (virtualization
+   * buffer). Larger values trade memory for fewer mounts while scrolling fast.
+   * Default `2`.
+   */
+  overscan?: number | undefined;
+  /**
+   * Assumed height (px) for content nodes not yet measured. Tunes pre-measurement
+   * scrollbar accuracy; the real height replaces it once a node is on screen.
+   */
+  estimateHeight?: number | undefined;
 
   // --- styling ---
   className?: string | undefined;

@@ -8,17 +8,18 @@
 ---
 
 ## ▶ STATUS — keep this block current (update at end of every session)
-- **Current milestone:** M5 — Virtualization + stable scroll (NEXT)
-- **Overall progress:** 4 / 9 milestones complete (M0, M2, M3, M4 done; M1 core types done)
-- **Next action:** M5 `core/virtualizer.ts` — windowing (mount viewport+overscan),
-  height map (measure/remember/estimate), anchor correction on height delta. Drive
-  `cache.setPinned()` from the viewport+overscan+prefetch window so scroll-back is a
-  synchronous hit; add `prefetchCount` (use `cache.dedupe` to warm next 1–2 nodes).
+- **Current milestone:** M6 — Scroll ⟷ tree sync & auto-advance (NEXT)
+- **Overall progress:** 5 / 9 milestones complete (M0, M2, M3, M4, M5 done; M1 core types done)
+- **Next action:** M6 cross-pane sync. Scroll position → active node detection →
+  tree highlight + ancestor auto-expand; scroll-to-bottom auto-fetch & append next
+  node; tree click → scroll content to node; `location` controlled/uncontrolled +
+  `onLocationChange`. The virtualizer already exposes per-node offsets (`getWindow`)
+  to drive active-node detection; reading-order overrides (`getNextNode`/`getPrevNode`)
+  finally get consumed here.
 - **Blocked on:** nothing. Package name = `book-reader`. pnpm is the package manager.
-- **Deferred to later milestones:** the pinned-window *driver* (M4 cache exposes
-  `setPinned`; the actual viewport+overscan+prefetch range is computed in M5);
-  prefetch-ahead → M5; cross-pane scroll⟷tree sync, controlled `location`, and
-  reading-order overrides (`getNextNode`/`getPrevNode`) → M6.
+- **Deferred to later milestones:** cross-pane scroll⟷tree sync, controlled
+  `location`, and reading-order overrides (`getNextNode`/`getPrevNode`) → M6;
+  styling tiers → M7.
 - **Last updated:** 2026-06-26
 
 ---
@@ -97,14 +98,23 @@ roots with a slow + a failing section. 69 tests green.)
 cache per instance via `useRef`, captured at mount, fed by the new `cache` prop.
 Re-entering a node is a synchronous cache hit — verified by RTL test.)
 
-## M5 — Virtualization + stable scroll
+## M5 — Virtualization + stable scroll ✅
 **Goal:** huge books perform; zero flicker.
-- [ ] Windowing: mount only viewport + overscan.
-- [ ] Height map: measure, remember, estimate unknowns.
-- [ ] Anchor correction on height delta (no scroll jump).
-- [ ] Scroll-back over read content is a synchronous cache hit (no flash).
-- [ ] Prefetch-ahead (configurable `prefetchCount`).
-**Done when:** scrolling a 10k-node simulated book is smooth and never jumps/flickers.
+- [x] Windowing: mount only viewport + overscan (`core/virtualizer.ts` `getWindow`;
+      spacer paddings hold the off-screen scroll height).
+- [x] Height map: measure, remember, estimate unknowns (`setHeight` returns the
+      delta vs the previously-used height).
+- [x] Anchor correction on height delta (no scroll jump) — `correctScrollTop`
+      (pure) + `useVirtualList` nudges `scrollTop` synchronously in the RO callback
+      when a node above the viewport top changes height.
+- [x] Scroll-back over read content is a synchronous cache hit (no flash) — the
+      pinned window (`pinnedIds`) covers mounted + prefetch so it's never evicted.
+- [x] Prefetch-ahead (configurable `prefetchCount`) — `prefetchIds` + `cache.dedupe`
+      via `prefetchNodeContent` warm the next nodes before they enter view.
+**Done when:** scrolling a 10k-node simulated book is smooth and never jumps/flickers. ✅
+(`core/virtualizer.ts` 21 unit tests; React wiring in `content/useVirtualList.ts` +
+`ContentPane` driving `cache.setPinned()`; 3 integration tests stub scroll geometry.
+Demo adds a 5,000-section sync book. 115 tests green.)
 
 ## M6 — Scroll ⟷ tree sync & auto-advance
 **Goal:** the two panes move together.
@@ -134,6 +144,36 @@ Re-entering a node is a synchronous cache hit — verified by RTL test.)
 ---
 
 ## Session log (append newest on top)
+- 2026-06-26 — **M5 done: virtualization + stable scroll.** Built the pure core
+  **TDD-first** (red→green→refactor): `core/virtualizer.ts` `createVirtualizer` —
+  a **height map** (`setHeight` remembers measured px and returns the delta from
+  the previously-used height; `getHeight` falls back to a configurable estimate,
+  default 200) + **windowing** (`getWindow` resolves every node's absolute start
+  from the height map, finds the viewport-intersecting slice, applies overscan,
+  and returns mounted items + top/bottom spacer paddings + totalHeight) +
+  **anchor correction** (`correctScrollTop(itemStart, delta, scrollTop)` — pure:
+  only a node *above* the viewport top shifts the view, so add `delta` back) +
+  pin/prefetch helpers (`pinnedIds` = window + prefetchCount ahead; `prefetchIds` =
+  just the ahead slice). 21 unit tests, incl. the `viewportHeight ≤ 0 → mount all`
+  boundary (un-measured viewport) and measured-height offsets. Then the React layer
+  (TDD bent for scroll geometry per CONVENTIONS): `content/useVirtualList.ts` owns
+  the scroll-container ref + live scrollTop/clientHeight, one `ResizeObserver`
+  measuring every mounted node (eager lazy-init so it exists when item refs fire in
+  commit; per-id **stable** ref callbacks cached in a Map to avoid observe/unobserve
+  churn), applies anchor correction synchronously in the RO callback, and drives
+  `cache.setPinned(pinnedIds(...))` + warms `prefetchIds(...)`. `ContentPane`
+  rewritten to be the scroll surface (top/bottom spacer divs + the windowed
+  `ContentNode`s; `ContentNode` gained a `measureRef` → its `<article>`);
+  `prefetchNodeContent` mirrors `useNodeContent`'s fetch+sanitize+cache pipeline
+  (no React state) for warming ahead. Factored `resolveSanitizer` into `sanitize.ts`
+  as the shared source of truth. New props threaded through `BookReader`/types:
+  `overscan` (default 2), `prefetchCount` (default 2), `estimateHeight`; the content
+  wrapper became a sizing box (ContentPane owns scroll). 3 RTL integration tests stub
+  `ResizeObserver`/`clientHeight`/`getBoundingClientRect` to prove: only the window
+  mounts (not all 21 nodes), the cache pins the window+prefetch, and ahead nodes warm
+  without mounting. Exported `createVirtualizer`/helpers/types from `index.ts`. Demo
+  adds a 5,000-section sync book. build+typecheck+lint clean, **115 tests green**
+  (was 91). Next: M6 scroll⟷tree sync + auto-advance + `location`.
 - 2026-06-26 — **M4 done: caching layer.** Built `core/cache.ts`
   (`createContentCache`) **TDD-first** (red→green→refactor): 20 cache tests stating
   store/recency, LRU eviction by `maxChars`, eviction by `maxNodes`, pinning (never

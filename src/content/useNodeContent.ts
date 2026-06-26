@@ -26,7 +26,7 @@ import type {
   ReadingDirection,
   SanitizeOption,
 } from '../types';
-import { sanitizeHtml } from './sanitize';
+import { resolveSanitizer } from './sanitize';
 
 export interface UseNodeContentOptions<Meta = unknown> {
   node: BookNode<Meta>;
@@ -56,15 +56,6 @@ interface InternalState {
 }
 
 const LOADING: InternalState = { status: 'loading', html: '', error: undefined };
-
-/** Turn the `sanitize` prop into the function actually applied to fetched HTML. */
-function resolveSanitizer(
-  option: SanitizeOption | undefined,
-): (html: string) => string {
-  if (option === false) return (html) => html;
-  if (typeof option === 'function') return option;
-  return sanitizeHtml; // true | undefined → built-in default
-}
 
 export function useNodeContent<Meta = unknown>(
   options: UseNodeContentOptions<Meta>,

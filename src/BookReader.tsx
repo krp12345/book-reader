@@ -26,9 +26,12 @@ export function BookReader<Meta = unknown>(
     loadChildren,
     fetchContent,
     cache: cacheConfig,
+    prefetchCount,
     treeSide = 'left',
     treeWidth = 320,
     sanitize,
+    overscan,
+    estimateHeight,
     className,
     classNames,
     renderTreeNode,
@@ -85,13 +88,18 @@ export function BookReader<Meta = unknown>(
           .filter(Boolean)
           .join(' ')}
         data-part="content-pane"
-        style={{ flex: '1 1 0', overflow: 'auto' }}
+        style={{ flex: '1 1 0', minWidth: 0, display: 'flex', overflow: 'hidden' }}
       >
+        {/* ContentPane owns the scroll surface (virtualization needs to read its
+            own scrollTop/clientHeight); this wrapper only sizes it. */}
         <ContentPane
           store={store}
           fetchContent={fetchContent}
           cache={cache}
           sanitize={sanitize}
+          overscan={overscan}
+          prefetchCount={prefetchCount}
+          estimateHeight={estimateHeight}
           renderContent={renderContent}
           renderLoading={renderLoading}
           renderError={renderError}
