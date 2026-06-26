@@ -43,7 +43,8 @@ src/
   styles/             # book-reader.css: default skin (presentation only) +
                       #   --reader-* tokens; emitted to dist/book-reader.css by a
                       #   Vite plugin, exported as `book-reader/styles.css` (opt-in)
-demo/                 # Vite dev harness (main.tsx + demo.css): 3-tier skin switcher
+demo/                 # Vite dev harness: main.tsx (4-example switcher) + data.ts
+                      #   (faker-generated, deterministic, lazy book data) + demo.css
 ```
 
 ## Key design invariants (do not break)
@@ -81,12 +82,16 @@ target the stable `data-part` hooks / per-slot `classNames` — `classNames.root
 `emitDefaultStylesheet()` copies the CSS to `dist/book-reader.css` (`generateBundle` →
 `emitFile`); the CSS is **not** imported by `src/index.ts`, so `import
 'book-reader/styles.css'` is opt-in + tree-shake-safe (`package.json` exports +
-`sideEffects:["**/*.css"]`). Demo: 3-way skin switcher (default / themed token-only /
-fully-custom render-props), M6 location readout kept; `demo/demo.css` holds the themed
-+ custom skins. 3 RTL styling tests (data-part hooks, classNames threading, token
-consumption). **137 tests green.** **Next: M8** — README + prop reference, a11y pass,
-core coverage review, bundle-size/tree-shake check, package name decision, `npm
-publish --dry-run`.
+`sideEffects:["**/*.css"]`). 3 RTL styling tests (data-part hooks, classNames
+threading, token consumption). **137 tests green.**
+
+**M8 in progress** (hardening/docs/examples). Core coverage reviewed (solid),
+bundle/tree-shake re-confirmed. **Demo rewritten** into a 4-example switcher
+(`demo/main.tsx`: Quickstart / Lazy / States / Styling+location) over faker data
+(`demo/data.ts`). **Publishing is OUT of scope** — the user packages/publishes
+manually; do not run `npm pack`/`publish`. **Immediate next: an end-to-end
+Playwright test for scroll-to-end auto-advance — brief in `NEXT_SESSION.md`.** Then
+README (quickstart + prop reference + styling tiers) and the a11y pass.
 
 ### M6 reference (scroll ⟷ tree sync & auto-advance)
 Pure mapping in

@@ -1,100 +1,59 @@
-import { StrictMode, useState } from 'react';
+/**
+ * book-reader demo — a single app with an example switcher.
+ *
+ * Each tab is a focused, self-contained scenario:
+ *   1. Quickstart  — a small inline (sync) book, the minimal usage.
+ *   2. Lazy tree   — a huge book whose subtrees load on demand (`loadChildren`).
+ *   3. States      — fetchContent loading / error+retry / empty states.
+ *   4. Styling     — the three styling tiers + a controlled `location`, over a
+ *                    large (virtualized) book.
+ *
+ * Book data is generated with faker (see `data.ts`) — realistic prose, but
+ * deterministic and lazily materialised so a 1,000-section book stays cheap.
+ */
+import { StrictMode, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BookReader, VERSION } from '../src/index';
 import type {
   BookLocation,
-  BookNode,
   BookReaderClassNames,
   BookReaderProps,
-  FetchContent,
-  LoadChildren,
   RenderContent,
   RenderEmpty,
   RenderError,
   RenderLoading,
   RenderTreeNode,
-} from '../src/types';
-// The default skin (tier-0). A consumer writes zero CSS and imports just this.
+} from '../src/index';
+import {
+  loadChildren,
+  makeFetchContent,
+  makeLargeBook,
+  makeLazyBook,
+  makeSyncBook,
+} from './data';
+// The default skin (tier 1). A consumer writes zero CSS and imports just this.
 import '../src/styles/book-reader.css';
-// Demo-only styles: the themed (token-override) and fully-custom skins.
+// Demo-only styles: the themed (token-override) and fully-custom skins + chrome.
 import './demo.css';
 
-// --- A small, fully in-memory (sync) book -----------------------------------
-const syncBook: BookNode = {
-  id: 'b1',
-  title: 'A Tiny Book',
-  children: [
-    {
-      id: 'p1',
-      title: 'Part I — Beginnings',
-      hasContent: false, // a pure organizational branch
-      children: [
-        { id: 'c1', title: 'Chapter 1' },
-        { id: 'c2', title: 'Chapter 2' },
-      ],
-    },
-    {
-      id: 'p2',
-      title: 'Part II — Middles',
-      hasContent: false,
-      children: [{ id: 'c3', title: 'Chapter 3' }],
-    },
-  ],
-};
+// Books are deterministic — generate each once.
+const syncBook = makeSyncBook();
+const largeBook = makeLargeBook();
+const lazyBook = makeLazyBook();
 
-// --- A large sync book: exercises virtualization (only ~viewport is mounted) -
-const bigBook: BookNode = {
-  id: 'big',
-  title: 'A Huge Sync Book (5,000 sections)',
-  children: Array.from({ length: 5000 }, (_, i) => ({
-    id: `big.${i}`,
-    title: `Section ${i + 1}`,
-  })),
-};
+// Per-example fetchers (see data.ts). States stages slow + failing + empty nodes.
+const fetchSync = makeFetchContent();
+const fetchLazy = makeFetchContent({ delayMs: 300 });
+const fetchStyling = makeFetchContent({ delayMs: 150 });
+const FAIL_ID = 's.p0.c1';
+const EMPTY_ID = 's.p1.c0';
+const fetchStates = makeFetchContent({
+  delayMs: 700,
+  failFirstFor: new Set([FAIL_ID]),
+  emptyFor: new Set([EMPTY_ID]),
+});
 
-// --- A lazily-loaded book: children arrive on expand ------------------------
-const lazyBook: BookNode = { id: 'huge', title: 'A Huge Lazy Book', hasChildren: true };
-
-const loadChildren: LoadChildren = async (node) => {
-  // Simulate a network round-trip, then synthesize three child sections.
-  await new Promise((r) => setTimeout(r, 400));
-  return [0, 1, 2].map((i) => ({
-    id: `${node.id}.${i}`,
-    title: `${node.title} → §${i + 1}`,
-    hasChildren: node.id.split('.').length < 3, // a few levels deep
-  }));
-};
-
-// Content fetcher: sync for the sync book's leaves; a slow async section shows
-// the loading state; one id deliberately fails to exercise the error fallback.
-const fetchContent: FetchContent = async (node, ctx) => {
-  if (node.id === 'c3') throw new Error('simulated fetch failure');
-  if (node.id === 'c2') {
-    await new Promise((r) => setTimeout(r, 700)); // shows the loading state
-  }
-  void ctx.signal;
-  return `<h3>${node.title}</h3><p>Body text for <em>${node.title}</em>. ` +
-    'Lorem ipsum dolor sit amet, consectetur adipiscing elit. ' +
-    'Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>';
-};
-
-type Skin = 'default' | 'themed' | 'custom';
-
-const SKINS: { id: Skin; label: string; blurb: string }[] = [
-  { id: 'default', label: 'Default', blurb: 'Zero CSS — just import the stylesheet.' },
-  {
-    id: 'themed',
-    label: 'Themed',
-    blurb: 'Tier 1 — override --reader-* tokens only (a sepia skin).',
-  },
-  {
-    id: 'custom',
-    label: 'Fully custom',
-    blurb: 'Tiers 2 + 3 — per-slot classNames, data-part hooks, and render-props.',
-  },
-];
-
-// --- Tier 3 render-props: a fully bespoke look that owns the markup ----------
+// --- Tier 2 + 3: a fully bespoke skin that owns its markup -------------------
 const customClassNames: BookReaderClassNames = {
   root: 'cs-root',
   tree: 'cs-tree',
@@ -121,7 +80,40 @@ const renderError: RenderError = (_node, _error, retry) => (
 );
 const renderEmpty: RenderEmpty = () => <div className="cs-empty">— no content —</div>;
 
-function readerProps(skin: Skin): Partial<BookReaderProps> {
+type ExampleId = 'quickstart' | 'lazy' | 'states' | 'styling';
+const EXAMPLES: { id: ExampleId; label: string; blurb: string }[] = [
+  {
+    id: 'quickstart',
+    label: '1 · Quickstart',
+    blurb:
+      'A small inline book passed via `tree`, with a synchronous `fetchContent`. ' +
+      'The simplest possible usage — no loading states, no lazy tree.',
+  },
+  {
+    id: 'lazy',
+    label: '2 · Lazy tree',
+    blurb:
+      'A vast book with no children up front: `loadChildren` fetches each subtree ' +
+      'on expand (watch the spinner). The whole tree is never in memory at once.',
+  },
+  {
+    id: 'states',
+    label: '3 · Loading / error / empty',
+    blurb:
+      'Every section loads slowly (you see the loading state). One chapter fails ' +
+      'on first load — press Retry to recover. One chapter resolves to no content.',
+  },
+  {
+    id: 'styling',
+    label: '4 · Styling & location',
+    blurb:
+      'A large (virtualized) book across all three styling tiers, with a controlled ' +
+      '`location`: the readout follows scrolling, and “Jump” drives the reader.',
+  },
+];
+
+type Skin = 'default' | 'themed' | 'custom';
+function skinProps(skin: Skin): Partial<BookReaderProps> {
   switch (skin) {
     case 'themed':
       return { className: 'skin-sepia' };
@@ -139,38 +131,110 @@ function readerProps(skin: Skin): Partial<BookReaderProps> {
   }
 }
 
-function App() {
-  const [location, setLocation] = useState<BookLocation | undefined>(undefined);
+function App(): JSX.Element {
+  const [example, setExample] = useState<ExampleId>('quickstart');
   const [skin, setSkin] = useState<Skin>('default');
-  const active = SKINS.find((s) => s.id === skin)!;
+  const [location, setLocation] = useState<BookLocation | undefined>(undefined);
+
+  const active = EXAMPLES.find((e) => e.id === example)!;
+
+  // Build the BookReader props for the selected example.
+  const reader = useMemo(() => {
+    switch (example) {
+      case 'quickstart':
+        return (
+          <BookReader
+            tree={syncBook}
+            fetchContent={fetchSync}
+            treeWidth={300}
+            onLocationChange={setLocation}
+          />
+        );
+      case 'lazy':
+        return (
+          <BookReader
+            tree={lazyBook}
+            loadChildren={loadChildren}
+            fetchContent={fetchLazy}
+            treeWidth={300}
+            onLocationChange={setLocation}
+          />
+        );
+      case 'states':
+        return (
+          <BookReader
+            tree={syncBook}
+            fetchContent={fetchStates}
+            treeWidth={300}
+            onLocationChange={setLocation}
+          />
+        );
+      case 'styling':
+        return (
+          <BookReader
+            key={skin}
+            tree={largeBook}
+            fetchContent={fetchStyling}
+            treeWidth={300}
+            location={location}
+            onLocationChange={setLocation}
+            {...skinProps(skin)}
+          />
+        );
+    }
+  }, [example, skin, location]);
 
   return (
-    <main style={{ fontFamily: 'system-ui', padding: '1.5rem' }}>
+    <main className="demo-page">
       <h1>book-reader demo</h1>
-      <p style={{ color: '#666' }}>
-        Library version {VERSION}. M7 — the styling system. Three tiers of
-        progressive override (REQUIREMENTS §2.5): the default skin out of the box,
-        a themed skin via <code>--reader-*</code> token overrides only, and a
-        fully-custom skin via per-slot <code>classNames</code> /{' '}
-        <code>data-part</code> hooks plus render-props. Chapter 2 loads slowly;
-        Chapter 3 fails (Retry to recover).
+      <p className="demo-sub">
+        Library v{VERSION}. Pick an example; each one is a focused scenario.
       </p>
 
-      <div className="skin-tabs" role="group" aria-label="Styling tier">
-        {SKINS.map((s) => (
+      <div className="example-tabs" role="tablist" aria-label="Examples">
+        {EXAMPLES.map((e) => (
           <button
-            key={s.id}
+            key={e.id}
             type="button"
-            aria-pressed={s.id === skin}
-            onClick={() => setSkin(s.id)}
+            role="tab"
+            aria-selected={e.id === example}
+            onClick={() => {
+              setExample(e.id);
+              setLocation(undefined);
+            }}
           >
-            {s.label}
+            {e.label}
           </button>
         ))}
       </div>
-      <p style={{ color: '#444', fontSize: '0.85rem' }}>{active.blurb}</p>
 
-      <p style={{ color: '#444', fontSize: '0.85rem' }} aria-live="polite">
+      <p className="demo-blurb">{active.blurb}</p>
+
+      {example === 'styling' && (
+        <div className="example-controls">
+          <span className="skin-toggle" role="group" aria-label="Styling tier">
+            {(['default', 'themed', 'custom'] as Skin[]).map((s) => (
+              <button
+                key={s}
+                type="button"
+                aria-pressed={s === skin}
+                onClick={() => setSkin(s)}
+              >
+                {s}
+              </button>
+            ))}
+          </span>
+          <button
+            type="button"
+            className="jump-btn"
+            onClick={() => setLocation({ nodeId: 'l.p5.c5.s10' })}
+          >
+            Jump to §6.6.11
+          </button>
+        </div>
+      )}
+
+      <p className="demo-readout" aria-live="polite">
         Reading position:{' '}
         <code>
           {location
@@ -178,32 +242,8 @@ function App() {
             : '—'}
         </code>
       </p>
-      <div
-        style={{
-          height: 480,
-          border: '1px solid #ddd',
-          borderRadius: 8,
-          overflow: 'hidden',
-        }}
-      >
-        <BookReader
-          // `key` forces a clean remount per skin so the demo always starts at
-          // the top — not a requirement of the library, just tidy for the demo.
-          key={skin}
-          tree={[syncBook, bigBook, lazyBook]}
-          loadChildren={loadChildren}
-          fetchContent={fetchContent}
-          treeWidth={280}
-          onLocationChange={setLocation}
-          {...readerProps(skin)}
-        />
-      </div>
-      <p style={{ color: '#999', fontSize: '0.8rem', marginTop: '1rem' }}>
-        Switching tiers restyles the same component — same data, virtualization
-        (M5), and cross-pane scroll sync (M6) underneath. The default and themed
-        tiers add <em>zero</em> markup; the custom tier swaps in its own
-        renderers. Reading-position readout is fed by <code>onLocationChange</code>.
-      </p>
+
+      <div className="reader-frame">{reader}</div>
     </main>
   );
 }

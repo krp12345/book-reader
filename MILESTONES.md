@@ -8,15 +8,15 @@
 ---
 
 ## ▶ STATUS — keep this block current (update at end of every session)
-- **Current milestone:** M8 — Hardening, docs, release prep (NEXT)
+- **Current milestone:** M8 — Hardening, docs, examples (in progress)
 - **Overall progress:** 7 / 9 milestones complete (M0, M2–M7 done; M1 core types done)
-- **Next action:** M8 hardening. README (quickstart + full prop reference, incl.
-  the M7 styling tiers + `import 'book-reader/styles.css'`), accessibility pass,
-  core coverage review, bundle-size / tree-shake verification, decide package
-  name/scope, `npm publish --dry-run`.
+- **Next action:** **End-to-end (Playwright) test for scroll-to-end auto-advance**
+  — see `NEXT_SESSION.md` for the full brief (the user wants a fresh session for
+  it). Then finish the rest of M8: README, accessibility pass.
+- **Done so far in M8:** core coverage reviewed (solid), bundle/tree-shake
+  re-confirmed, demo rewritten into a 4-example switcher with faker data
+  (`demo/data.ts`). **Publishing dropped from M8** — the user packages manually.
 - **Blocked on:** nothing. Package name = `book-reader`. pnpm is the package manager.
-- **Deferred to later milestones:** README + a11y pass + bundle-size/tree-shaking
-  checks + publish dry-run → M8.
 - **Last updated:** 2026-06-27
 
 ---
@@ -155,18 +155,44 @@ wired; 3 RTL styling tests assert data-part hooks + classNames threading + token
 consumption. **137 tests green.** Default skin works without the stylesheet
 because functional layout stays inline; the CSS layers presentation only.)
 
-## M8 — Hardening, docs, release prep
-**Goal:** ship-ready.
+## M8 — Hardening, docs, examples
+**Goal:** ship-ready (packaging/publish deferred — the user does that manually).
 - [ ] README with quickstart + full prop reference.
 - [ ] Accessibility pass (tree roles, focus, aria, keyboard).
-- [ ] Test coverage for core (traversal, cache, scroll sync).
-- [ ] Bundle-size check; tree-shakeable exports verified.
-- [ ] Decide package name/scope; `npm publish --dry-run` clean.
-**Done when:** dry-run publishes; demo covers all requirements.
+- [x] Core coverage reviewed — traversal (18) / cache (20) / treeStore (8) /
+      virtualizer (22) / scrollSync (15) all well-covered; no holes found.
+- [~] Bundle-size / tree-shake re-confirmed: 31.9 kB JS (9.09 kB gzip), 7.45 kB
+      CSS; zero `.css` refs in the JS bundle (CSS stays opt-in).
+- [~] Rich runnable examples: demo rewritten into a 4-example switcher
+      (Quickstart / Lazy / States / Styling+location) over faker-generated,
+      deterministic, lazily-materialised book data (`demo/data.ts`). Typechecks;
+      browser-verify pending.
+- [ ] **End-to-end test (Playwright): scroll-to-end auto-advance shows next
+      content.** ← NEXT SESSION (see `NEXT_SESSION.md`).
+- ~~Decide package name/scope; `npm publish --dry-run`~~ — **dropped**; the user
+  packages/publishes manually. Do not run `npm pack`/`publish`.
+**Done when:** demo covers all requirements + the e2e scroll-to-end test is green.
 
 ---
 
 ## Session log (append newest on top)
+- 2026-06-27 — **M8 (partial): committed M6+M7; reworked the demo into examples;
+  scoped out publishing.** Committed the previously-uncommitted M6 (scroll⟷tree
+  sync) + M7 (styling) work (`623497a`). Per the user: **publishing/packaging is
+  dropped from M8** (they'll `npm publish` manually later) — replaced that goal
+  with *rich runnable examples* and a planned *end-to-end scroll-to-end test*.
+  Reviewed core coverage (traversal/cache/treeStore/virtualizer/scrollSync — all
+  thorough, no holes) and re-confirmed bundle/tree-shake (31.9 kB JS / 9.09 kB
+  gzip; no `.css` in the JS bundle). **Rewrote the demo** (`demo/main.tsx`) from a
+  skin-switcher into a **single app with a 4-example switcher** — Quickstart (sync
+  tree), Lazy tree (`loadChildren`), Loading/error/empty states, and Styling tiers
+  + controlled `location` — over **faker-generated book data** (`demo/data.ts`,
+  `@faker-js/faker` devDep): deterministic (seeded), with section *titles* up front
+  but *bodies* synthesized lazily on `fetchContent`, so a 1,000-section book stays
+  cheap and re-reads are stable. Typecheck clean; demo not yet browser-verified.
+  **Deferred to a fresh session (user's call): the e2e Playwright test** that
+  scrolls the content pane to the end and asserts the next section renders — full
+  brief written to `NEXT_SESSION.md`. Remaining M8: README + a11y pass.
 - 2026-06-27 — **M7 done: styling system.** Shipped the importable default skin
   `src/styles/book-reader.css` — purely *presentation* (font/colors/typography/
   spacing) scoped under `[data-part="book-reader"]` so it can't leak into a host
