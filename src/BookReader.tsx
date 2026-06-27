@@ -82,12 +82,18 @@ export function BookReader<Meta = unknown>(
   const active = controlled ? location : internalLocation;
   const activeId = active?.nodeId;
 
-  // What we last told the consumer, so a controlled `location` that's merely the
-  // echo of our own scroll doesn't bounce the view back.
-  const lastEmitted = useRef<BookLocation | undefined>(undefined);
+  // A short trail of the positions we've reported, so a controlled `location` that
+  // is merely the echo of our own scroll never bounces the view back. A *set*
+  // (not just the last value) is required: while content settles the active offset
+  // re-emits, so `location` can still be carrying an earlier echo when a newer one
+  // has already been reported — matching only the latest would misfire on the lag
+  // and fire a spurious scroll-to (the controlled-mode flicker).
+  const recentEmits = useRef<BookLocation[]>([]);
   const emit = useCallback(
     (loc: BookLocation) => {
-      lastEmitted.current = loc;
+      const trail = recentEmits.current;
+      trail.push(loc);
+      if (trail.length > 12) trail.shift();
       onLocationChange?.(loc);
     },
     [onLocationChange],
@@ -153,14 +159,12 @@ export function BookReader<Meta = unknown>(
   // Controlled `location` change (not an echo of our own scroll) → scroll to it.
   useEffect(() => {
     if (location === undefined) return;
-    const e = lastEmitted.current;
-    if (
-      e !== undefined &&
-      e.nodeId === location.nodeId &&
-      (e.offset ?? 0) === (location.offset ?? 0)
-    ) {
-      return;
-    }
+    const isEcho = recentEmits.current.some(
+      (e) =>
+        e.nodeId === location.nodeId &&
+        (e.offset ?? 0) === (location.offset ?? 0),
+    );
+    if (isEcho) return;
     requestScroll(location.nodeId, location.offset);
   }, [location, requestScroll]);
 
@@ -182,6 +186,11 @@ export function BookReader<Meta = unknown>(
       data-part="book-reader"
       aria-label={props['aria-label'] ?? 'Book reader'}
       style={{
+        // Fill the height the consumer gives the reader (e.g. a sized wrapper),
+        // so the content pane becomes a *bounded* scroll viewport — which is what
+        // lets virtualization engage and the two panes scroll independently. With
+        // an auto-height parent this resolves to auto (fine for tiny inline books).
+        height: '100%',
         display: 'flex',
         flexDirection: treeSide === 'right' ? 'row-reverse' : 'row',
       }}

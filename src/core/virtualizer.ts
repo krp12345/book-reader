@@ -209,22 +209,25 @@ export function createVirtualizer(config: VirtualizerConfig = {}): Virtualizer {
  * Anchor correction: the new `scrollTop` that cancels a height change so content
  * under the reader's eyes never jumps.
  *
- * A node only shifts the viewport when it sits *above* the viewport top: growing
- * it pushes everything below — including what's on screen — down by `delta`, so
- * we add `delta` back to `scrollTop`. A node starting at or below the viewport
- * top grows into off-screen space (or stays pinned at the top), so no correction.
+ * A height change happens at the node's *bottom* edge (content grows/shrinks
+ * downward), so it shifts on-screen content only when the node sits **entirely
+ * above** the viewport top — i.e. its (pre-change) bottom is at or above
+ * `scrollTop`. Then everything below, including what's on screen, moves by `delta`,
+ * so we add `delta` back. A node *straddling* the viewport top grows below the top
+ * (off-screen) — correcting it would jerk the view — and a node fully below it
+ * never affects the viewport; both leave `scrollTop` untouched.
  *
- * @param itemStart absolute top offset of the changed node (unaffected by its own
- *   height change)
+ * @param itemBottom absolute bottom offset of the changed node *before* the change
+ *   (`start + oldHeight`)
  * @param delta signed height change (`newHeight - oldHeight`)
  * @param scrollTop current scroll offset
  */
 export function correctScrollTop(
-  itemStart: number,
+  itemBottom: number,
   delta: number,
   scrollTop: number,
 ): number {
-  return itemStart < scrollTop ? scrollTop + delta : scrollTop;
+  return itemBottom <= scrollTop ? scrollTop + delta : scrollTop;
 }
 
 /** The slice `[from, to)` of `ids`, clamped to the array bounds. */

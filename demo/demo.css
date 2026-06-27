@@ -160,7 +160,10 @@
 }
 
 .reader-frame {
-  height: 480px;
+  /* Track the window height (within bounds) so resizing the window grows/shrinks
+     the reading viewport — which the reader's ResizeObserver picks up, pulling in
+     more sections (auto-advance) when more vertical space appears. */
+  height: clamp(320px, 60vh, 760px);
   border: 1px solid #ddd;
   border-radius: 8px;
   overflow: hidden;

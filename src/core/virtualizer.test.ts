@@ -146,15 +146,19 @@ describe('virtualizer — windowing (mount viewport + overscan)', () => {
 });
 
 describe('virtualizer — anchor correction (no scroll jump)', () => {
-  it('shifts scrollTop by the delta when the grown item is above the viewport top', () => {
-    // item started at offset 100, viewport top is at 300 → item is above the fold.
+  it('shifts scrollTop by the delta when the changed item is entirely above the viewport top', () => {
+    // item's bottom edge is at 100, the viewport top is at 300 → fully above the
+    // fold, so its growth pushes on-screen content down; cancel it.
     expect(correctScrollTop(100, 40, 300)).toBe(340);
+    // bottom exactly at the viewport top still counts as above.
+    expect(correctScrollTop(300, 40, 300)).toBe(340);
   });
 
-  it('leaves scrollTop untouched when the grown item is at or below the viewport top', () => {
-    // item starts exactly at the viewport top → its top stays pinned, no jump.
-    expect(correctScrollTop(300, 40, 300)).toBe(300);
-    // item starts below the fold → growth pushes downward content only.
+  it('leaves scrollTop untouched when the item straddles or sits below the viewport top', () => {
+    // bottom past the fold → the item straddles the viewport top, so it grows
+    // *below* the top (off-screen): nothing on screen moves.
+    expect(correctScrollTop(360, 40, 300)).toBe(300);
+    // fully below the fold → growth pushes downward content only.
     expect(correctScrollTop(500, 40, 300)).toBe(300);
   });
 

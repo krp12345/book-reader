@@ -3,64 +3,50 @@
 > Scratch handoff for the next Claude Code session. Delete once its task lands.
 > Read CLAUDE.md + the MILESTONES STATUS block first, then do the task below.
 
-## Task: end-to-end test for scroll-to-end auto-advance
+## ✅ Done last session — scroll flicker (the "no flicker" requirement)
+Real root cause: a **StrictMode double-`ResizeObserver` leak** in
+`content/useVirtualList.ts` (observer now owned by a `useLayoutEffect`), plus a
+straddle over-correction (`correctScrollTop` uses the bottom edge) and a native
+scroll-anchoring conflict (`overflow-anchor: none`). Guarded by
+`content/ContentPane.anchor.test.tsx` (jsdom) + `e2e/reader.spec.ts` "reading line
+stays put" (real browser — the leak only shows there). Full write-up in the
+MILESTONES session log (top entry) + CLAUDE.md. **139 unit + 7 e2e green.**
 
-**Intent (the user's, in their words):** an end-to-end test that "tracks scroll
-end and then just shows content" — i.e. proves the core reading loop: scrolling
-the content pane to the bottom auto-fetches the next section and renders it
-(REQUIREMENTS §2.3). jsdom can't do real layout/scroll, so this needs a **real
-browser (Playwright)** against the Vite demo — distinct from the existing jsdom
-RTL test that *stubs* scroll geometry (`src/BookReader.scrollsync.test.tsx`).
+## Task: finish M8 — README + accessibility pass
+These are the last two M8 items (MILESTONES §M8). Everything else in M8 is done.
 
-### The code path under test (already implemented — the test only verifies it)
-- `core/scrollSync.ts` — `isNearBottom` (near-bottom cue), `nextNodeToLoad` (next
-  expandable-but-unloaded subtree).
-- `content/useVirtualList.ts` — tracks live scrollTop/clientHeight, exposes `atBottom`.
-- `content/ContentPane.tsx` — when `atBottom` (or the active node is itself
-  unloaded), calls `onNeedNode(candidate)`.
-- `BookReader.tsx` — `handleNeedNode` → `treeState.load(id)` loads the next lazy
-  subtree; a `version` bump regrows the reading sequence so new nodes render.
+### 1. README (quickstart + prop reference + styling tiers)
+- Quickstart: the minimal `<BookReader tree={…} fetchContent={…} />` (see
+  `demo/main.tsx` example 1) inside a **sized** container (the reader is
+  `height:100%`; it needs a bounded parent to virtualize — call this out).
+- Full prop reference from `src/types.ts` (`BookReaderProps`): data
+  (`tree`/`loadChildren`/`fetchContent`), reading order
+  (`getNextNode`/`getPrevNode`), position (`location`/`defaultLocation`/
+  `onLocationChange`), caching (`cache`/`prefetchCount`), view
+  (`treeSide`/`treeWidth`/`overscan`/`sanitize`/`estimateHeight`), styling
+  (`className`/`classNames`/render-props).
+- Styling: the three tiers (REQUIREMENTS §2.5) + `import 'book-reader/styles.css'`
+  is **opt-in** (not in the JS graph). List the `--reader-*` tokens and the
+  `data-part` hooks.
 
-### Fixture: the demo (`demo/main.tsx`, data in `demo/data.ts`)
-- **"2 · Lazy tree"** example (`tree={lazyBook}` + `loadChildren`) is the best
-  fixture — scroll to bottom must load & show the next subtree. `loadChildren` has
-  a ~350 ms simulated delay; content via `fetchContent`.
-- **"1 · Quickstart"** (sync) is the simpler fixture for plain scroll→render of
-  already-known sections.
-- Data is faker-generated and **deterministic** (seeded), so assertions on text
-  are stable across runs.
-- Stable selectors: `data-part="content"` (scroll container), `"content-node"`,
-  `"content-spacer-bottom"`, and `data-node-id` on each `<article>`.
-
-### Deliverables
-1. Tooling: add `@playwright/test` (devDependency), a minimal `playwright.config.ts`
-   (`webServer: pnpm dev`, `reuseExistingServer`), and a `test:e2e` script. **Keep
-   e2e out of Vitest** — Vitest's `include` is `src/**/*.{test,spec}.{ts,tsx}`, so
-   put e2e files outside `src/` (e.g. `e2e/`).
-2. Test: open the demo → select Lazy (and/or Quickstart) → scroll the
-   `data-part="content"` container to the bottom → assert a *new* section's text
-   becomes visible that wasn't there before. Use web-first assertions
-   (`expect(...).toBeVisible()`), not fixed sleeps. If practical, also assert the
-   view doesn't jump (no-flicker/stable-scroll regression).
-3. Run it, report what it observed, tick the M8 e2e checkbox + add a MILESTONES log line.
+### 2. Accessibility pass
+- Components already have most of it (tree `role`/`aria-level`/`aria-expanded`/
+  `aria-selected` + roving tabindex; content `aria-busy`/`role="alert"`). Audit for
+  gaps: focus-visible rings via `--reader-focus-ring`, content `aria-live` for
+  appended sections, the scroll container's label, keyboard reachability of the
+  reading surface.
 
 ## Conventions (binding)
-- **pnpm, not npm.** TS strict, **no `any`** (see CONVENTIONS.md).
-- `pnpm build && pnpm test` + typecheck + lint must stay green.
-- **Do NOT package/publish** — the user does that manually later (publish goal was
-  removed from M8 on purpose).
+- **pnpm, not npm.** TS strict, **no `any`** (see CONVENTIONS.md). `core/` must not
+  import React. `pnpm build && pnpm test` (139) + `pnpm test:e2e` (7) + typecheck +
+  lint must stay green. e2e lives in `e2e/`; `playwright.config.ts` reuses a running
+  `pnpm dev` on port 5179.
+- **Do NOT package/publish** — the user does that manually.
 
 ## Repo state at handoff
-- Branch `m5-virtualization`. M6+M7 committed (`623497a`). Demo rewrite + faker +
-  these docs committed on top.
-- **Demo was rewritten** into a single app with a 4-example switcher (Quickstart /
-  Lazy / States / Styling+location); data generated by faker in `demo/data.ts`
-  (`@faker-js/faker` is a devDependency). Typechecks clean; **not yet run in a
-  browser** — verify the demo loads as step 0.
-- A Vite dev server may still be running on **port 5179** (`pkill -f "vite --port 5179"`
-  to stop it). `pnpm dev` otherwise.
-
-## Still open in M8 (not this task — for later)
-- README (quickstart + styling tiers + full prop reference).
-- Accessibility pass (verify/fix tree roles/aria, focus-visible rings, content
-  aria-busy/alert). Components already have most of it.
+- Branch `main`. **Nothing committed this session** (nor the previous one) — the
+  working tree has the earlier two bug fixes (`cache.load`, reader `height:100%`),
+  the demo/e2e work, this session's anchor-correction fix + test, and doc updates.
+  Commit when the user asks.
+- `session_id` (untracked) is the user's own `claude --resume` note — leave it.
+- Demo: `pnpm dev` (port 5179), 4-example switcher.

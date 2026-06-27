@@ -100,10 +100,11 @@ export function useVirtualList(options: UseVirtualListOptions): VirtualList {
     [virtualizer, ids, metrics, overscan, measureVersion],
   );
 
-  // Keep the latest window readable from the (non-reactive) RO callback so it can
-  // look up a measured node's pre-change start offset for anchor correction.
-  const windowRef = useRef(window);
-  windowRef.current = window;
+  // The current reading sequence, readable from the (non-reactive) RO callback so
+  // anchor correction resolves a measured node's start straight from the height
+  // map (`offsetAt`) instead of a possibly-stale rendered window.
+  const idsRef = useRef(ids);
+  idsRef.current = ids;
 
   const syncMetrics = useCallback(() => {
     const el = scrollRef.current;
@@ -141,32 +142,72 @@ export function useVirtualList(options: UseVirtualListOptions): VirtualList {
   const idToEl = useRef(new Map<string, HTMLElement>());
   const observerRef = useRef<ResizeObserver | null>(null);
 
-  // Created eagerly (lazy-init ref) so it exists when item refs first fire during
-  // commit — a passive effect would run too late and miss the first mount.
-  if (observerRef.current === null && typeof ResizeObserver !== 'undefined') {
-    observerRef.current = new ResizeObserver((entries) => {
+  // Own the ResizeObserver's lifecycle in a layout effect — *not* lazy-init during
+  // render. Creating it in render is an impure side effect that StrictMode (double
+  // render + mount/unmount/remount) duplicates, leaving two live observers that
+  // both apply anchor correction → a double-correction scroll jump. A layout effect
+  // runs after commit (so the ref callbacks have already populated the element maps)
+  // but before paint, and tears the observer down cleanly.
+  useLayoutEffect(() => {
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver((entries) => {
       const scrollEl = scrollRef.current;
-      let changed = false;
+      const scrollTop = scrollEl?.scrollTop ?? 0;
+      const seq = idsRef.current;
+
+      // Snapshot every changed node's *pre-change* bottom edge from the height map
+      // before recording any new height, so all corrections in this batch share one
+      // consistent reference frame (an earlier entry's growth must not shift a later
+      // entry's offset, and the cached window — which may lag the live scroll — is
+      // never consulted). A height change happens at the node's bottom, so its old
+      // bottom is what decides whether it shifts on-screen content.
+      const pending: { id: string; bottom: number; height: number }[] = [];
       for (const entry of entries) {
         const id = elToId.current.get(entry.target);
         if (id === undefined) continue;
-        const delta = virtualizer.setHeight(id, readHeight(entry.target as HTMLElement));
+        const index = seq.indexOf(id);
+        if (index === -1) continue;
+        pending.push({
+          id,
+          bottom: virtualizer.offsetAt(seq, index) + virtualizer.getHeight(id),
+          height: readHeight(entry.target as HTMLElement),
+        });
+      }
+
+      // Apply the new heights and sum the anchor correction for every node that sat
+      // *entirely above* the viewport top (its old bottom at/above scrollTop): only
+      // then does its grow/shrink push on-screen content, so the whole delta is
+      // cancelled in a single scrollTop write. A node *straddling* the viewport top
+      // grows below the top — correcting it would jerk the view (the flicker).
+      let correction = 0;
+      let changed = false;
+      for (const { id, bottom, height } of pending) {
+        const delta = virtualizer.setHeight(id, height);
         if (delta === 0) continue;
         changed = true;
-        // Anchor correction: a node starting above the current scrollTop pushes
-        // the viewport when it grows/shrinks — cancel it.
-        const item = windowRef.current.items.find((i) => i.id === id);
-        if (scrollEl !== null && item !== undefined && item.start < scrollEl.scrollTop) {
-          scrollEl.scrollTop += delta;
-        }
+        if (bottom <= scrollTop) correction += delta;
+      }
+
+      if (correction !== 0 && scrollEl !== null) {
+        scrollEl.scrollTop += correction;
+        // Fold the corrected scrollTop into React state *now*, in the same batch
+        // as the window recompute below — otherwise the measure-driven render
+        // paints the new heights against a stale scrollTop for one frame (the
+        // intermittent jump). A real browser's scroll event fixes metrics only a
+        // frame later, after that bad frame may already have painted.
+        syncMetrics();
       }
       if (changed) setMeasureVersion((n) => n + 1);
     });
-  }
-  useEffect(() => {
-    const ro = observerRef.current;
-    return () => ro?.disconnect();
-  }, []);
+    observerRef.current = ro;
+    // Observe nodes already mounted: their ref callbacks fired during commit,
+    // before this effect existed, so they couldn't observe themselves yet.
+    for (const el of idToEl.current.values()) ro.observe(el);
+    return () => {
+      ro.disconnect();
+      observerRef.current = null;
+    };
+  }, [syncMetrics, virtualizer]);
 
   // One stable ref callback per id (cached) so React doesn't churn observe/
   // unobserve every render; the closure captures `id`, so unmount (el === null)

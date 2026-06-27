@@ -98,27 +98,46 @@ export function useNodeContent<Meta = unknown>(
       }
     }
 
+    // 2. With a shared cache, subscribe to a de-duplicated, abortable load. The
+    //    *load* owns the abort signal — not this effect — so unmounting one
+    //    reader can't cancel a fetch another reader still needs, and a fetch
+    //    cancelled once the last reader leaves is discarded rather than cached
+    //    (a fetcher that returns an empty body on abort can't poison the cache).
+    if (cache !== undefined) {
+      const { value, error, promise, release } = cache.load(node.id, (signal) => {
+        const ctx: FetchContext<Meta> = {
+          node,
+          path,
+          direction: direction ?? 'forward',
+          signal,
+        };
+        const result = fetchContent(node, ctx);
+        return typeof result === 'string'
+          ? apply(result)
+          : Promise.resolve(result).then(apply);
+      });
+      if (error !== undefined) {
+        fail(error);
+      } else if (value !== undefined) {
+        settleHtml(value); // sync fetcher: settle without a loading flash
+      } else {
+        setState((prev) => (prev.status === 'loading' ? prev : LOADING));
+        promise.then(settleHtml, fail);
+      }
+      return () => {
+        active = false;
+        release();
+      };
+    }
+
+    // 3. No cache: fetch directly, aborting on unmount/retry. Resolve
+    //    sync-vs-async before committing so the sync path settles flash-free.
     const ctx: FetchContext<Meta> = {
       node,
       path,
       direction: direction ?? 'forward',
       signal: controller.signal,
     };
-
-    // 2. Already in flight (another consumer of the same node) → reuse it,
-    //    never firing a second fetch.
-    const inFlight = cache?.getInFlight(node.id);
-    if (inFlight !== undefined) {
-      setState((prev) => (prev.status === 'loading' ? prev : LOADING));
-      inFlight.then(settleHtml, fail);
-      return () => {
-        active = false;
-        controller.abort();
-      };
-    }
-
-    // 3. Fresh fetch. Resolve sync-vs-async before committing so the sync path
-    //    can settle flash-free.
     let result: string | Promise<string>;
     try {
       result = fetchContent(node, ctx);
@@ -131,17 +150,10 @@ export function useNodeContent<Meta = unknown>(
     }
 
     if (typeof result === 'string') {
-      const html = apply(result);
-      cache?.set(node.id, html);
-      settleHtml(html); // sync path: settle without a loading flash
+      settleHtml(apply(result)); // sync path: settle without a loading flash
     } else {
       setState((prev) => (prev.status === 'loading' ? prev : LOADING));
-      const sanitized = Promise.resolve(result).then(apply);
-      // De-dup + cache via the store when present; otherwise just await it.
-      const shared = cache
-        ? cache.dedupe(node.id, () => sanitized)
-        : sanitized;
-      shared.then(settleHtml, fail);
+      Promise.resolve(result).then(apply).then(settleHtml, fail);
     }
 
     return () => {

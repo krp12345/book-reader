@@ -183,6 +183,12 @@ export function ContentPane<Meta = unknown>(
         overflow: 'auto',
         height: '100%',
         position: 'relative',
+        // We do our own anchor correction (height map + correctScrollTop); the
+        // browser's native scroll anchoring would compensate for the *same*
+        // above-the-fold height change a second time → a double-correction jump.
+        // Disable it so our correction is the single source of truth (and because
+        // Safari has no overflow-anchor, the manual path must work everywhere).
+        overflowAnchor: 'none',
       }}
     >
       {/* Spacer holding the collapsed scroll height of nodes above the window. */}

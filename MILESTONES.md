@@ -10,12 +10,23 @@
 ## ▶ STATUS — keep this block current (update at end of every session)
 - **Current milestone:** M8 — Hardening, docs, examples (in progress)
 - **Overall progress:** 7 / 9 milestones complete (M0, M2–M7 done; M1 core types done)
-- **Next action:** **End-to-end (Playwright) test for scroll-to-end auto-advance**
-  — see `NEXT_SESSION.md` for the full brief (the user wants a fresh session for
-  it). Then finish the rest of M8: README, accessibility pass.
+- **Next action:** remaining M8 items — **README** (quickstart + prop reference +
+  styling tiers) and the **accessibility pass**.
+- **✅ Resolved (2026-06-27):** the intermittent scroll flicker. The user-visible
+  cause was a **StrictMode double-`ResizeObserver` leak** (observer created in render
+  → duplicated → anchor correction applied twice); fixed by owning the observer in a
+  `useLayoutEffect`. Found & fixed alongside two more anchor defects: a wrong
+  correction condition (straddle over-correction → use the node's *bottom* edge) and
+  a native scroll-anchoring conflict (`overflow-anchor: none`). Guarded by
+  `content/ContentPane.anchor.test.tsx` (jsdom logic) + a real-browser
+  `e2e/reader.spec.ts` "reading line stays put" test. See top of session log.
 - **Done so far in M8:** core coverage reviewed (solid), bundle/tree-shake
   re-confirmed, demo rewritten into a 4-example switcher with faker data
-  (`demo/data.ts`). **Publishing dropped from M8** — the user packages manually.
+  (`demo/data.ts`), **e2e (Playwright) suite added (`e2e/reader.spec.ts`, 6 tests,
+  no mocks)** — which on first real-browser run found & fixed two bugs: cache
+  poisoning by aborted fetches (`cache.load`) and an unbounded reading viewport
+  (reader root `height:100%`). See the latest session-log entry. **Publishing
+  dropped from M8** — the user packages manually.
 - **Blocked on:** nothing. Package name = `book-reader`. pnpm is the package manager.
 - **Last updated:** 2026-06-27
 
@@ -163,12 +174,24 @@ because functional layout stays inline; the CSS layers presentation only.)
       virtualizer (22) / scrollSync (15) all well-covered; no holes found.
 - [~] Bundle-size / tree-shake re-confirmed: 31.9 kB JS (9.09 kB gzip), 7.45 kB
       CSS; zero `.css` refs in the JS bundle (CSS stays opt-in).
-- [~] Rich runnable examples: demo rewritten into a 4-example switcher
+- [x] Rich runnable examples: demo rewritten into a 4-example switcher
       (Quickstart / Lazy / States / Styling+location) over faker-generated,
-      deterministic, lazily-materialised book data (`demo/data.ts`). Typechecks;
-      browser-verify pending.
-- [ ] **End-to-end test (Playwright): scroll-to-end auto-advance shows next
-      content.** ← NEXT SESSION (see `NEXT_SESSION.md`).
+      deterministic, lazily-materialised book data (`demo/data.ts`). **Now
+      browser-verified** (the e2e run drives the real demo).
+- [x] **End-to-end test (Playwright): scroll-to-end auto-advance shows next
+      content.** `e2e/reader.spec.ts` (6 tests, real Chromium, no mocks) +
+      `playwright.config.ts` (`webServer: pnpm dev`, `reuseExistingServer`) +
+      `test:e2e` script. Covers: content renders (no spurious "No content."),
+      scroll-to-end auto-advance, resize→fetch-more, bounded-viewport
+      virtualization, and stable scroll-back. Browser-verifying the demo exposed
+      **two real bugs, both fixed** — see the session log entry.
+- [x] **Stable-scroll hardening:** fixed the scroll flicker that violated the
+      no-flicker requirement — a StrictMode double-`ResizeObserver` leak in
+      `content/useVirtualList.ts` (observer now owned by a `useLayoutEffect`), plus a
+      straddle over-correction (`correctScrollTop` uses the node's bottom edge) and a
+      native scroll-anchoring conflict (`overflow-anchor: none`). Guarded by
+      `content/ContentPane.anchor.test.tsx` + `e2e/reader.spec.ts` "reading line
+      stays put". See session log.
 - ~~Decide package name/scope; `npm publish --dry-run`~~ — **dropped**; the user
   packages/publishes manually. Do not run `npm pack`/`publish`.
 **Done when:** demo covers all requirements + the e2e scroll-to-end test is green.
@@ -176,6 +199,81 @@ because functional layout stays inline; the CSS layers presentation only.)
 ---
 
 ## Session log (append newest on top)
+- 2026-06-27 — **Scroll flicker, take 2: found the *real* root cause — a StrictMode
+  double-`ResizeObserver` leak — plus two more anchor-correction defects.** The
+  earlier same-day fix (below) was necessary but **insufficient**; the demo still
+  flickered in "Styling & location". Diagnosed empirically in a real browser
+  (Playwright, measuring the fold section's per-step movement vs the scroll step —
+  not a settled assertion, since the bug is mid-scroll):
+  1. **StrictMode double-observer leak (the flicker).** `useVirtualList` created its
+     node `ResizeObserver` via **lazy-init during render** — an impure side effect
+     that StrictMode's double render + mount/unmount/remount duplicated, leaving
+     **two live observers** that each applied anchor correction → the scroll jumped
+     by ~2× the height delta. With StrictMode off, deviation was 0; on, ~352–658px.
+     Fixed by moving observer creation into a `useLayoutEffect` (proper lifecycle,
+     clean teardown) that observes already-mounted nodes on setup (their ref
+     callbacks ran during commit, before the effect). *This was the user-visible
+     bug.* (RTL's StrictMode simulation doesn't recreate the observer the same way,
+     so only a real-browser test catches it — added one: `e2e/reader.spec.ts` ›
+     "reading line stays put while scrolling".)
+  2. **Wrong anchor-correction condition (straddle over-correction).** Correction
+     fired when `start < scrollTop`, but a height change happens at a node's
+     *bottom*, so it shifts on-screen content only when the node is **entirely
+     above** the fold (`start + oldHeight <= scrollTop`). A node *straddling* the
+     fold grows below the top → correcting it jerked the view. Fixed the inline
+     condition and the pure `correctScrollTop` helper (now takes `itemBottom`; tests
+     updated). Regression: `ContentPane.anchor.test.tsx` › straddle case.
+  3. **Native scroll-anchoring conflict.** Set `overflow-anchor: none` on the scroll
+     surface so the browser's own anchoring can't double up with ours (defensive;
+     also Safari has none, so the manual path must be authoritative).
+  Also hardened the controlled-`location` echo guard in `BookReader` (a *trail* of
+  recent emits, not just the last, so a lagging echo can't slip through and fire a
+  spurious scroll-to) — defensive, not the flicker cause. **139 unit + 7 e2e green;
+  build + lint + typecheck clean.** Remaining M8: README + a11y pass.
+- 2026-06-27 — **Fixed the intermittent scroll instability (anchor-correction
+  race) [superseded by the entry above — necessary but not sufficient].** The "no
+  flicker / stable view" hard requirement was being violated on *some* scrolls. Root cause in `content/useVirtualList.ts`: the `ResizeObserver`
+  callback corrected `scrollTop` imperatively but **never folded the new value into
+  React state**, so the `measureVersion`-driven re-render computed the window with
+  the *new heights* against the *old* `metrics.scrollTop` for one frame — the active
+  node jumped to an earlier section, then the browser's async `scroll` event fixed
+  metrics a frame later (the flicker). Fix: after applying the correction, call
+  `syncMetrics()` so the corrected scrollTop and the window recompute land in the
+  **same React batch** (no bad frame). Also hardened the correction itself: it no
+  longer reads a node's start from the possibly-stale **rendered window**
+  (`windowRef.items`) — it resolves the *current* start straight from the height map
+  via `virtualizer.offsetAt`, snapshots all pre-change starts before mutating, and
+  applies one **summed** correction (so batched measurements share a consistent
+  reference frame). `core/virtualizer.ts` unchanged (already correct + unit-tested).
+  **Deterministic regression test** added: `content/ContentPane.anchor.test.tsx` —
+  re-measures a node above the viewport taller and asserts the active node stays put
+  (verified red→green: original code reported the jumped-to `c3`, fixed reports
+  `c5`). Chose jsdom over Playwright deliberately: the bug is a *transient* frame a
+  real browser self-corrects via the async scroll event, so a settled Playwright
+  assertion can't catch it without flakiness; jsdom never fires that compensating
+  event, making the bad state permanent and assertable. **138 unit + 6 e2e green;
+  build + lint + typecheck clean.** Remaining M8: README + a11y pass.
+- 2026-06-27 — **M8: e2e (Playwright) added; first real browser run found & fixed
+  two bugs.** Added `playwright.config.ts` + `e2e/reader.spec.ts` (6 tests, real
+  Chromium against the Vite demo, **nothing mocked**) + `test:e2e`. Running the
+  demo for the first time in a browser surfaced two defects the jsdom unit tests
+  couldn't: **(1) cache poisoning by aborted fetches** — `useNodeContent` routed
+  every async fetch through `cache.dedupe`, which cached *whatever the fetch
+  resolved to*, including the `''` a fetcher returns when `signal.aborted`; under
+  StrictMode (and any scroll-away mid-fetch) this cached an empty body, so nodes
+  showed **"No content." permanently**. Fixed by adding a refcounted
+  `cache.load(id, factory(signal))` that **owns the abort signal** (one reader
+  unmounting no longer cancels a fetch another still needs) and **never caches a
+  result produced under an aborted signal**; the hook's async path now uses it.
+  `dedupe`/`getInFlight` kept (prefetch + tests) as a hold-until-settled warm over
+  the same primitive. **(2) Unbounded reading viewport** — the BookReader root had
+  no height, so inside a sized frame the content pane grew to full book height
+  (5385 px), never virtualized, and couldn't scroll internally (the frame just
+  clipped at 480 px). Fixed by giving the reader root `height: 100%` so it fills
+  the consumer's sized container → content pane becomes a bounded, virtualized
+  scroller. Also made the demo `.reader-frame` `clamp(320px,60vh,760px)` so window
+  resize genuinely grows the viewport (the resize→fetch-more path). 137 unit tests
+  + 6 e2e green; build + lint + typecheck clean.
 - 2026-06-27 — **M8 (partial): committed M6+M7; reworked the demo into examples;
   scoped out publishing.** Committed the previously-uncommitted M6 (scroll⟷tree
   sync) + M7 (styling) work (`623497a`). Per the user: **publishing/packaging is

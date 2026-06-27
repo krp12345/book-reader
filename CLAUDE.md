@@ -30,7 +30,9 @@ src/
   core/
     treeStore.ts      # normalized id-indexed tree; sync + lazy loadChildren
     traversal.ts      # depth-first next/prev reading order
-    cache.ts          # bounded LRU content cache (maxChars), pinning, dedup
+    cache.ts          # bounded LRU content cache (maxChars), pinning, dedup;
+                      #   `load(id, factory(signal))` = refcounted, abortable load
+                      #   that owns the signal & never caches an aborted result
     virtualizer.ts    # windowing + height map + anchor correction + offsetAt
     scrollSync.ts     # active-node detection, near-bottom, reading-order overrides,
                       #   next-lazy-subtree-to-load (pure; React-free)
@@ -45,6 +47,9 @@ src/
                       #   Vite plugin, exported as `book-reader/styles.css` (opt-in)
 demo/                 # Vite dev harness: main.tsx (4-example switcher) + data.ts
                       #   (faker-generated, deterministic, lazy book data) + demo.css
+e2e/                  # Playwright tests (reader.spec.ts) vs the real demo — no
+                      #   mocks. `pnpm test:e2e`; playwright.config.ts; not in
+                      #   Vitest's src/** include.
 ```
 
 ## Key design invariants (do not break)
@@ -88,10 +93,35 @@ threading, token consumption). **137 tests green.**
 **M8 in progress** (hardening/docs/examples). Core coverage reviewed (solid),
 bundle/tree-shake re-confirmed. **Demo rewritten** into a 4-example switcher
 (`demo/main.tsx`: Quickstart / Lazy / States / Styling+location) over faker data
-(`demo/data.ts`). **Publishing is OUT of scope** — the user packages/publishes
-manually; do not run `npm pack`/`publish`. **Immediate next: an end-to-end
-Playwright test for scroll-to-end auto-advance — brief in `NEXT_SESSION.md`.** Then
-README (quickstart + prop reference + styling tiers) and the a11y pass.
+(`demo/data.ts`). **e2e (Playwright) suite added** (`e2e/reader.spec.ts`, 6 tests,
+real Chromium, no mocks) — the **first real-browser run found & fixed two bugs**:
+(1) **cache poisoning by aborted fetches** — an aborted async fetch resolved to `''`
+and `cache.dedupe` cached it, so nodes showed "No content." forever; fixed with the
+refcounted, signal-owning `cache.load` (never caches an aborted result) which the
+hook's async path now uses. (2) **Unbounded reading viewport** — the reader root had
+no height, so the content pane grew to full book height and never virtualized/
+scrolled; fixed with `height:100%` on the reader root (fills the consumer's sized
+container). Demo `.reader-frame` is now `clamp(320px,60vh,760px)` so window resize
+grows the viewport (resize→fetch-more). **Publishing is OUT of scope** — the user
+packages/publishes manually; do not run `npm pack`/`publish`. **137 unit + 6 e2e
+green.**
+
+**✅ Resolved — scroll flicker (2026-06-27).** The view jumped on *some* scrolls — a
+"no flicker / stable view" violation. **Real root cause:** a **StrictMode
+double-`ResizeObserver` leak** in `content/useVirtualList.ts` — the node observer was
+created via lazy-init *during render* (impure), so StrictMode's double render +
+remount left two live observers that each applied anchor correction → ~2× scroll
+jump. Fixed by owning the observer in a `useLayoutEffect` (clean lifecycle; observes
+already-mounted nodes on setup). Fixed alongside: (a) a **straddle over-correction** —
+correction must use the node's *bottom* edge (`start+oldHeight <= scrollTop`), not
+`start < scrollTop`, since growth is at the bottom (`correctScrollTop` updated to take
+`itemBottom`); (b) **native scroll-anchoring conflict** — `overflow-anchor: none` on
+the scroll surface so the browser's anchoring can't double up with ours; (c) folding
+the corrected scrollTop into state in the same batch (`syncMetrics()` after
+correction) + computing starts from the height map (`offsetAt`) not the rendered
+window. Guarded by `content/ContentPane.anchor.test.tsx` (jsdom logic) + a
+real-browser `e2e/reader.spec.ts` "reading line stays put" test (the StrictMode leak
+only reproduces in a real browser). Remaining M8: README + a11y pass.
 
 ### M6 reference (scroll ⟷ tree sync & auto-advance)
 Pure mapping in

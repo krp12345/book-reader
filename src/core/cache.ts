@@ -25,6 +25,18 @@ import type {
 /** ~5M characters: enough to keep a long reading session warm (REQUIREMENTS §3). */
 const DEFAULT_MAX_CHARS = 5_000_000;
 
+/** The result of subscribing to a {@link ContentCache.load}. */
+export interface LoadHandle<Content = string> {
+  /** Set when the factory resolved synchronously (settle without a loading flash). */
+  value?: Content;
+  /** Set when the factory threw synchronously (surface the error inline). */
+  error?: unknown;
+  /** The shared load promise (rejects if the factory rejected/threw). */
+  promise: Promise<Content>;
+  /** Drop this subscriber; aborts + discards the fetch if it was the last one. */
+  release: () => void;
+}
+
 export interface ContentCache<Content = string> {
   /** Read content, marking the entry most-recently-used. */
   get(id: string): Content | undefined;
@@ -44,8 +56,29 @@ export interface ContentCache<Content = string> {
    * De-duplicated async load. If a load for `id` is already in flight, returns
    * that promise without calling `factory`. On success the value is cached; on
    * failure nothing is cached. The in-flight entry is cleared either way.
+   *
+   * `dedupe` is a fire-and-forget warm: it holds the load until it settles, so
+   * the fetch always runs to completion (never aborted out from under a
+   * concurrent reader). Prefer {@link load} for a subscriber that may leave.
    */
   dedupe(id: string, factory: () => Promise<Content>): Promise<Content>;
+  /**
+   * Subscribe to a de-duplicated load. The **first** subscriber starts the fetch
+   * — `factory` receives an {@link AbortSignal} owned by the load, not by any one
+   * subscriber — and concurrent subscribers share it. The returned `release` must
+   * be called when the subscriber no longer needs the result; when the **last**
+   * subscriber releases before the load settles, the fetch is aborted and its
+   * result discarded (a fetch that completes under an aborted signal is **never**
+   * cached, so a cancelled load can't poison the cache with a partial/empty body).
+   *
+   * A synchronous `factory` result settles inline (`value` is set, no in-flight
+   * entry, `release` is a no-op); a synchronous throw is surfaced via `error`.
+   * On async success the value is cached.
+   */
+  load(
+    id: string,
+    factory: (signal: AbortSignal) => Content | Promise<Content>,
+  ): LoadHandle<Content>;
   /** Number of cached entries. */
   readonly count: number;
   /** Summed `size` across all entries (evictable + pinned). */
@@ -74,13 +107,30 @@ interface StoredEntry<Content> {
   size: number;
 }
 
+/** A shared, in-flight async load with its abort controller and subscriber count. */
+interface InFlightLoad<Content> {
+  promise: Promise<Content>;
+  controller: AbortController;
+  /** Number of live subscribers; the load is aborted when this hits zero. */
+  refs: number;
+}
+
+/** Duck-typed promise check (avoids assuming the global `Promise` for thenables). */
+function isThenable<Content>(value: Content | Promise<Content>): value is Promise<Content> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { then?: unknown }).then === 'function'
+  );
+}
+
 export function createContentCache<Content = string>(
   config?: CacheConfig<Content>,
 ): ContentCache<Content> {
   const resolved = resolveConfig<Content>(config);
   // Insertion order doubles as LRU order: oldest (head) → newest (tail).
   const entries = new Map<string, StoredEntry<Content>>();
-  const inFlight = new Map<string, Promise<Content>>();
+  const inFlight = new Map<string, InFlightLoad<Content>>();
   const pinned = new Set<string>();
   let totalSize = 0;
 
@@ -146,6 +196,70 @@ export function createContentCache<Content = string>(
     }
   }
 
+  /** A one-shot release for a subscriber of the in-flight load `id`. */
+  function makeRelease(id: string): () => void {
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      const load = inFlight.get(id);
+      if (load === undefined) return; // already settled (or someone else aborted it)
+      load.refs -= 1;
+      if (load.refs <= 0) {
+        inFlight.delete(id);
+        load.controller.abort();
+      }
+    };
+  }
+
+  /** Shared subscribe-to-a-load primitive backing both `load` and `dedupe`. */
+  function loadImpl(
+    id: string,
+    factory: (signal: AbortSignal) => Content | Promise<Content>,
+  ): LoadHandle<Content> {
+    const existing = inFlight.get(id);
+    if (existing !== undefined) {
+      existing.refs += 1;
+      return { promise: existing.promise, release: makeRelease(id) };
+    }
+
+    const controller = new AbortController();
+    let raw: Content | Promise<Content>;
+    try {
+      raw = factory(controller.signal);
+    } catch (error) {
+      const promise = Promise.reject(error);
+      promise.catch(() => undefined); // mark handled; the caller reads `error`
+      return { error, promise, release: () => undefined };
+    }
+
+    if (!isThenable(raw)) {
+      setEntry(id, raw); // synchronous fetcher: cache + settle inline, no flash
+      return { value: raw, promise: Promise.resolve(raw), release: () => undefined };
+    }
+
+    const load: InFlightLoad<Content> = {
+      refs: 1,
+      controller,
+      promise: raw.then(
+        (content) => {
+          inFlight.delete(id);
+          // A fetch that finished under an aborted signal is discarded, never
+          // cached — so a cancelled load can't poison the cache (e.g. a fetcher
+          // that returns an empty body when `signal.aborted`).
+          if (!controller.signal.aborted) setEntry(id, content);
+          return content;
+        },
+        (error: unknown) => {
+          inFlight.delete(id);
+          throw error;
+        },
+      ),
+    };
+    inFlight.set(id, load);
+    return { promise: load.promise, release: makeRelease(id) };
+  }
+
   return {
     get(id) {
       const entry = entries.get(id);
@@ -178,24 +292,18 @@ export function createContentCache<Content = string>(
     },
 
     getInFlight(id) {
-      return inFlight.get(id);
+      return inFlight.get(id)?.promise;
+    },
+
+    load(id, factory) {
+      return loadImpl(id, factory);
     },
 
     dedupe(id, factory) {
-      const pending = inFlight.get(id);
-      if (pending !== undefined) return pending;
-      const promise = factory().then(
-        (content) => {
-          inFlight.delete(id);
-          setEntry(id, content);
-          return content;
-        },
-        (error: unknown) => {
-          inFlight.delete(id);
-          throw error;
-        },
-      );
-      inFlight.set(id, promise);
+      // A warm that holds its own ref until the load settles, so the fetch
+      // always completes (and caches) even if no reader is currently mounted.
+      const { promise, release } = loadImpl(id, () => factory());
+      promise.then(release, release);
       return promise;
     },
 
