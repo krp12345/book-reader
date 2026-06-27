@@ -238,7 +238,9 @@ done):
 
 **1. Override CSS variables.** Import the default skin, then redefine any
 `--reader-*` token on the root. Presentation only (font, colors, surfaces,
-spacing, tree indent, radius, focus ring) — layout stays intact.
+spacing, tree indent, radius, focus ring) — layout stays intact. **Every
+padding and margin in the skin is a token**, so you can retune spacing without
+fighting hard-coded values; the defaults preserve the out-of-the-box look.
 
 ```css
 @import 'book-reader/styles.css';
@@ -247,8 +249,21 @@ spacing, tree indent, radius, focus ring) — layout stays intact.
   --reader-font: Georgia, serif;
   --reader-accent: #6b4eff;
   --reader-tree-indent: 1.25rem;
+
+  /* Spacing is fully tweakable, e.g. a roomier reading column and tree: */
+  --reader-content-padding: 2.5rem 3rem;
+  --reader-content-paragraph-margin: 0 0 1.4em;
+  --reader-tree-padding: 1rem;
 }
 ```
+
+Spacing tokens: `--reader-tree-padding`, `--reader-tree-indent`,
+`--reader-tree-row-padding-block`, `--reader-tree-row-padding-inline`,
+`--reader-tree-gap`, `--reader-content-padding`,
+`--reader-content-paragraph-margin`, `--reader-content-heading-margin`,
+`--reader-content-blockquote-margin`, `--reader-content-blockquote-padding`,
+`--reader-content-code-padding`, `--reader-content-state-gap`,
+`--reader-content-retry-padding`.
 
 **2. Target `data-part` hooks or per-slot `classNames`.** Stable hooks exist on
 every slot (`book-reader`, `tree`, `tree-node`, `content`, `content-node`), and

@@ -83,7 +83,10 @@ default skin — **presentation only** (font/colors/typography/spacing), scoped 
 keep inline** (flex/overflow/height/position) so the reader works even without the
 sheet. Three tiers (REQUIREMENTS §2.5): (1) override the `--reader-*` tokens declared
 on the root data-part — full set (font, `--reader-content-font`, accent/soft/hover/
-error colors, surfaces, spacing, `--reader-tree-indent`, radius, focus-ring); (2)
+error colors, surfaces, `--reader-tree-indent`, radius, focus-ring) — and **every
+padding/margin in the skin is a token** (tree padding/row/gap, content padding,
+prose paragraph/heading/blockquote/code spacing, error+retry spacing; defaults
+unchanged) so spacing is fully tweakable without fighting hard-coded values; (2)
 target the stable `data-part` hooks / per-slot `classNames` — `classNames.root`
 (newly wired), `tree`, `treeNode` (new — `treeNodeClassName` through `TreePaneView`/
 `TreePane`), `content`, `contentNode`; (3) render-props (M3/M6). Build: a Vite plugin

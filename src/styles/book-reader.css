@@ -47,13 +47,23 @@
   --reader-tree-bg: #fafbfc;
   --reader-content-bg: var(--reader-color-bg);
 
-  /* Spacing & shape */
+  /* Spacing & shape — every padding/margin in this skin is a token, so spacing
+     can be retuned without fighting hard-coded values. Defaults preserve the
+     out-of-the-box look. */
+  --reader-tree-padding: 0.5rem;
   --reader-tree-indent: 1rem;
   --reader-tree-row-padding-block: 0.3rem;
   --reader-tree-row-padding-inline: 0.5rem;
   --reader-tree-gap: 0.35rem;
   --reader-content-padding: 1.5rem 2rem;
   --reader-content-max-width: 42rem;
+  --reader-content-paragraph-margin: 0 0 1em;
+  --reader-content-heading-margin: 1.6em 0 0.6em;
+  --reader-content-blockquote-margin: 1em 0;
+  --reader-content-blockquote-padding: 1em;
+  --reader-content-code-padding: 0.1em 0.3em;
+  --reader-content-state-gap: 0.75rem;
+  --reader-content-retry-padding: 0.25rem 0.75rem;
   --reader-radius: 6px;
   --reader-focus-ring: 2px solid var(--reader-color-accent);
 
@@ -83,7 +93,7 @@
 
 /* The ARIA tree itself. */
 [data-part='book-reader'] [data-part='tree'] {
-  padding: 0.5rem;
+  padding: var(--reader-tree-padding);
 }
 
 /* A single tree row. Depth indentation is applied inline by TreePane via
@@ -142,7 +152,7 @@
   white-space: nowrap;
 }
 [data-part='book-reader'] [data-part='tree-node-spinner'] {
-  margin-inline-start: 0.35rem;
+  margin-inline-start: var(--reader-tree-gap);
   color: var(--reader-color-muted);
 }
 
@@ -175,10 +185,10 @@
 [data-part='book-reader'] [data-part='content-html'] h4 {
   font-family: var(--reader-font);
   line-height: 1.25;
-  margin: 1.6em 0 0.6em;
+  margin: var(--reader-content-heading-margin);
 }
 [data-part='book-reader'] [data-part='content-html'] p {
-  margin: 0 0 1em;
+  margin: var(--reader-content-paragraph-margin);
 }
 [data-part='book-reader'] [data-part='content-html'] a {
   color: var(--reader-color-accent);
@@ -188,8 +198,8 @@
   height: auto;
 }
 [data-part='book-reader'] [data-part='content-html'] blockquote {
-  margin: 1em 0;
-  padding-inline-start: 1em;
+  margin: var(--reader-content-blockquote-margin);
+  padding-inline-start: var(--reader-content-blockquote-padding);
   border-inline-start: 3px solid var(--reader-color-border);
   color: var(--reader-color-muted);
 }
@@ -197,7 +207,7 @@
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 0.9em;
   background: var(--reader-color-hover);
-  padding: 0.1em 0.3em;
+  padding: var(--reader-content-code-padding);
   border-radius: 4px;
 }
 
@@ -210,12 +220,12 @@
 [data-part='book-reader'] [data-part='content-error'] {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--reader-content-state-gap);
   color: var(--reader-color-error);
 }
 [data-part='book-reader'] [data-part='content-retry'] {
   cursor: pointer;
-  padding: 0.25rem 0.75rem;
+  padding: var(--reader-content-retry-padding);
   border: 1px solid currentColor;
   border-radius: var(--reader-radius);
   background: none;
