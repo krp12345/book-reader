@@ -59,6 +59,26 @@ export function makeSyncBook(): BookNode {
 }
 
 /**
+ * A book whose **branch nodes also carry their own content** — every node
+ * (root, parts, chapters) has a body, because none sets `hasContent: false`.
+ * Clicking a Part navigates to the Part itself (its own intro text), not to a
+ * child: a non-leaf node is a first-class reading target and active node.
+ */
+export function makeBranchContentBook(): BookNode {
+  faker.seed(7);
+  const parts = Array.from({ length: 3 }, (_, p) => ({
+    id: `b.p${p}`,
+    title: `Part ${'I'.repeat(p + 1)} — ${heading()}`,
+    // No `hasContent: false`: this branch has an introduction of its own.
+    children: Array.from({ length: 2 }, (_, c) => ({
+      id: `b.p${p}.c${c}`,
+      title: `Chapter ${c + 1}. ${heading()}`,
+    })),
+  }));
+  return { id: 'b', title: `${heading()} — A Field Guide`, children: parts };
+}
+
+/**
  * Large book (sync strategy): parts → chapters → sections, ~1,000+ nodes, to
  * exercise virtualization. Titles only; bodies stay lazy via `fetchContent`.
  */

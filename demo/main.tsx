@@ -26,6 +26,7 @@ import type {
 } from '../src/index';
 import {
   loadChildren,
+  makeBranchContentBook,
   makeFetchContent,
   makeLargeBook,
   makeLazyBook,
@@ -40,9 +41,11 @@ import './demo.css';
 const syncBook = makeSyncBook();
 const largeBook = makeLargeBook();
 const lazyBook = makeLazyBook();
+const branchBook = makeBranchContentBook();
 
 // Per-example fetchers (see data.ts). States stages slow + failing + empty nodes.
 const fetchSync = makeFetchContent();
+const fetchBranch = makeFetchContent({ delayMs: 200 });
 const fetchLazy = makeFetchContent({ delayMs: 300 });
 const fetchStyling = makeFetchContent({ delayMs: 150 });
 const FAIL_ID = 's.p0.c1';
@@ -80,7 +83,7 @@ const renderError: RenderError = (_node, _error, retry) => (
 );
 const renderEmpty: RenderEmpty = () => <div className="cs-empty">— no content —</div>;
 
-type ExampleId = 'quickstart' | 'lazy' | 'states' | 'styling';
+type ExampleId = 'quickstart' | 'branch' | 'lazy' | 'states' | 'styling';
 const EXAMPLES: { id: ExampleId; label: string; blurb: string }[] = [
   {
     id: 'quickstart',
@@ -90,22 +93,30 @@ const EXAMPLES: { id: ExampleId; label: string; blurb: string }[] = [
       'The simplest possible usage — no loading states, no lazy tree.',
   },
   {
+    id: 'branch',
+    label: '2 · Branch content',
+    blurb:
+      'Branch nodes carry their own content (no `hasContent: false`). Clicking a ' +
+      'Part — a non-leaf — loads and shows that Part’s own intro text and makes ' +
+      'the Part the active (highlighted) node, not one of its chapters.',
+  },
+  {
     id: 'lazy',
-    label: '2 · Lazy tree',
+    label: '3 · Lazy tree',
     blurb:
       'A vast book with no children up front: `loadChildren` fetches each subtree ' +
       'on expand (watch the spinner). The whole tree is never in memory at once.',
   },
   {
     id: 'states',
-    label: '3 · Loading / error / empty',
+    label: '4 · Loading / error / empty',
     blurb:
       'Every section loads slowly (you see the loading state). One chapter fails ' +
       'on first load — press Retry to recover. One chapter resolves to no content.',
   },
   {
     id: 'styling',
-    label: '4 · Styling & location',
+    label: '5 · Styling & location',
     blurb:
       'A large (virtualized) book across all three styling tiers, with a controlled ' +
       '`location`: the readout follows scrolling, and “Jump” drives the reader.',
@@ -146,6 +157,15 @@ function App(): JSX.Element {
           <BookReader
             tree={syncBook}
             fetchContent={fetchSync}
+            treeWidth={300}
+            onLocationChange={setLocation}
+          />
+        );
+      case 'branch':
+        return (
+          <BookReader
+            tree={branchBook}
+            fetchContent={fetchBranch}
             treeWidth={300}
             onLocationChange={setLocation}
           />

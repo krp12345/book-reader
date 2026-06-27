@@ -320,6 +320,38 @@ test.describe('tree click navigates the reading surface', () => {
     }
   });
 
+  test('clicking a non-leaf node that has content loads it, shows its text, and makes it active', async ({
+    page,
+  }) => {
+    // "Branch content" book: Parts carry their own content (no hasContent:false),
+    // so a Part is a first-class reading target — clicking it must navigate to the
+    // Part itself (its intro), not jump past it to a child.
+    await openExample(page, /Branch content/);
+    await page.waitForTimeout(300);
+
+    // Open the root to reveal the Parts (the root itself is active at the top).
+    await page
+      .locator('[data-part="tree-node"]')
+      .first()
+      .locator('[data-part="tree-node-caret"]')
+      .click();
+    const partII = row(page, /Part II/);
+    await expect(partII).toBeVisible();
+
+    await partII.click(); // a non-leaf node WITH content (id b.p1)
+
+    // The Part's own content node lands at the top…
+    await expect.poll(async () => topNodeId(page), { timeout: 4000 }).toBe('b.p1');
+
+    // …fully loaded with real body text (not loading/empty/error)…
+    const node = page.locator('[data-part="content-node"][data-node-id="b.p1"]');
+    await expect(node).toHaveAttribute('data-status', 'loaded');
+    expect((await node.innerText()).trim().length).toBeGreaterThan(40);
+
+    // …and the Part itself is the active (highlighted) tree node, not a chapter.
+    await expect(partII).toHaveAttribute('aria-selected', 'true');
+  });
+
   test('jumping to a deep section pins its title at the top as bodies settle', async ({
     page,
   }) => {
