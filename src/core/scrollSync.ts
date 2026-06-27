@@ -38,7 +38,7 @@ export function activeNodeByCoverage(
     if (span.start >= bottom) break;
     const overlap =
       Math.min(bottom, span.start + span.height) - Math.max(top, span.start);
-    if (overlap >= bestCoverage) {
+    if (overlap > bestCoverage) {
       bestCoverage = overlap;
       bestId = span.id;
     }

@@ -99,10 +99,12 @@ describe('BookReader — tree click → scroll content', () => {
       <BookReader tree={flatBook} fetchContent={fetchContent} estimateHeight={NODE_HEIGHT} />,
     );
 
-    // Expand the root (its aria-hidden caret), then click Chapter 3 in the tree.
+    // The reader is at the top, where the root itself is the active node; its
+    // path has no ancestors to auto-expand, so open it via its caret, then click
+    // Chapter 3 in the tree.
     const root = screen.getByRole('treeitem', { name: /Root/ });
     await user.click(within(root).getByRole('button', { hidden: true }));
-    await user.click(screen.getByRole('treeitem', { name: /Chapter 3/ }));
+    await user.click(await screen.findByRole('treeitem', { name: /Chapter 3/ }));
 
     await waitFor(() => {
       expect(scroller(container).scrollTop).toBe(400);
