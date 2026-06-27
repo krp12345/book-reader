@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
-import { BookReader } from './BookReader';
-import type { BookNode, FetchContent } from './types';
+import { BookReader } from '../src/BookReader';
+import type { BookNode, FetchContent } from '../src/types';
 
 const book: BookNode = {
   id: 'root',

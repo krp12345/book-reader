@@ -17,9 +17,9 @@
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render } from '@testing-library/react';
-import { createTreeStore } from '../core/treeStore';
-import { ContentPane } from './ContentPane';
-import type { BookNode, FetchContent } from '../types';
+import { createTreeStore } from '../../src/core/treeStore';
+import { ContentPane } from '../../src/content/ContentPane';
+import type { BookNode, FetchContent } from '../../src/types';
 
 const ESTIMATE = 100;
 const VIEWPORT = 300;

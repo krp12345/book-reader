@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { createTreeStore } from './treeStore';
-import { createReadingOrder } from './traversal';
-import type { BookNode } from '../types';
+import { createTreeStore } from '../../src/core/treeStore';
+import { createReadingOrder } from '../../src/core/traversal';
+import type { BookNode } from '../../src/types';
 
 // The book used across most tests. Pre-order (depth-first) reading order is:
 //   root → ch1 → ch1a → ch1b → ch2

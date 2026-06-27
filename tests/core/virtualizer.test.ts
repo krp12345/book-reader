@@ -5,7 +5,7 @@ import {
   pinnedIds,
   prefetchIds,
   type VirtualWindow,
-} from './virtualizer';
+} from '../../src/core/virtualizer';
 
 const ids = (n: number): string[] =>
   Array.from({ length: n }, (_, i) => `n${i}`);

@@ -8,10 +8,10 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
-import { createTreeStore } from '../core/treeStore';
-import { createContentCache } from '../core/cache';
-import { ContentPane } from './ContentPane';
-import type { BookNode, FetchContent } from '../types';
+import { createTreeStore } from '../../src/core/treeStore';
+import { createContentCache } from '../../src/core/cache';
+import { ContentPane } from '../../src/content/ContentPane';
+import type { BookNode, FetchContent } from '../../src/types';
 
 const NODE_HEIGHT = 100;
 const VIEWPORT_HEIGHT = 300;

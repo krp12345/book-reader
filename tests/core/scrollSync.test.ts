@@ -1,14 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { createTreeStore } from './treeStore';
-import { createReadingOrder } from './traversal';
+import { createTreeStore } from '../../src/core/treeStore';
+import { createReadingOrder } from '../../src/core/traversal';
 import {
   activeNodeAt,
   isNearBottom,
   nextNodeToLoad,
   withReadingOverrides,
   type NodeSpan,
-} from './scrollSync';
-import type { BookNode, GetNextNode, GetPrevNode } from '../types';
+} from '../../src/core/scrollSync';
+import type { BookNode, GetNextNode, GetPrevNode } from '../../src/types';
 
 const spans: NodeSpan[] = [
   { id: 'a', start: 0, height: 100 },

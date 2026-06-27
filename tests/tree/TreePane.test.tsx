@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { createTreeStore } from '../core/treeStore';
-import { TreePane } from './TreePane';
-import type { BookNode } from '../types';
+import { createTreeStore } from '../../src/core/treeStore';
+import { TreePane } from '../../src/tree/TreePane';
+import type { BookNode } from '../../src/types';
 
 //   root
 //   ├─ ch1
