@@ -47,6 +47,46 @@ export function activeNodeAt(
 }
 
 /**
+ * The id of the node occupying the **most vertical space** inside the viewport
+ * `[scrollTop, scrollTop + viewportHeight)` — i.e. the section the reader is
+ * actually on, not merely whichever node clips the top edge (`activeNodeAt`).
+ * This is what drives the tree highlight while *scrolling*.
+ *
+ * Coverage = the overlap between each node's span and the viewport. On a tie
+ * (two sections splitting the viewport equally) the **lower** node wins, so the
+ * highlight advances as soon as the next section owns at least half the screen —
+ * biasing toward forward reading progress. Spans are assumed ordered by `start`;
+ * a non-positive `viewportHeight` (not yet measured) falls back to the first span.
+ */
+export function activeNodeByCoverage(
+  spans: NodeSpan[],
+  scrollTop: number,
+  viewportHeight: number,
+): string | undefined {
+  if (spans.length === 0) return undefined;
+  if (viewportHeight <= 0) return spans[0]?.id;
+
+  const top = scrollTop;
+  const bottom = scrollTop + viewportHeight;
+  let bestId = spans[0]?.id;
+  let bestCoverage = -1;
+
+  for (const span of spans) {
+    // Ordered spans: once one starts at/after the viewport bottom, the rest do too.
+    if (span.start >= bottom) break;
+    const overlap =
+      Math.min(bottom, span.start + span.height) - Math.max(top, span.start);
+    // `>=` (not `>`) so that on equal coverage the later — i.e. *lower* — span
+    // replaces the earlier one: ties resolve downward.
+    if (overlap >= bestCoverage) {
+      bestCoverage = overlap;
+      bestId = span.id;
+    }
+  }
+  return bestId;
+}
+
+/**
  * Whether the viewport bottom is within `threshold` px of the end of the surface
  * (or the whole surface already fits) — the cue to auto-fetch the next node.
  */

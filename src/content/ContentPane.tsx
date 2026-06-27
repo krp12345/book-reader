@@ -110,6 +110,27 @@ export function ContentPane<Meta = unknown>(
     [fullSeq, store],
   );
 
+  // A clicked tree node may be an *organisational* branch (`hasContent: false`,
+  // e.g. a Part/Chapter) that isn't in the rendered `ids` — scrolling to it would
+  // be a silent no-op. Resolve such an id to the nearest content node in reading
+  // order: its first content-bearing descendant, else the next content node at or
+  // after it (descendants are contiguous after their parent in DFS order, so a
+  // forward scan over `fullSeq` finds exactly that).
+  const contentIds = useMemo(() => new Set(ids), [ids]);
+  const resolveContentId = useCallback(
+    (id: string): string | undefined => {
+      if (contentIds.has(id)) return id;
+      const from = fullSeq.indexOf(id);
+      if (from === -1) return undefined;
+      for (let i = from + 1; i < fullSeq.length; i++) {
+        const candidate = fullSeq[i];
+        if (candidate !== undefined && contentIds.has(candidate)) return candidate;
+      }
+      return undefined;
+    },
+    [contentIds, fullSeq],
+  );
+
   // Warm a node's content into the cache ahead of view (no-op without a cache).
   const prefetch = useCallback(
     (id: string) => {
@@ -168,8 +189,9 @@ export function ContentPane<Meta = unknown>(
     if (scrollRequest === undefined) return;
     if (scrollRequest.token === lastScrollToken.current) return;
     lastScrollToken.current = scrollRequest.token;
-    scrollToId(scrollRequest.id, scrollRequest.offset);
-  }, [scrollRequest, scrollToId]);
+    const targetId = resolveContentId(scrollRequest.id);
+    if (targetId !== undefined) scrollToId(targetId, scrollRequest.offset);
+  }, [scrollRequest, scrollToId, resolveContentId]);
 
   return (
     <div

@@ -23,7 +23,7 @@ import {
   prefetchIds,
   type VirtualItem,
 } from '../core/virtualizer';
-import { activeNodeAt, isNearBottom } from '../core/scrollSync';
+import { activeNodeByCoverage, isNearBottom } from '../core/scrollSync';
 
 export interface UseVirtualListOptions {
   /** The full reading sequence, in order. */
@@ -118,6 +118,38 @@ export function useVirtualList(options: UseVirtualListOptions): VirtualList {
     );
   }, []);
 
+  // --- Navigation anchor (tree click / controlled-location jump) -------------
+  // When the reader jumps to a node we own "where the view is" until the user
+  // takes over: `navAnchorRef` holds the node whose top must stay at the viewport
+  // top, and `expectedTopRef` is the last scrollTop *we* wrote, so a scroll event
+  // that doesn't match it is a real user scroll (which releases the anchor).
+  const navAnchorRef = useRef<{ id: string; offset: number } | null>(null);
+  const expectedTopRef = useRef<number | null>(null);
+
+  // Every programmatic scrollTop write goes through here so `expectedTopRef`
+  // tracks the value the browser actually settled on (it may clamp).
+  const setScrollTop = useCallback((top: number) => {
+    const el = scrollRef.current;
+    if (el === null) return;
+    el.scrollTop = top;
+    expectedTopRef.current = el.scrollTop;
+  }, []);
+
+  // Scroll listener: a scroll we didn't initiate (beyond rounding) means the user
+  // has taken over, so release any navigation anchor before syncing metrics.
+  const onScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (el === null) return;
+    if (
+      navAnchorRef.current !== null &&
+      (expectedTopRef.current === null ||
+        Math.abs(el.scrollTop - expectedTopRef.current) > 2)
+    ) {
+      navAnchorRef.current = null;
+    }
+    syncMetrics();
+  }, [syncMetrics]);
+
   // Initial viewport measurement + keep it current as the reader scrolls and as
   // the container resizes. (M5 windowed only at mount/resize; live scroll
   // tracking is what M6 needs for active-node detection + auto-advance.)
@@ -125,15 +157,15 @@ export function useVirtualList(options: UseVirtualListOptions): VirtualList {
     syncMetrics();
     const el = scrollRef.current;
     if (el === null) return;
-    el.addEventListener('scroll', syncMetrics, { passive: true });
+    el.addEventListener('scroll', onScroll, { passive: true });
     const ro =
       typeof ResizeObserver !== 'undefined' ? new ResizeObserver(syncMetrics) : null;
     ro?.observe(el);
     return () => {
-      el.removeEventListener('scroll', syncMetrics);
+      el.removeEventListener('scroll', onScroll);
       ro?.disconnect();
     };
-  }, [syncMetrics]);
+  }, [syncMetrics, onScroll]);
 
   // One ResizeObserver measures every mounted node. On a height change we update
   // the height map and, if the node sits above the viewport top, correct
@@ -154,6 +186,37 @@ export function useVirtualList(options: UseVirtualListOptions): VirtualList {
       const scrollEl = scrollRef.current;
       const scrollTop = scrollEl?.scrollTop ?? 0;
       const seq = idsRef.current;
+
+      // Navigation in progress: we own the view. Record the new heights, then
+      // re-assert the anchor node's top straight from the height map so it stays
+      // pinned to the viewport top while content *above* it (overscan nodes still
+      // fetching / measuring) settles. This is deterministic — unlike relying on
+      // incidental anchor correction, which let an async body above the target
+      // drift the target's title above the fold (the "title beginning is gone"
+      // bug). The anchor is released the moment the user actually scrolls (see
+      // `onScroll`).
+      const nav = navAnchorRef.current;
+      if (nav !== null) {
+        let navChanged = false;
+        for (const entry of entries) {
+          const id = elToId.current.get(entry.target);
+          if (id === undefined) continue;
+          const delta = virtualizer.setHeight(id, readHeight(entry.target as HTMLElement));
+          if (delta !== 0) navChanged = true;
+        }
+        const idx = seq.indexOf(nav.id);
+        if (idx !== -1 && scrollEl !== null) {
+          const target = virtualizer.offsetAt(seq, idx) + nav.offset;
+          if (Math.abs(scrollEl.scrollTop - target) > 0.5) {
+            setScrollTop(target);
+            syncMetrics();
+          } else {
+            expectedTopRef.current = scrollEl.scrollTop;
+          }
+        }
+        if (navChanged) setMeasureVersion((n) => n + 1);
+        return;
+      }
 
       // Snapshot every changed node's *pre-change* bottom edge from the height map
       // before recording any new height, so all corrections in this batch share one
@@ -189,7 +252,7 @@ export function useVirtualList(options: UseVirtualListOptions): VirtualList {
       }
 
       if (correction !== 0 && scrollEl !== null) {
-        scrollEl.scrollTop += correction;
+        setScrollTop(scrollEl.scrollTop + correction);
         // Fold the corrected scrollTop into React state *now*, in the same batch
         // as the window recompute below — otherwise the measure-driven render
         // paints the new heights against a stale scrollTop for one frame (the
@@ -207,7 +270,7 @@ export function useVirtualList(options: UseVirtualListOptions): VirtualList {
       ro.disconnect();
       observerRef.current = null;
     };
-  }, [syncMetrics, virtualizer]);
+  }, [syncMetrics, virtualizer, setScrollTop]);
 
   // One stable ref callback per id (cached) so React doesn't churn observe/
   // unobserve every render; the closure captures `id`, so unmount (el === null)
@@ -247,16 +310,39 @@ export function useVirtualList(options: UseVirtualListOptions): VirtualList {
     for (const id of prefetchIds(ids, window, prefetchCount)) prefetch(id);
   }, [prefetch, ids, window, prefetchCount]);
 
-  // The active node = the one at the top of the viewport. It is always within the
-  // mounted window (it's on screen), so we read it off `window.items`.
+  // The active node drives the tree highlight. Two regimes:
+  //
+  // 1. Navigation (a tree click / location jump). `navAnchorRef` is set by
+  //    `scrollToId` and we own the view — the active node *is* the anchor. Deriving
+  //    it from `scrollTop` here is fragile: `offsetAt(target)` can be fractional
+  //    while the browser stores a rounded `scrollTop`, so a coverage/line test can
+  //    flip to a neighbour when the target's start lands a sub-pixel off the settled
+  //    scrollTop (content sits at the target, but the tree highlights the node
+  //    before it). Reporting the anchor keeps the highlight on exactly what was
+  //    clicked until the user scrolls (which releases the anchor; see `onScroll`).
+  //
+  // 2. Free scrolling. The active node is the one occupying the **most** of the
+  //    viewport (`activeNodeByCoverage`), with ties resolved to the lower node — the
+  //    section the reader is actually on, not whichever node merely clips the top.
   const { activeId, activeOffset } = useMemo(() => {
-    const id = activeNodeAt(window.items, metrics.scrollTop);
+    const nav = navAnchorRef.current;
+    if (nav !== null && ids.includes(nav.id)) {
+      return { activeId: nav.id, activeOffset: nav.offset };
+    }
+    const id = activeNodeByCoverage(
+      window.items,
+      metrics.scrollTop,
+      metrics.viewportHeight,
+    );
     const item = window.items.find((i) => i.id === id);
     return {
       activeId: id,
       activeOffset: item === undefined ? 0 : Math.max(0, metrics.scrollTop - item.start),
     };
-  }, [window, metrics.scrollTop]);
+    // navAnchorRef is a ref; every change to it is paired with a metrics/window
+    // update (scrollToId → syncMetrics, onScroll → syncMetrics, RO → measureVersion),
+    // so this memo re-runs and observes the current anchor value.
+  }, [window, metrics.scrollTop, metrics.viewportHeight, ids]);
 
   // Within one viewport of the end → cue the content pane to auto-fetch the next
   // node. A measured viewport is required (threshold 0 before it arrives).
@@ -273,10 +359,13 @@ export function useVirtualList(options: UseVirtualListOptions): VirtualList {
       if (el === null) return;
       const index = ids.indexOf(id);
       if (index === -1) return;
-      el.scrollTop = virtualizer.offsetAt(ids, index) + offset;
+      // Take ownership of the view: pin this node's top until the user scrolls,
+      // so settling content above it can't drift it off the top.
+      navAnchorRef.current = { id, offset };
+      setScrollTop(virtualizer.offsetAt(ids, index) + offset);
       syncMetrics();
     },
-    [ids, virtualizer, syncMetrics],
+    [ids, virtualizer, syncMetrics, setScrollTop],
   );
 
   return {
