@@ -1,38 +1,13 @@
-/**
- * Scroll ⟷ tree synchronisation: the pure mapping behind "the two panes move
- * together" (§2.3). All framework-free and unit-testable; the React wiring that
- * reads real scroll geometry lives in `content/useVirtualList.ts`.
- *
- * Three concerns:
- * - **Active-node detection** — `activeNodeAt` turns a scroll reference line into
- *   the node the reader is currently on (drives tree highlight + auto-expand).
- * - **Bottom approach** — `isNearBottom` says when to auto-fetch the next node.
- * - **Reading order** — `withReadingOverrides` layers the optional
- *   `getNextNode`/`getPrevNode` consumer overrides over the base DFS
- *   {@link ReadingOrder}; `nextNodeToLoad` finds the next lazy subtree to fetch so
- *   reading can continue past the currently-loaded frontier.
- *
- * Pure: no React. See CONVENTIONS.md.
- */
 import type { TreeStore } from './treeStore';
 import type { ReadingOrder } from './traversal';
 import type { GetNextNode, GetPrevNode } from '../types';
 
-/** A node's resolved vertical span on the reading surface. */
 export interface NodeSpan {
   id: string;
-  /** Absolute top offset (px). */
   start: number;
-  /** Height (px) in use (measured or estimated). */
   height: number;
 }
 
-/**
- * The id of the node whose span contains `referenceLine` (typically the scroll
- * offset, i.e. the node at the top of the viewport). Spans are assumed contiguous
- * and ordered by `start`. A reference line before the first / past the last span
- * clamps to that end node; an empty list yields `undefined`.
- */
 export function activeNodeAt(
   spans: NodeSpan[],
   referenceLine: number,
@@ -46,18 +21,6 @@ export function activeNodeAt(
   return activeId;
 }
 
-/**
- * The id of the node occupying the **most vertical space** inside the viewport
- * `[scrollTop, scrollTop + viewportHeight)` — i.e. the section the reader is
- * actually on, not merely whichever node clips the top edge (`activeNodeAt`).
- * This is what drives the tree highlight while *scrolling*.
- *
- * Coverage = the overlap between each node's span and the viewport. On a tie
- * (two sections splitting the viewport equally) the **lower** node wins, so the
- * highlight advances as soon as the next section owns at least half the screen —
- * biasing toward forward reading progress. Spans are assumed ordered by `start`;
- * a non-positive `viewportHeight` (not yet measured) falls back to the first span.
- */
 export function activeNodeByCoverage(
   spans: NodeSpan[],
   scrollTop: number,
@@ -72,12 +35,9 @@ export function activeNodeByCoverage(
   let bestCoverage = -1;
 
   for (const span of spans) {
-    // Ordered spans: once one starts at/after the viewport bottom, the rest do too.
     if (span.start >= bottom) break;
     const overlap =
       Math.min(bottom, span.start + span.height) - Math.max(top, span.start);
-    // `>=` (not `>`) so that on equal coverage the later — i.e. *lower* — span
-    // replaces the earlier one: ties resolve downward.
     if (overlap >= bestCoverage) {
       bestCoverage = overlap;
       bestId = span.id;
@@ -86,10 +46,6 @@ export function activeNodeByCoverage(
   return bestId;
 }
 
-/**
- * Whether the viewport bottom is within `threshold` px of the end of the surface
- * (or the whole surface already fits) — the cue to auto-fetch the next node.
- */
 export function isNearBottom(
   scrollTop: number,
   viewportHeight: number,
@@ -99,17 +55,11 @@ export function isNearBottom(
   return totalHeight - (scrollTop + viewportHeight) <= threshold;
 }
 
-/** Optional consumer overrides for reading order. */
 export interface ReadingOverrides<Meta = unknown> {
   getNextNode?: GetNextNode<Meta> | undefined;
   getPrevNode?: GetPrevNode<Meta> | undefined;
 }
 
-/**
- * The first node at/after `fromId` (in `sequence`) whose children are loadable
- * but not yet loaded — the next lazy subtree to fetch so reading continues past
- * the loaded frontier. `undefined` when the forward frontier is fully loaded.
- */
 export function nextNodeToLoad<Meta = unknown>(
   store: TreeStore<Meta>,
   sequence: string[],
@@ -125,13 +75,6 @@ export function nextNodeToLoad<Meta = unknown>(
   return undefined;
 }
 
-/**
- * Wraps a base DFS {@link ReadingOrder} with the consumer's `getNextNode` /
- * `getPrevNode` overrides. When an override is present it decides the neighbour
- * (translating the returned node → its id); otherwise the base order is used.
- * `getSequence` walks forward via the (possibly overridden) `getNext` with a
- * visited guard, so a misbehaving override can never spin forever.
- */
 export function withReadingOverrides<Meta = unknown>(
   store: TreeStore<Meta>,
   base: ReadingOrder,

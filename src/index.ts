@@ -1,9 +1,5 @@
-// Public entry point for the book-reader library.
-// Real exports land as milestones complete (see MILESTONES.md).
-
 export const VERSION = '0.0.0';
 
-// --- components ---
 export { BookReader } from './BookReader';
 export { TreePane, TreePaneView } from './tree/TreePane';
 export type { TreePaneProps, TreePaneViewProps } from './tree/TreePane';
@@ -12,7 +8,6 @@ export type { ContentPaneProps, ScrollRequest } from './content/ContentPane';
 export { ContentNode } from './content/ContentNode';
 export type { ContentNodeProps } from './content/ContentNode';
 
-// --- core (pure, framework-free) ---
 export { createTreeStore } from './core/treeStore';
 export type { TreeStore, CreateTreeStoreOptions } from './core/treeStore';
 export { createReadingOrder } from './core/traversal';
@@ -42,7 +37,6 @@ export type { NodeSpan, ReadingOverrides } from './core/scrollSync';
 export { sanitizeHtml } from './content/sanitize';
 export { defaultTreeNode } from './tree/defaultTreeNode';
 
-// --- public type contract ---
 export type {
   BookNode,
   BookReaderProps,

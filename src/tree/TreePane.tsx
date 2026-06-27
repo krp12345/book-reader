@@ -1,22 +1,3 @@
-/**
- * Left pane: the navigable section tree.
- *
- * Renders the flat list of visible rows (see {@link flattenVisible}) as an ARIA
- * tree. It owns the structural/interaction concerns — indentation, the expand
- * caret, selection, and roving-tabindex keyboard navigation — while the inner
- * label is delegated to `renderTreeNode` (default: {@link defaultTreeNode}), so
- * custom renderers can't accidentally break accessibility.
- *
- * Two entry points share the rendering: {@link TreePane} owns its own
- * {@link useTreeState} (standalone use), while {@link TreePaneView} takes an
- * injected state so a parent (e.g. `BookReader`) can drive expansion/selection
- * from the *other* pane — this is how scroll ⟷ tree sync is wired without two
- * competing copies of the tree state.
- *
- * Keyboard model (roving tabindex, one tab stop for the whole tree):
- *   ↓/↑ move · Home/End jump · → expand-or-enter · ← collapse-or-parent ·
- *   Enter/Space select.
- */
 import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import type { TreeStore } from '../core/treeStore';
 import type { LoadChildren, RenderTreeNode, TreeNodeState } from '../types';
@@ -25,38 +6,28 @@ import { useTreeState, type TreeState } from './useTreeState';
 import { defaultTreeNode } from './defaultTreeNode';
 
 export interface TreePaneProps<Meta = unknown> {
-  /** The indexed tree to render. */
   store: TreeStore<Meta>;
-  // Optional props admit `| undefined` so consumers can pass possibly-undefined
-  // values directly under `exactOptionalPropertyTypes`.
-  /** Lazy children loader; enables expansion of not-yet-loaded nodes. */
   loadChildren?: LoadChildren<Meta> | undefined;
-  /** Controlled selected node id. */
   selectedId?: string | undefined;
-  /** Called when a node is selected (click or keyboard). */
   onSelect?: ((id: string) => void) | undefined;
-  /** Override the inner label rendering of a row. */
   renderTreeNode?: RenderTreeNode<Meta> | undefined;
   className?: string | undefined;
-  /** Applied to each tree row (the `data-part="tree-node"` element). */
   treeNodeClassName?: string | undefined;
   'aria-label'?: string | undefined;
 }
 
 export interface TreePaneViewProps<Meta = unknown> {
-  /** The indexed tree to render. */
   store: TreeStore<Meta>;
-  /** Expansion/selection/loading state, owned by the caller. */
   state: TreeState;
   renderTreeNode?: RenderTreeNode<Meta> | undefined;
   className?: string | undefined;
-  /** Applied to each tree row (the `data-part="tree-node"` element). */
   treeNodeClassName?: string | undefined;
   'aria-label'?: string | undefined;
 }
 
-/** Standalone tree pane: owns its expand/select state. */
-export function TreePane<Meta = unknown>(props: TreePaneProps<Meta>): JSX.Element {
+export function TreePane<Meta = unknown>(
+  props: TreePaneProps<Meta>,
+): JSX.Element {
   const { store, loadChildren, selectedId, onSelect, renderTreeNode } = props;
   const state = useTreeState({ store, loadChildren, selectedId, onSelect });
   return (
@@ -71,14 +42,12 @@ export function TreePane<Meta = unknown>(props: TreePaneProps<Meta>): JSX.Elemen
   );
 }
 
-/** Tree pane rendering over an externally-owned {@link TreeState}. */
 export function TreePaneView<Meta = unknown>(
   props: TreePaneViewProps<Meta>,
 ): JSX.Element {
   const { store, state, renderTreeNode, treeNodeClassName } = props;
   const renderNode = renderTreeNode ?? defaultTreeNode;
 
-  // `state.version` bumps when lazy children land, so collapsed→loaded rows show.
   const rows = useMemo(
     () => flattenVisible(store, state.expanded),
     [store, state.expanded, state.version],
@@ -87,7 +56,6 @@ export function TreePaneView<Meta = unknown>(
   const rowRefs = useRef(new Map<string, HTMLDivElement>());
   const [focusId, setFocusId] = useState<string | undefined>(undefined);
 
-  // The single tab stop: the focused row if still visible, else the first row.
   const activeId = rows.some((r) => r.id === focusId) ? focusId : rows[0]?.id;
 
   function moveTo(index: number): void {

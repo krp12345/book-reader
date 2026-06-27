@@ -12,11 +12,22 @@
 - **pnpm, not npm.** TS strict, **no `any`**. `core/` must not import React.
 - **Do NOT package/publish** — the user does that manually.
 
-## ✅ Last session (committed `0fe1d1a`, pushed to main)
-Scroll flicker fixed (StrictMode double-ResizeObserver leak + straddle
-over-correction + `overflow-anchor:none`). Demo "Styling & location" now measures 0px
-reading-line jump. M8 e2e harness + earlier two bugfixes also landed. Working tree is
-clean except `session_id` (the user's resume note — leave it untracked).
+## ▶ TO RESUME: a single small prompt is enough
+Just say: **"Continue with NEXT_SESSION.md"** (or "do the tree-click nav task").
+Read CLAUDE.md + the MILESTONES STATUS block first, then do the Task below.
+
+## ✅ Last session (docs + cleanup; no behavior change)
+- **README written** (`README.md`) — consumer usage guide (install, quickstart,
+  core concepts, lazy trees, states, `location`, styling tiers, full prop table).
+- **All comments stripped from `src/`** (18 files; JSDoc included, per the user) via
+  the TS scanner — behavior-neutral; build/lint/typecheck green.
+- Confirmed loading/error/empty/content are **already configurable** via render
+  props (`renderLoading`/`renderError`(+retry)/`renderEmpty`/`renderContent`).
+- Note: 3 scroll-sync/anchor jsdom tests are **pre-existing flaky** (fail on the
+  clean baseline too — 136/139 pass). Not caused by the cleanup. Worth stabilising
+  alongside the nav task below since they cover the same code paths.
+- **Next target = the tree-click navigation task below** (user-reported; highest
+  impact). Accessibility pass is the only other open M8 item, after this.
 
 ---
 
@@ -95,5 +106,5 @@ Playwright `e2e/reader.spec.ts` case for the real-browser navigation/scroll beha
 - e2e (only when writing approved tests): `pnpm test:e2e` (reuses the dev server).
 
 ## Still open in M8 (after this)
-- README (quickstart + styling tiers + full prop reference).
 - Accessibility pass (tree roles/aria, focus-visible rings, content aria-busy/alert).
+- Stabilise the 3 flaky jsdom scroll-sync/anchor tests (same code paths as the nav task).

@@ -1,22 +1,10 @@
-/**
- * React state for the tree pane: which nodes are expanded, which is selected,
- * and the lazy-loading lifecycle for async children.
- *
- * The {@link TreeStore} is mutable (its `setChildren` writes into internal maps),
- * so React can't observe lazy loads on its own. This hook bumps a `version`
- * counter after each `setChildren`, which callers fold into their memo deps to
- * recompute the visible rows. In-flight loads are de-duplicated per node id.
- */
 import { useCallback, useRef, useState } from 'react';
 import type { TreeStore } from '../core/treeStore';
 import type { LoadChildren } from '../types';
 
 export interface UseTreeStateOptions<Meta = unknown> {
   store: TreeStore<Meta>;
-  // `| undefined` (vs. plain optional) so the TreePane can forward its own
-  // possibly-undefined props under `exactOptionalPropertyTypes`.
   loadChildren?: LoadChildren<Meta> | undefined;
-  /** Controlled selected id. When provided, selection is driven by the parent. */
   selectedId?: string | undefined;
   onSelect?: ((id: string) => void) | undefined;
 }
@@ -25,28 +13,27 @@ export interface TreeState {
   expanded: ReadonlySet<string>;
   loadingIds: ReadonlySet<string>;
   selectedId: string | undefined;
-  /** Increments whenever lazily-loaded children are absorbed into the store. */
   version: number;
   toggle(id: string): void;
   expand(id: string): void;
   collapse(id: string): void;
   select(id: string): void;
-  /**
-   * Ensure a node's lazy children are loaded *without* expanding it in the tree.
-   * Drives content auto-advance: reading scrolls into a not-yet-loaded subtree,
-   * so its children must be fetched even though the tree row stays as the user
-   * left it. De-dupes against in-flight loads; no-op for already-loaded nodes.
-   */
   load(id: string): void;
 }
 
 export function useTreeState<Meta = unknown>(
   options: UseTreeStateOptions<Meta>,
 ): TreeState {
-  const { store, loadChildren, selectedId: controlledSelectedId, onSelect } =
-    options;
+  const {
+    store,
+    loadChildren,
+    selectedId: controlledSelectedId,
+    onSelect,
+  } = options;
 
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const [loadingIds, setLoadingIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -58,7 +45,6 @@ export function useTreeState<Meta = unknown>(
 
   const selectedId = controlledSelectedId ?? internalSelected;
 
-  /** Kick off (or join) a lazy load for `id` if its children aren't known. */
   const ensureLoaded = useCallback(
     (id: string): void => {
       if (store.isLoaded(id) || !loadChildren) return;

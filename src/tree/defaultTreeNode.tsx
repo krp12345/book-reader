@@ -1,9 +1,3 @@
-/**
- * Default renderer for a tree row's inner content: the node title, plus a small
- * loading hint while its children are being fetched. The TreePane supplies the
- * row wrapper, indentation, and expand caret around this. Consumers override via
- * the `renderTreeNode` prop.
- */
 import type { ReactNode } from 'react';
 import type { BookNode, TreeNodeState } from '../types';
 

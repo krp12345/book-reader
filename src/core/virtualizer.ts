@@ -1,98 +1,39 @@
-/**
- * Virtualization geometry (§3 layers 2 & 3): the pure math behind "huge books
- * perform; zero flicker".
- *
- * Three independent concerns, all framework-free and unit-testable:
- *
- * - **Height map** — remember each node's *measured* height; fall back to an
- *   estimate for nodes not yet on screen. `setHeight` returns the delta from the
- *   height previously in use, which is what anchor correction keys on.
- * - **Windowing** — `getWindow` turns a scroll position into the slice of the
- *   sequence to mount (viewport + overscan), plus the spacer paddings that hold
- *   the off-screen scroll height. Offsets come from the height map, so a measured
- *   node and its estimated neighbours coexist without layout drift.
- * - **Anchor correction** — when a node above the viewport top changes height the
- *   content under the reader's eyes would jump; `correctScrollTop` says how much
- *   to nudge `scrollTop` to cancel it.
- *
- * The cache (pinning) is a separate layer; `pinnedIds`/`prefetchIds` translate a
- * window into the id sets the cache layer pins and warms.
- *
- * Pure: no React. See CONVENTIONS.md.
- */
-
-/** Estimated height (px) for a node we haven't measured yet. */
 const DEFAULT_ESTIMATE = 200;
 
 export interface VirtualizerConfig {
-  /** Height (px) assumed for not-yet-measured nodes. Default {@link DEFAULT_ESTIMATE}. */
   estimateHeight?: number | undefined;
 }
 
-/** A mounted node with its resolved position in the scroll surface. */
 export interface VirtualItem {
   id: string;
-  /** Index within the input sequence. */
   index: number;
-  /** Absolute top offset (px) from the top of the content surface. */
   start: number;
-  /** Height (px): the measured value if known, else the estimate. */
   height: number;
 }
 
-/** The result of windowing: which nodes to mount and the spacers around them. */
 export interface VirtualWindow {
-  /** First mounted index (after overscan); `0` for an empty list. */
   startIndex: number;
-  /** Last mounted index, inclusive; `-1` for an empty list. */
   endIndex: number;
-  /** Mounted nodes, in order, with absolute positions. */
   items: VirtualItem[];
-  /** Spacer height (px) above the first mounted node. */
   paddingTop: number;
-  /** Spacer height (px) below the last mounted node. */
   paddingBottom: number;
-  /** Total height (px) of the whole sequence. */
   totalHeight: number;
 }
 
 export interface WindowInput {
-  /** The full reading sequence, in order. */
   ids: string[];
-  /** Current scroll offset (px) of the content surface. */
   scrollTop: number;
-  /**
-   * Visible height (px) of the scroll surface. A non-positive value means the
-   * viewport hasn't been measured yet; the whole sequence is mounted (the safe,
-   * no-flicker default) until a real height arrives.
-   */
   viewportHeight: number;
-  /** Extra nodes mounted on each side of the viewport. Default `0`. */
   overscan?: number | undefined;
 }
 
 export interface Virtualizer {
-  /**
-   * Record a node's measured height. Returns the delta from the height that was
-   * previously in use (measured value or estimate) — feed this to
-   * {@link correctScrollTop}.
-   */
   setHeight(id: string, height: number): number;
-  /** Height in use for `id`: the measured value if known, else the estimate. */
   getHeight(id: string): number;
-  /** Whether `id` has a real measurement (vs. the estimate). */
   isMeasured(id: string): boolean;
-  /**
-   * Absolute top offset (px) of the node at `index` in `ids` — the sum of the
-   * heights in use before it. Used to scroll a (possibly off-screen) node to the
-   * top of the viewport. Clamped: `index ≤ 0` ⇒ 0; past the end ⇒ total height.
-   */
   offsetAt(ids: string[], index: number): number;
-  /** Forget a node's measurement (e.g. it left the book). */
   delete(id: string): boolean;
-  /** Compute the mounted window for a scroll state. */
   getWindow(input: WindowInput): VirtualWindow;
-  /** The estimate used for unmeasured nodes. */
   readonly estimateHeight: number;
 }
 
@@ -140,8 +81,6 @@ export function createVirtualizer(config: VirtualizerConfig = {}): Virtualizer {
         };
       }
 
-      // Resolve every node's height + absolute start once (O(n)); fine for the
-      // tens-of-thousands range we target.
       const layout: { id: string; start: number; height: number }[] = [];
       let acc = 0;
       for (const id of ids) {
@@ -160,13 +99,11 @@ export function createVirtualizer(config: VirtualizerConfig = {}): Virtualizer {
         totalHeight,
       });
 
-      // Viewport not yet measured → mount everything (no basis to window on).
       if (viewportHeight <= 0) return fullRange();
 
       const viewportTop = Math.max(0, scrollTop);
       const viewportBottom = scrollTop + viewportHeight;
 
-      // First node whose bottom edge is past the viewport top.
       let first = -1;
       for (const [i, item] of layout.entries()) {
         if (item.start + item.height > viewportTop) {
@@ -174,9 +111,8 @@ export function createVirtualizer(config: VirtualizerConfig = {}): Virtualizer {
           break;
         }
       }
-      if (first === -1) first = n - 1; // scrolled past the end → mount the last
+      if (first === -1) first = n - 1;
 
-      // Extend down while nodes still begin before the viewport bottom.
       let last = first;
       for (let i = first + 1; i < n; i++) {
         const item = layout[i];
@@ -200,28 +136,18 @@ export function createVirtualizer(config: VirtualizerConfig = {}): Virtualizer {
       const paddingBottom =
         tail === undefined ? 0 : totalHeight - (tail.start + tail.height);
 
-      return { startIndex, endIndex, items, paddingTop, paddingBottom, totalHeight };
+      return {
+        startIndex,
+        endIndex,
+        items,
+        paddingTop,
+        paddingBottom,
+        totalHeight,
+      };
     },
   };
 }
 
-/**
- * Anchor correction: the new `scrollTop` that cancels a height change so content
- * under the reader's eyes never jumps.
- *
- * A height change happens at the node's *bottom* edge (content grows/shrinks
- * downward), so it shifts on-screen content only when the node sits **entirely
- * above** the viewport top — i.e. its (pre-change) bottom is at or above
- * `scrollTop`. Then everything below, including what's on screen, moves by `delta`,
- * so we add `delta` back. A node *straddling* the viewport top grows below the top
- * (off-screen) — correcting it would jerk the view — and a node fully below it
- * never affects the viewport; both leave `scrollTop` untouched.
- *
- * @param itemBottom absolute bottom offset of the changed node *before* the change
- *   (`start + oldHeight`)
- * @param delta signed height change (`newHeight - oldHeight`)
- * @param scrollTop current scroll offset
- */
 export function correctScrollTop(
   itemBottom: number,
   delta: number,
@@ -230,29 +156,23 @@ export function correctScrollTop(
   return itemBottom <= scrollTop ? scrollTop + delta : scrollTop;
 }
 
-/** The slice `[from, to)` of `ids`, clamped to the array bounds. */
 function slice(ids: string[], from: number, to: number): string[] {
   return ids.slice(Math.max(0, from), Math.max(0, to));
 }
 
-/**
- * Ids the cache should pin: the mounted window plus `prefetchCount` nodes ahead,
- * so scroll-back over read content and the about-to-enter nodes are always
- * synchronous cache hits (never evicted, never re-fetched into view).
- */
 export function pinnedIds(
   ids: string[],
   window: VirtualWindow,
   prefetchCount: number,
 ): string[] {
   if (window.endIndex < window.startIndex) return [];
-  return slice(ids, window.startIndex, window.endIndex + 1 + Math.max(0, prefetchCount));
+  return slice(
+    ids,
+    window.startIndex,
+    window.endIndex + 1 + Math.max(0, prefetchCount),
+  );
 }
 
-/**
- * Ids just past the mounted window to warm ahead of the reader (length ≤
- * `prefetchCount`) — the content pane routes these through `cache.dedupe`.
- */
 export function prefetchIds(
   ids: string[],
   window: VirtualWindow,

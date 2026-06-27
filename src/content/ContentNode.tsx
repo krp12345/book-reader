@@ -1,15 +1,3 @@
-/**
- * One node's slot in the continuous reading surface.
- *
- * Owns the structural wrapper (and its stable `data-part`/`data-status` hooks)
- * and picks what to show for the current fetch state, delegating the visible
- * markup to the matching render-prop (with a shipped default for each):
- *   loading → `renderLoading` · error → `renderError(retry)` ·
- *   empty → `renderEmpty` · loaded → `renderContent`.
- *
- * Defaults keep accessibility intact (`aria-busy` while loading, an alert +
- * retry button on error) so custom renderers can't accidentally drop it.
- */
 import type { JSX } from 'react';
 import type { ContentCache } from '../core/cache';
 import type {
@@ -31,14 +19,12 @@ export interface ContentNodeProps<Meta = unknown> {
   fetchContent: FetchContent<Meta>;
   direction?: ReadingDirection | undefined;
   sanitize?: SanitizeOption | undefined;
-  /** Shared content cache (sanitized HTML keyed by node id). */
   cache?: ContentCache<string> | undefined;
   renderContent?: RenderContent<Meta> | undefined;
   renderLoading?: RenderLoading<Meta> | undefined;
   renderError?: RenderError<Meta> | undefined;
   renderEmpty?: RenderEmpty<Meta> | undefined;
   className?: string | undefined;
-  /** Attaches the article element to the virtualizer's height measurement. */
   measureRef?: ((el: HTMLElement | null) => void) | undefined;
 }
 

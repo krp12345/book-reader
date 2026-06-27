@@ -106,8 +106,10 @@ no height, so the content pane grew to full book height and never virtualized/
 scrolled; fixed with `height:100%` on the reader root (fills the consumer's sized
 container). Demo `.reader-frame` is now `clamp(320px,60vh,760px)` so window resize
 grows the viewport (resize→fetch-more). **Publishing is OUT of scope** — the user
-packages/publishes manually; do not run `npm pack`/`publish`. **137 unit + 6 e2e
-green.**
+packages/publishes manually; do not run `npm pack`/`publish` or bump the version.
+**README written** (`README.md` — consumer usage guide: install, quickstart,
+core concepts, lazy trees, states, `location`, styling tiers, prop table).
+**137 unit + 6 e2e green.**
 
 **✅ Resolved — scroll flicker (2026-06-27).** The view jumped on *some* scrolls — a
 "no flicker / stable view" violation. **Real root cause:** a **StrictMode
@@ -124,7 +126,7 @@ the corrected scrollTop into state in the same batch (`syncMetrics()` after
 correction) + computing starts from the height map (`offsetAt`) not the rendered
 window. Guarded by `content/ContentPane.anchor.test.tsx` (jsdom logic) + a
 real-browser `e2e/reader.spec.ts` "reading line stays put" test (the StrictMode leak
-only reproduces in a real browser). Remaining M8: README + a11y pass.
+only reproduces in a real browser). Remaining M8: a11y pass (README done).
 
 ### M6 reference (scroll ⟷ tree sync & auto-advance)
 Pure mapping in

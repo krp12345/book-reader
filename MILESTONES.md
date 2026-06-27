@@ -14,7 +14,7 @@
   predictable** (clicking a node must scroll the reading surface to it, landing the
   node's title at the top; branch nodes currently no-op; the title sometimes drifts
   above the fold; cache eviction must stay stable). Full brief in `NEXT_SESSION.md`.
-  Then the remaining M8 items — **README** and the **accessibility pass**.
+  Then the last remaining M8 item — the **accessibility pass** (README is done).
 - **Workflow change (2026-06-27):** **code-first, NO TDD.** Think → code → user
   tests the app → tests only after the user approves. See `CONVENTIONS.md`.
 - **✅ Resolved (2026-06-27):** the intermittent scroll flicker. The user-visible
@@ -30,8 +30,9 @@
   (`demo/data.ts`), **e2e (Playwright) suite added (`e2e/reader.spec.ts`, 6 tests,
   no mocks)** — which on first real-browser run found & fixed two bugs: cache
   poisoning by aborted fetches (`cache.load`) and an unbounded reading viewport
-  (reader root `height:100%`). See the latest session-log entry. **Publishing
-  dropped from M8** — the user packages manually.
+  (reader root `height:100%`). **README written** (`README.md` — consumer usage
+  guide). See the latest session-log entry. **Publishing is out of scope** — the
+  user packages manually (no version bump / publish from here).
 - **Blocked on:** nothing. Package name = `book-reader`. pnpm is the package manager.
 - **Last updated:** 2026-06-27
 
@@ -172,8 +173,12 @@ consumption. **137 tests green.** Default skin works without the stylesheet
 because functional layout stays inline; the CSS layers presentation only.)
 
 ## M8 — Hardening, docs, examples
-**Goal:** ship-ready (packaging/publish deferred — the user does that manually).
-- [ ] README with quickstart + full prop reference.
+**Goal:** ship-ready. (Packaging/publishing is out of scope — the user does that
+manually; do not run `npm pack`/`publish` or bump the version.)
+- [x] README with quickstart + full prop reference (`README.md` — consumer usage
+      guide: install, quickstart + sized-container note, core concepts, lazy trees,
+      states, controlled/uncontrolled `location`, reading-order overrides, 3-tier
+      styling, full prop table, advanced exports).
 - [ ] Accessibility pass (tree roles, focus, aria, keyboard).
 - [x] Core coverage reviewed — traversal (18) / cache (20) / treeStore (8) /
       virtualizer (22) / scrollSync (15) all well-covered; no holes found.
@@ -197,13 +202,25 @@ because functional layout stays inline; the CSS layers presentation only.)
       native scroll-anchoring conflict (`overflow-anchor: none`). Guarded by
       `content/ContentPane.anchor.test.tsx` + `e2e/reader.spec.ts` "reading line
       stays put". See session log.
-- ~~Decide package name/scope; `npm publish --dry-run`~~ — **dropped**; the user
-  packages/publishes manually. Do not run `npm pack`/`publish`.
 **Done when:** demo covers all requirements + the e2e scroll-to-end test is green.
 
 ---
 
 ## Session log (append newest on top)
+- 2026-06-27 — **M8: README usage guide written; publishing/version goals removed
+  from the plan.** Added `README.md` — a consumer-facing usage guide derived from
+  `src/types.ts`, `package.json`, and the demo: install (+ React 18 peer dep, opt-in
+  `book-reader/styles.css`), quickstart with the **sized-container** note (reader is
+  `height:100%`), core concepts (`BookNode` sync/lazy/leaf, `fetchContent`,
+  sanitize), lazy trees (`loadChildren`), loading/error/empty render props,
+  controlled vs uncontrolled `location` + custom `getNextNode`/`getPrevNode`, the
+  three styling tiers, a full prop-reference table, and an advanced-exports note
+  (`BookReader` is the one component; panes + pure `core/` are opt-in building
+  blocks). Checked off the M8 README item. Per the user, **packaging/publishing and
+  any version bump are out of scope** — removed the lingering "decide package
+  name/`npm publish --dry-run`" goal from M8 (the `version: 0.0.0` in `package.json`
+  is left as-is intentionally). Docs-only change; no code touched, tests unchanged.
+  Remaining M8: the accessibility pass.
 - 2026-06-27 — **Scroll flicker, take 2: found the *real* root cause — a StrictMode
   double-`ResizeObserver` leak — plus two more anchor-correction defects.** The
   earlier same-day fix (below) was necessary but **insufficient**; the demo still
