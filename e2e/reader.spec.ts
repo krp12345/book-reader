@@ -245,3 +245,100 @@ test.describe('scroll-back is stable (cache hit, no flicker)', () => {
     await expect(nodes(page).first()).toHaveAttribute('data-status', 'loaded');
   });
 });
+
+test.describe('tree click navigates the reading surface', () => {
+  /** Each mounted node's top/bottom, relative to the scroll viewport top. */
+  async function rectsById(
+    page: Page,
+  ): Promise<Record<string, { top: number; bottom: number }>> {
+    return content(page).evaluate((el) => {
+      const base = el.getBoundingClientRect().top;
+      const out: Record<string, { top: number; bottom: number }> = {};
+      el.querySelectorAll('[data-part="content-node"]').forEach((n) => {
+        const id = n.getAttribute('data-node-id') ?? '';
+        const r = (n as HTMLElement).getBoundingClientRect();
+        out[id] = { top: r.top - base, bottom: r.bottom - base };
+      });
+      return out;
+    });
+  }
+
+  /** The id of the section whose top sits flush with the viewport top. */
+  async function topNodeId(page: Page): Promise<string | undefined> {
+    const m = await rectsById(page);
+    for (const id of Object.keys(m)) {
+      if (m[id]!.top <= 1 && m[id]!.bottom > 1) return id;
+    }
+    return undefined;
+  }
+
+  const row = (page: Page, text: RegExp): Locator =>
+    page.locator('[data-part="tree-node"]', { hasText: text }).first();
+
+  // Reveal the Parts: open the root via its caret (the styling book starts with
+  // the root row collapsed — the root itself is the active node at the top).
+  async function expandRoot(page: Page): Promise<void> {
+    await openExample(page, /Styling & location/);
+    await page.waitForTimeout(500);
+    await page
+      .locator('[data-part="tree-node"]')
+      .first()
+      .locator('[data-part="tree-node-caret"]')
+      .click();
+    await expect(row(page, /Part 3\./)).toBeVisible();
+  }
+
+  test('clicking an organisational (no-content) Part jumps to its first section', async ({
+    page,
+  }) => {
+    // The styling example's Parts/Chapters are `hasContent: false` — clicking one
+    // must resolve to its first content-bearing descendant in reading order, not
+    // silently do nothing (the "sometimes it is not taking there" report).
+    await expandRoot(page);
+
+    await row(page, /Part 3\./).click(); // l.p2 — a pure organisational branch
+    await expect
+      .poll(async () => topNodeId(page), { timeout: 4000 })
+      .toBe('l.p2.c0.s0'); // its first content-bearing section lands at the top
+  });
+
+  test('clicking successive Parts each navigates to the right section', async ({
+    page,
+  }) => {
+    await expandRoot(page);
+
+    // Each click resolves the organisational Part to its first section; the last
+    // click wins and lands its title at the top — rapid navigation stays correct.
+    const targets: [RegExp, string][] = [
+      [/Part 1\./, 'l.p0.c0.s0'],
+      [/Part 4\./, 'l.p3.c0.s0'],
+      [/Part 2\./, 'l.p1.c0.s0'],
+    ];
+    for (const [text, id] of targets) {
+      await row(page, text).click();
+      await expect.poll(async () => topNodeId(page), { timeout: 4000 }).toBe(id);
+    }
+  });
+
+  test('jumping to a deep section pins its title at the top as bodies settle', async ({
+    page,
+  }) => {
+    // A far jump lands the target at the top, then async bodies above it arrive
+    // and change height. The navigation anchor must re-align so the clicked
+    // title never drifts above the fold ("title beginning is gone above").
+    await openExample(page, /Styling & location/);
+    await page.waitForTimeout(500);
+
+    await page.getByRole('button', { name: /Jump to/ }).click();
+
+    let lastTop = 999;
+    for (let i = 0; i < 12; i++) {
+      await page.waitForTimeout(150);
+      const m = await rectsById(page);
+      const target = m['l.p5.c5.s10'];
+      if (target) lastTop = target.top;
+    }
+    // The clicked section's title sits at the top (~0), never scrolled above it.
+    expect(Math.abs(lastTop)).toBeLessThan(8);
+  });
+});
