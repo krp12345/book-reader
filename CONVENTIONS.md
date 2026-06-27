@@ -31,44 +31,43 @@
 - Prefer `type` for unions/props, `interface` for extendable object contracts —
   be consistent within a file.
 
-## Testing & TDD
+## Testing — code first, tests after approval
 
-### Philosophy: pragmatic TDD, not dogma
-We use **test-driven development as the default rhythm**, with the explicit
-freedom to break the rule when it stops adding value. Don't overwhelm the work
-with ceremony.
+> **We do NOT use TDD on this project (changed 2026-06-27, by the user).** Do not
+> write tests before the implementation, and do not write tests for a change until
+> the user has tested it in the running app and **approved** it. Writing tests up
+> front here slows the loop and locks in behavior that isn't settled yet.
 
-**The default loop per unit of behavior:**
-1. **Red** — write a failing test that states the behavior (not the
-   implementation).
-2. **Green** — write the simplest code that passes.
-3. **Refactor** — clean up with the test as a safety net.
+**The working loop per change:**
+1. **Think** — understand the behavior and the failure; state the plan.
+2. **Code** — implement the simplest change that makes the behavior correct and
+   predictable. Keep `pnpm build` + lint + typecheck green.
+3. **Hand off** — let the **user** run the app and test the behavior manually.
+   Don't add tests yet.
+4. **After the user approves** — *then* write tests to lock the behavior in
+   (regression guard). If the user hasn't approved, don't write tests unless they
+   ask.
 
-**When to bend the rule (allowed, and expected):**
-- **Spikes/exploration:** when the right shape is unknown, prototype first, then
-  backfill tests once the design settles. Don't TDD your way through discovery.
-- **Hard-to-unit-test surfaces:** real DOM scroll geometry, layout measurement,
-  and virtualization are awkward in jsdom. Test the **pure logic** (traversal,
-  cache eviction, height-map math, anchor-correction math) thoroughly in
-  isolation; cover the wiring with a few integration/RTL tests; don't chase 100%
-  on browser-only behavior.
-- **Trivial glue:** pure pass-through props or one-line re-exports don't each
-  need a test.
-
-**Always test (non-negotiable, these are the core's contract):**
+**When tests are written (post-approval), what deserves them:**
 - `traversal.ts` — depth-first next/prev order, edge cases (first/last/empty).
 - `cache.ts` — LRU eviction by `maxChars`/`maxNodes`, pinning, in-flight dedup.
 - `treeStore.ts` — sync load, lazy `loadChildren`, normalization.
 - `virtualizer.ts` — height-map updates and anchor-correction math (pure parts).
 - Reading-order + scroll-sync logic at the integration level.
+- Browser-only behavior (real scroll/layout/ResizeObserver, StrictMode) that jsdom
+  can't model → a Playwright `e2e/` test, not a jsdom one.
 
-### Test mechanics
+These are the core's contract; once a behavior is approved, a regression test for it
+is expected. But the test follows approval — it never gates the implementation.
+
+### Test mechanics (for when tests are written)
 - Vitest + React Testing Library + `@testing-library/user-event`.
 - Tests sit next to source: `cache.ts` → `cache.test.ts`.
 - Test **behavior and public contracts**, not private internals.
 - Name tests as behavior statements: `evicts least-recently-used node when
   maxChars exceeded`.
-- A milestone is **not done** until its "Always test" items are green.
+- A change is **shippable** when `pnpm build` + lint + typecheck are green and the
+  user has approved the behavior; the regression tests land right after approval.
 
 ## General code style
 - Match surrounding code; keep modules small and single-purpose per the

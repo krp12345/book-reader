@@ -12,7 +12,8 @@ from tiny inline books to huge lazily-loaded ones.
 ## Read these first (in order), then act
 1. `REQUIREMENTS.md` — frozen spec. The source of truth for behavior & API.
 2. `MILESTONES.md` — restartable plan + progress checkboxes + session log.
-3. `CONVENTIONS.md` — code style, the `any` rule, and the TDD workflow. Binding.
+3. `CONVENTIONS.md` — code style, the `any` rule, and the **code-first (no-TDD)**
+   workflow. Binding.
 4. This file — architecture map & conventions.
 
 **Do not re-derive the design by searching the codebase.** The three docs above
@@ -66,12 +67,14 @@ e2e/                  # Playwright tests (reader.spec.ts) vs the real demo — n
 ## Conventions (full detail in `CONVENTIONS.md`)
 - TypeScript strict. **No `any`** except documented last-resort (prefer generics
   / `unknown` + guards). Match surrounding code style.
-- **Pragmatic TDD**: red→green→refactor by default; bend the rule for spikes and
-  DOM/scroll surfaces. Core pure logic (traversal, cache, treeStore, virtualizer
-  math) is always tested.
+- **Code first — NO TDD** (changed 2026-06-27). Think → code → the **user** tests
+  the running app → **only after the user approves**, write regression tests. Never
+  write tests before implementation or before approval (unless the user asks).
 - `core/` must not import React (keeps it pure + unit-testable).
-- Tests with Vitest live next to source as `*.test.ts(x)`.
-- Run `pnpm build && pnpm test` before declaring a milestone done.
+- Tests (when written, post-approval) use Vitest next to source as `*.test.ts(x)`;
+  browser-only behavior goes in `e2e/` (Playwright), not jsdom.
+- Keep `pnpm build` + lint + typecheck green as you go; a change is shippable when
+  those pass and the user has approved the behavior.
 
 ## Current status
 M0–M7 done. **M7 (styling system)**: `src/styles/book-reader.css` is the importable

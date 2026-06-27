@@ -10,8 +10,13 @@
 ## ▶ STATUS — keep this block current (update at end of every session)
 - **Current milestone:** M8 — Hardening, docs, examples (in progress)
 - **Overall progress:** 7 / 9 milestones complete (M0, M2–M7 done; M1 core types done)
-- **Next action:** remaining M8 items — **README** (quickstart + prop reference +
-  styling tiers) and the **accessibility pass**.
+- **Next action:** **make tree-click navigation seamless + the component
+  predictable** (clicking a node must scroll the reading surface to it, landing the
+  node's title at the top; branch nodes currently no-op; the title sometimes drifts
+  above the fold; cache eviction must stay stable). Full brief in `NEXT_SESSION.md`.
+  Then the remaining M8 items — **README** and the **accessibility pass**.
+- **Workflow change (2026-06-27):** **code-first, NO TDD.** Think → code → user
+  tests the app → tests only after the user approves. See `CONVENTIONS.md`.
 - **✅ Resolved (2026-06-27):** the intermittent scroll flicker. The user-visible
   cause was a **StrictMode double-`ResizeObserver` leak** (observer created in render
   → duplicated → anchor correction applied twice); fixed by owning the observer in a
@@ -34,12 +39,12 @@
 
 Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 
-## How we work each milestone (TDD rhythm)
-Default loop: **red → green → refactor** (see `CONVENTIONS.md`). Within a
-milestone, build **pure `core/` logic test-first**, then wire the React/DOM layer
-with a few integration tests. Bend TDD for spikes and browser-only scroll
-behavior — don't force unit tests onto real layout geometry. A milestone is done
-only when its core logic tests are green and `npm run build && npm test` pass.
+## How we work (code-first — NO TDD, changed 2026-06-27)
+Loop: **think → code → the user tests the running app → after the user approves,
+write regression tests** (see `CONVENTIONS.md`). Do not write tests before the
+implementation or before the user has approved the behavior. Keep `pnpm build` +
+lint + typecheck green as you go; browser-only behavior is guarded in `e2e/`
+(Playwright), pure logic in jsdom — both **after** approval.
 
 ---
 
