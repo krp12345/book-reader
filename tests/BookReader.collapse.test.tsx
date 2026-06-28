@@ -1,14 +1,12 @@
 /**
- * Tree-collapse modes + headless (controlled) overlay open state. The width-driven
- * `'auto'` path needs real layout, so it lives in the e2e suite; here we cover the
- * deterministic, layout-free behaviour: the forced modes, the controlled
- * `treeOpen`/`onTreeOpenChange` contract (external toggle outside `<BookReader>`),
- * and the overlay min-size props. jsdom has no layout, so we force the collapsed
- * UI with `collapseTree="always"` rather than mocking widths.
+ * Tree-collapse modes. The width-driven `'auto'` path needs real layout, so it
+ * lives in the e2e suite; here we cover the deterministic, layout-free behaviour:
+ * the forced modes, the default toggle opening the overlay, and the overlay
+ * min-size props. jsdom has no layout, so we force the collapsed UI with
+ * `collapseTree="always"` rather than mocking widths.
  */
-import { describe, it, expect, vi } from 'vitest';
-import { useState } from 'react';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { describe, it, expect } from 'vitest';
+import { render, fireEvent } from '@testing-library/react';
 import { BookReader } from '../src/BookReader';
 import type { BookNode, FetchContent } from '../src/types';
 
@@ -55,59 +53,5 @@ describe('BookReader — collapse modes', () => {
     expect(overlay).not.toBeNull();
     expect(overlay.style.minWidth).toBe('333px');
     expect(overlay.style.minHeight).toBe('222px');
-  });
-});
-
-describe('BookReader — headless / controlled tree-collapse', () => {
-  function Harness() {
-    const [open, setOpen] = useState(false);
-    return (
-      <>
-        {/* Lives OUTSIDE <BookReader> — the headless use case. */}
-        <button data-testid="ext" onClick={() => setOpen((o) => !o)}>
-          {open ? 'close' : 'open'}
-        </button>
-        <BookReader
-          tree={book}
-          fetchContent={fc}
-          collapseTree="always"
-          treeOpen={open}
-          onTreeOpenChange={setOpen}
-        />
-      </>
-    );
-  }
-
-  it('an external toggle drives the overlay via treeOpen/onTreeOpenChange', () => {
-    render(<Harness />);
-    expect(screen.queryByRole('dialog')).toBeNull();
-
-    // External button opens it…
-    fireEvent.click(screen.getByTestId('ext'));
-    const dialog = screen.getByRole('dialog');
-    expect(dialog).toBeInTheDocument();
-    expect(screen.getByTestId('ext')).toHaveTextContent('close');
-
-    // …and selecting a section from the overlay closes it and syncs the button
-    // (onTreeOpenChange fired for the library-initiated close).
-    fireEvent.click(within(dialog).getByText('Root'));
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(screen.getByTestId('ext')).toHaveTextContent('open');
-  });
-
-  it('reports open/close to onTreeOpenChange when uncontrolled', () => {
-    const onTreeOpenChange = vi.fn();
-    const { container } = render(
-      <BookReader
-        tree={book}
-        fetchContent={fc}
-        collapseTree="always"
-        onTreeOpenChange={onTreeOpenChange}
-      />,
-    );
-    fireEvent.click(container.querySelector('[data-part="tree-toggle"]')!);
-    expect(onTreeOpenChange).toHaveBeenLastCalledWith(true);
-    fireEvent.click(container.querySelector('[data-part="tree-toggle"]')!);
-    expect(onTreeOpenChange).toHaveBeenLastCalledWith(false);
   });
 });

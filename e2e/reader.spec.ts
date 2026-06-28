@@ -15,8 +15,7 @@
  *
  * Also covers the M9 features whose contracts are layout/real-DOM dependent:
  * responsive tree-collapse, the render hooks (custom caret + content wrapper),
- * the headless external toggle, object content payloads, and the split inter-node
- * spacing tokens.
+ * object content payloads, and the split inter-node spacing tokens.
  */
 import { test, expect, type Page, type Locator } from '@playwright/test';
 
@@ -379,35 +378,6 @@ test.describe('render hooks: custom caret + content wrapper', () => {
     await expect
       .poll(async () => page.locator('[data-part="tree-node"]').count())
       .toBeGreaterThan(rowsBefore);
-  });
-});
-
-test.describe('headless tree (external toggle drives the overlay)', () => {
-  test('a button outside <BookReader> opens/closes the section overlay', async ({
-    page,
-  }) => {
-    await openExample(page, /Headless tree/);
-
-    // collapseTree="always": no inline pane, just the external control.
-    await expect(treePane(page)).toHaveCount(0);
-    const ext = page.locator('.headless-btn');
-    await expect(ext).toHaveText(/Open contents/);
-    await expect(page.getByRole('dialog')).toHaveCount(0);
-
-    // The external button opens the controlled overlay…
-    await ext.click();
-    await expect(page.getByRole('dialog')).toBeVisible();
-    await expect(ext).toHaveText(/Close contents/);
-
-    // …and selecting a section closes it and syncs the external button back
-    // (onTreeOpenChange fired for the library-initiated close).
-    await page
-      .getByRole('dialog')
-      .locator('[data-part="tree-node"]')
-      .first()
-      .click();
-    await expect(page.getByRole('dialog')).toHaveCount(0);
-    await expect(ext).toHaveText(/Open contents/);
   });
 });
 

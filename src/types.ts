@@ -289,20 +289,6 @@ export interface BookReaderProps<Meta = unknown, Content = string> {
    * Ignored when `renderTreeOverlay` supplies a custom container.
    */
   treeOverlayMinHeight?: number | string | undefined;
-  /**
-   * Controlled open state for the collapsed tree overlay. When supplied, the
-   * library no longer owns the open/closed state — drive it from outside (e.g.
-   * a toggle that lives in your own header, outside `<BookReader>`) and reflect
-   * changes via `onTreeOpenChange`. Omit for the built-in uncontrolled behavior.
-   */
-  treeOpen?: boolean | undefined;
-  /**
-   * Notified whenever the tree overlay wants to open/close (built-in toggle
-   * clicked, a section selected from the overlay, Esc/outside-click, or the
-   * reader widening out of the collapsed state). Pair with `treeOpen` for full
-   * control, or use alone to observe the uncontrolled state.
-   */
-  onTreeOpenChange?: ((open: boolean) => void) | undefined;
   /** Custom collapsed trigger, replacing the default button. */
   renderTreeToggle?: RenderTreeToggle | undefined;
   /**

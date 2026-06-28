@@ -8,8 +8,6 @@
  *   4. Responsive  — width-driven tree collapse into a floated overlay.
  *   5. Object      — a generic (non-string) structured content payload.
  *   6. Render hooks— custom expand/collapse caret + custom content-node wrapper.
- *   7. Headless    — an external toggle (outside <BookReader>) drives the tree
- *                    overlay via controlled `treeOpen`/`onTreeOpenChange`.
  *
  * Book data is generated with faker (see `data.ts`) — realistic prose, but
  * deterministic. Section *bodies* still load lazily via `fetchContent`.
@@ -225,8 +223,7 @@ type ExampleId =
   | 'styling'
   | 'responsive'
   | 'object'
-  | 'render-hooks'
-  | 'headless';
+  | 'render-hooks';
 const EXAMPLES: { id: ExampleId; label: string; blurb: string }[] = [
   {
     id: 'quickstart',
@@ -277,15 +274,6 @@ const EXAMPLES: { id: ExampleId; label: string; blurb: string }[] = [
       'spread `wrapperProps` (incl. the measurement `ref`) and decorate around ' +
       '`children`.',
   },
-  {
-    id: 'headless',
-    label: '7 · Headless tree',
-    blurb:
-      'The tree is `collapseTree="always"`, and a toggle that lives *outside* ' +
-      '`<BookReader>` (in the controls bar above) drives the overlay via ' +
-      'controlled `treeOpen`/`onTreeOpenChange`. Selecting a section closes the ' +
-      'overlay and the external button reflects it.',
-  },
 ];
 
 type Skin = 'default' | 'themed' | 'custom';
@@ -313,8 +301,6 @@ function App(): JSX.Element {
   const [location, setLocation] = useState<BookLocation | undefined>(undefined);
   const [frameWidth, setFrameWidth] = useState(640);
   const [respMode, setRespMode] = useState<RespMode>('default');
-  // Headless example: open state owned *here*, outside <BookReader>.
-  const [headlessOpen, setHeadlessOpen] = useState(false);
 
   const active = EXAMPLES.find((e) => e.id === example)!;
 
@@ -393,20 +379,8 @@ function App(): JSX.Element {
             onLocationChange={setLocation}
           />
         );
-      case 'headless':
-        return (
-          <BookReader
-            tree={largeBook}
-            fetchContent={fetchStyling}
-            treeWidth={300}
-            collapseTree="always"
-            treeOpen={headlessOpen}
-            onTreeOpenChange={setHeadlessOpen}
-            onLocationChange={setLocation}
-          />
-        );
     }
-  }, [example, skin, location, respMode, headlessOpen]);
+  }, [example, skin, location, respMode]);
 
   return (
     <main className="demo-page">
@@ -490,24 +464,6 @@ function App(): JSX.Element {
         <p className="demo-blurb resp-mode-blurb">
           {RESP_MODES.find((m) => m.id === respMode)!.blurb}
         </p>
-      )}
-
-      {example === 'headless' && (
-        <div className="example-controls">
-          {/* This toggle lives OUTSIDE <BookReader> and drives its overlay. */}
-          <button
-            type="button"
-            className="headless-btn"
-            aria-haspopup="dialog"
-            aria-expanded={headlessOpen}
-            onClick={() => setHeadlessOpen((o) => !o)}
-          >
-            {headlessOpen ? '✕ Close contents' : '☰ Open contents'}
-          </button>
-          <span className="headless-hint">
-            External control — <code>treeOpen={String(headlessOpen)}</code>
-          </span>
-        </div>
       )}
 
       <p className="demo-readout" aria-live="polite">

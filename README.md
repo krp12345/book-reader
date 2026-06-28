@@ -416,42 +416,6 @@ element — **including its `ref`, which the height map depends on** — and ren
 
 ---
 
-## Headless tree control
-
-The collapsed tree's overlay open/closed state can be **controlled**, so the
-toggle that opens the section list can live *outside* `<BookReader>` (your own
-header, sidebar, or command bar). Pair `collapseTree="always"` (tree lives only
-in the overlay) with `treeOpen` + `onTreeOpenChange`:
-
-```tsx
-function Reader() {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <button onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-        ☰ Contents
-      </button>
-      <div style={{ height: '80vh' }}>
-        <BookReader
-          tree={book}
-          fetchContent={fetchContent}
-          collapseTree="always"
-          treeOpen={open}
-          onTreeOpenChange={setOpen}
-        />
-      </div>
-    </>
-  );
-}
-```
-
-`onTreeOpenChange` fires for every open/close the reader initiates too (a
-section selected from the overlay, Esc/outside-click), so your external control
-stays in sync. Omit `treeOpen` to keep the built-in uncontrolled behavior while
-still observing changes via `onTreeOpenChange`.
-
----
-
 ## Props reference
 
 | Prop | Type | Default | Notes |
@@ -473,8 +437,6 @@ still observing changes via `onTreeOpenChange`.
 | `treeOverlayMinHeight` | `number \| string` | `200` | Min height of the default collapsed popover (capped at `70vh`). |
 | `renderTreeToggle` | `RenderTreeToggle` | default button | Custom collapsed trigger. |
 | `renderTreeOverlay` | `RenderTreeOverlay` | portal drawer | Custom collapsed popover container. |
-| `treeOpen` | `boolean` | — | Controlled overlay open state (headless). |
-| `onTreeOpenChange` | `(open) => void` | — | Notified when the overlay opens/closes. |
 | `sanitize` | `boolean \| (html) => string` | `true` | HTML sanitization control. |
 | `overscan` | `number` | `2` | Virtualization buffer (nodes each side). |
 | `estimateHeight` | `number` | `200` | Assumed px for unmeasured nodes. |
@@ -506,9 +468,9 @@ virtualizer. See `src/index.ts` for the full surface.
 **Every shipped feature is Stable** — documented and covered by tests (jsdom/RTL
 integration for the wiring + real-browser Playwright e2e for the layout/scroll
 behaviour). That includes the collapsible tree, custom (object) content payloads,
-the render hooks (`renderExpandCollapse` / `renderContentNode`), and headless tree
-control (`treeOpen` / `onTreeOpenChange`) alongside the core tree, content
-fetching, caching, virtualization, reading position, and styling.
+and the render hooks (`renderExpandCollapse` / `renderContentNode`) alongside the
+core tree, content fetching, caching, virtualization, reading position, and
+styling.
 
 The one area still in progress is a dedicated **accessibility** pass (keyboard nav
 and ARIA roles already ship on the tree; the audit is to harden them across the

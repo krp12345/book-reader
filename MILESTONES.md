@@ -18,9 +18,8 @@
 - **✅ Shipped + tested (2026-06-28):** the whole M9 feature batch **plus its tests**.
   Features: configurable expand/collapse control (`renderExpandCollapse`/
   `ExpandCollapseApi`), inter-node spacing split (`--reader-content-padding-block`/
-  `-inline`), `renderContentNode` wrapper prop, headless/controlled tree-collapse
-  (`treeOpen`/`onTreeOpenChange`), auto-open active branch (driven by explicit
-  navigation in `goTo`, not scroll), tree-indent moved into the skin. Plus an
+  `-inline`), `renderContentNode` wrapper prop, auto-open active branch (driven by
+  explicit navigation in `goTo`, not scroll), tree-indent moved into the skin. Plus an
   **opinionated-style cleanup** (the default caret's `visibility` moved from inline
   into the skin via `data-expandable`; the bare component now carries only structural
   layout). **Tests written & green: 155 unit + 16 e2e**; build + lint + typecheck
@@ -278,14 +277,14 @@ user 2026-06-27.
       `ContentPane`→`BookReader`. Demo example 7 wraps each section in a `<section>`
       with a status badge. Tests deferred → backlog item 6. **Content side only** —
       the tree-row wrapper (`renderTreeRow`) and `renderContentSurface` were dropped.
-- [x] **Headless / controlled tree-collapse.** ✅ implemented 2026-06-28 (awaiting
-      user test). Controlled overlay open state via `treeOpen` + `onTreeOpenChange`
-      (uncontrolled when omitted; still observable). Pairs with
-      `collapseTree="always"` so an external toggle outside `<BookReader>` drives the
-      section overlay. `onTreeOpenChange` fires for library-initiated closes too
-      (select-from-overlay, Esc/outside-click, widen). Demo example 8 "Headless
-      tree". The "tree as a standalone" need is met by the already-exported
-      `TreePane`/`TreePaneView`. Tests deferred → backlog item 10.
+- [x] ~~**Headless / controlled tree-collapse.**~~ **REMOVED 2026-06-28.** The
+      controlled overlay open state (`treeOpen` + `onTreeOpenChange`) that let a
+      toggle outside `<BookReader>` drive the section overlay was removed per the
+      user: the reader must not expose a way to put the collapse button/tree outside
+      the component. The overlay is now **uncontrolled only**. The custom-but-inside
+      hooks (`renderTreeToggle`/`renderTreeOverlay`) and restyling
+      (`classNames.treeToggle`/`.treeOverlay`) are kept. The "tree as a standalone"
+      need is still met by the already-exported `TreePane`/`TreePaneView`.
 - [x] **Auto-open active branch.** ✅ implemented + tested 2026-06-28. Selecting a
       branch (explicit navigation via `goTo`) opens its *own* children, not just its
       ancestors — so clicking a Part reveals its sections. Driven by navigation, not
@@ -353,10 +352,10 @@ the default caret + a11y/keyboard nav unchanged when no override is supplied.
   tunable independently (defaults `1.5rem 2rem` unchanged). (3) **`renderContentNode`**
   + `ContentNodeApi`/`ContentNodeWrapperProps` — consumer owns the per-section
   wrapper element; spreads back `ref`(measureRef)/`className`/`data-*`/`aria-busy`;
-  composes with `renderContent`. (4) **Headless/controlled tree-collapse** —
-  `treeOpen`/`onTreeOpenChange` make the overlay open state controllable (drive it
-  from a toggle outside `<BookReader>`, pair with `collapseTree="always"`); fires on
-  library-initiated closes too. (5) **Auto-open active branch** — the auto-expand
+  composes with `renderContent`. (4) ~~**Headless/controlled tree-collapse**~~ —
+  `treeOpen`/`onTreeOpenChange` shipped here but were **removed 2026-06-28** (no
+  driving the overlay from a toggle outside `<BookReader>`); the overlay is
+  uncontrolled only. (5) **Auto-open active branch** — the auto-expand
   effect now also expands the active node itself when it's a branch. (6) **Tidy
   default styles** — tree rows expose depth as `--br-tree-depth`/`data-depth` and the
   skin owns the indent calc, so the bare component has zero inline indent. Touched
@@ -735,9 +734,8 @@ Where each owed item landed:
   `--br-tree-depth`; no inline `padding-inline-start`).
 - **Auto-open active branch** → `tests/BookReader.autoExpand.test.tsx` (selecting a branch
   opens its own children; sibling stays closed; no auto-dump at the top of the book).
-- **Headless / controlled tree-collapse** → `tests/BookReader.collapse.test.tsx`
-  (external toggle drives `treeOpen`; `onTreeOpenChange` syncs on select-close; uncontrolled
-  reporting) + e2e `headless tree`.
+- ~~**Headless / controlled tree-collapse**~~ → **removed 2026-06-28** (`treeOpen`/
+  `onTreeOpenChange` and their tests + the e2e `headless tree` spec deleted).
 - **ResizeObserver / scrollIntoView infra** → global stubs in `vitest.setup.ts`.
 
 **Remaining (only): the accessibility pass.** Keyboard nav + ARIA roles already ship on the

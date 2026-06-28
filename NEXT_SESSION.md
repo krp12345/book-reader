@@ -8,7 +8,7 @@ Say: **"Continue with NEXT_SESSION.md"**.
 
 ## Task (PRIMARY): the accessibility pass — the LAST remaining M9 item
 Everything else is built, documented (all **Stable**), and test-covered
-(155 unit + 16 e2e green). The only thing left is a focused **accessibility pass**
+(143 unit + 12 e2e green). The only thing left is a focused **accessibility pass**
 across the whole reader, then a11y tests.
 
 What already ships (don't redo — verify/extend):
@@ -38,7 +38,8 @@ Audit + harden (suggested scope — confirm with the user if unsure):
   against the demo). `vitest.setup.ts` stubs `ResizeObserver` + `scrollIntoView`.
 
 ## How to run / verify
-- `pnpm dev` — demo is an **8-example switcher** (Quickstart / Branch / Lazy /
-  Styling / Responsive / Object / Render hooks / Headless tree).
+- `pnpm dev` — demo is a **6-example switcher** (Quickstart / Branch / Styling /
+  Responsive / Object / Render hooks). The "Headless tree" example was removed
+  2026-06-28 along with the `treeOpen`/`onTreeOpenChange` props.
 - `pnpm build` / `pnpm lint` / `pnpm typecheck` must stay green.
-- `pnpm test` (155 unit) / `pnpm test:e2e` (16 Playwright, real Chromium).
+- `pnpm test` / `pnpm test:e2e` (Playwright, real Chromium).

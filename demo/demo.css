@@ -324,21 +324,3 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-
-/* --- Example 8: headless tree (external toggle) --------------------------- */
-.headless-btn {
-  padding: 0.4rem 0.9rem;
-  border: 1px solid #cfd6de;
-  border-radius: 6px;
-  background: #fff;
-  color: #1f2328;
-  font: inherit;
-  cursor: pointer;
-}
-.headless-btn:hover {
-  background: #eef1f5;
-}
-.headless-hint {
-  color: #57606a;
-  font-size: 0.85rem;
-}

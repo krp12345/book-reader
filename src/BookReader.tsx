@@ -39,8 +39,6 @@ export function BookReader<Meta = unknown, Content = string>(
     treeCollapseLabel = 'Contents',
     treeOverlayMinWidth = 240,
     treeOverlayMinHeight = 200,
-    treeOpen,
-    onTreeOpenChange,
     renderTreeToggle,
     renderTreeOverlay,
     sanitize,
@@ -98,18 +96,8 @@ export function BookReader<Meta = unknown, Content = string>(
   // floated overlay (reading width wins). The overlay reuses the shared tree
   // state, so selection/expansion stay in sync with the inline tree.
   const [rootRef, rootWidth] = useElementWidth<HTMLDivElement>();
-  // Overlay open state is controlled when `treeOpen` is supplied (drive it from
-  // your own toggle outside the reader), uncontrolled otherwise.
-  const treeOpenControlled = treeOpen !== undefined;
-  const [internalOverlayOpen, setInternalOverlayOpen] = useState(false);
-  const overlayOpen = treeOpenControlled ? treeOpen : internalOverlayOpen;
-  const setOverlayOpen = useCallback(
-    (next: boolean) => {
-      if (!treeOpenControlled) setInternalOverlayOpen(next);
-      onTreeOpenChange?.(next);
-    },
-    [treeOpenControlled, onTreeOpenChange],
-  );
+  // The floated tree overlay owns its open/closed state internally.
+  const [overlayOpen, setOverlayOpen] = useState(false);
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
   const treeWidthPx = lengthToPx(treeWidth);
