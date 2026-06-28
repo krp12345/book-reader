@@ -47,6 +47,42 @@ describe('BookReader — renderContentNode', () => {
     expect(node?.tagName).toBe('ARTICLE');
   });
 
+  it('passes the full node — including meta — to renderContentNode', async () => {
+    interface Meta {
+      category: string;
+    }
+    const metaBook: BookNode<Meta> = {
+      id: 'm',
+      title: 'Chapter M',
+      meta: { category: 'history' },
+    };
+    const fcMeta: FetchContent<Meta> = () => '<p>Body</p>';
+    const metaWrapper: RenderContentNode<Meta> = ({
+      node,
+      wrapperProps,
+      children,
+    }) => (
+      <article {...wrapperProps} data-testid="wrap-m">
+        <span data-testid="cat">{node.meta?.category}</span>
+        <span data-testid="title">{node.title}</span>
+        {children}
+      </article>
+    );
+
+    render(
+      <BookReader<Meta, string>
+        tree={metaBook}
+        fetchContent={fcMeta}
+        renderContentNode={metaWrapper}
+      />,
+    );
+
+    await screen.findByTestId('wrap-m');
+    // The custom renderer sees node.meta and node.title, not just the content.
+    expect(screen.getByTestId('cat')).toHaveTextContent('history');
+    expect(screen.getByTestId('title')).toHaveTextContent('Chapter M');
+  });
+
   it('composes with renderContent (inner body inside the custom wrapper)', async () => {
     render(
       <BookReader

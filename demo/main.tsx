@@ -8,17 +8,31 @@
  *   4. Responsive  — width-driven tree collapse into a floated overlay.
  *   5. Object      — a generic (non-string) structured content payload.
  *   6. Render hooks— custom expand/collapse caret + custom content-node wrapper.
+ *   7. Selection   — `renderContentNode` captures the user's text selection and
+ *                    sends it out over a decoupled channel; an outside button
+ *                    reads it back (some sections are deliberately unselectable).
  *
  * Book data is generated with faker (see `data.ts`) — realistic prose, but
  * deterministic. Section *bodies* still load lazily via `fetchContent`.
  */
-import { StrictMode, useMemo, useState } from 'react';
+import {
+  StrictMode,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import type { ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BookReader, VERSION } from '../src/index';
 import type {
   BookLocation,
+  BookNode,
   BookReaderClassNames,
   BookReaderProps,
+  ContentNodeWrapperProps,
+  ContentStatus,
   RenderContent,
   RenderContentNode,
   RenderEmpty,
@@ -34,9 +48,17 @@ import {
   makeFetchContent,
   makeLargeBook,
   makeObjectFetchContent,
+  makeSelectionBook,
   makeSyncBook,
   type RichSection,
+  type SelectionMeta,
 } from './data';
+import {
+  selectionBus,
+  type SelMenu,
+  type StagedSelection,
+} from './selectionBus';
+import { applyHighlights, pointOffset } from './highlight';
 // The default skin (tier 1). A consumer writes zero CSS and imports just this.
 import '../src/styles/book-reader.css';
 // Demo-only styles: the themed (token-override) and fully-custom skins + chrome.
@@ -46,6 +68,8 @@ import './demo.css';
 const syncBook = makeSyncBook();
 const largeBook = makeLargeBook();
 const branchBook = makeBranchContentBook();
+const selectionBook = makeSelectionBook();
+const fetchSelection = makeFetchContent<SelectionMeta>({ delayMs: 120 });
 
 // Per-example fetchers (see data.ts). States stages slow + failing + empty nodes.
 const fetchSync = makeFetchContent();
@@ -183,6 +207,136 @@ const renderSectionWrapper: RenderContentNode<unknown, string> = ({
   </section>
 );
 
+// --- Example 7: text selection → staging channel -----------------------------
+// A few sections are deliberately *not* selectable, decided purely from the node
+// id (the trailing section number). In practice locked sections are rare, so we
+// make them stand out by *highlighting* the text rather than just dimming it.
+// This proves a per-node policy lives entirely in the consumer's
+// `renderContentNode`.
+function isSelectable(nodeId: string): boolean {
+  const match = /\.s(\d+)$/.exec(nodeId);
+  const n = match ? Number(match[1]) : 0;
+  return n % 8 !== 0; // ~1 in 8 sections is locked (rare, on purpose)
+}
+
+// The per-node content component. It owns the wrapper element (spreads
+// `wrapperProps`, incl. the measurement `ref`) and:
+//   - on **right-click (context menu)**, decides the action set from state: over
+//     an already-staged highlight → offer *Unstage*; over a fresh selection →
+//     offer *Stage* / *Deselect*. It captures the selection's character range +
+//     text + the node's id/title/`meta` (proof `renderContentNode` gets full node
+//     metadata) and opens the menu via `selectionBus`.
+//   - on every (re)mount and whenever this node's staged set changes, re-paints
+//     persistent highlights via `applyHighlights`. This is what makes staged
+//     highlights survive virtualization: when a section scrolls out its DOM is
+//     destroyed, and when it scrolls back this effect restores the marks from
+//     the durable `selectionBus` ranges.
+function SelectableContentNode({
+  node,
+  wrapperProps,
+  status,
+  children,
+}: {
+  node: BookNode<SelectionMeta>;
+  wrapperProps: ContentNodeWrapperProps;
+  status: ContentStatus;
+  children: ReactNode;
+}): JSX.Element {
+  const selectable = isSelectable(node.id);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [ranges, setRanges] = useState(() => selectionBus.rangesFor(node.id));
+
+  // Keep this node's highlight ranges in sync with the staged set.
+  useEffect(
+    () =>
+      selectionBus.subscribe(() => setRanges(selectionBus.rangesFor(node.id))),
+    [node.id],
+  );
+
+  // Re-paint after the body is in the DOM — on mount/remount (status), and on
+  // any change to this node's ranges (stage/unstage).
+  useLayoutEffect(() => {
+    if (bodyRef.current) applyHighlights(bodyRef.current, ranges);
+  }, [ranges, status]);
+
+  return (
+    <article
+      {...wrapperProps}
+      className={`${wrapperProps.className ?? ''} sel-node${selectable ? '' : ' sel-node--locked'}`}
+      onContextMenu={
+        selectable
+          ? (e) => {
+              // 1) Right-click *on* a staged highlight → offer Unstage.
+              const mark = (e.target as HTMLElement).closest?.(
+                'mark[data-sel-highlight]',
+              );
+              const stagedId = mark?.getAttribute('data-sel-id') ?? undefined;
+              if (stagedId !== undefined) {
+                e.preventDefault();
+                selectionBus.openMenu({
+                  kind: 'staged',
+                  x: e.clientX,
+                  y: e.clientY,
+                  stagedId,
+                });
+                return;
+              }
+              // 2) Right-click over a fresh selection → offer Stage / Deselect.
+              const sel = window.getSelection();
+              const body = bodyRef.current;
+              if (!sel || sel.isCollapsed || !body) return;
+              const text = sel.toString().trim();
+              const range = sel.getRangeAt(0);
+              if (
+                !text ||
+                !body.contains(range.startContainer) ||
+                !body.contains(range.endContainer)
+              )
+                return;
+              const start = pointOffset(body, range.startContainer, range.startOffset);
+              const end = pointOffset(body, range.endContainer, range.endOffset);
+              if (end <= start) return;
+              e.preventDefault();
+              selectionBus.openMenu({
+                kind: 'fresh',
+                x: e.clientX,
+                y: e.clientY,
+                selection: {
+                  nodeId: node.id,
+                  nodeTitle: node.title,
+                  category: node.meta?.category ?? '—',
+                  text,
+                  start,
+                  end,
+                },
+              });
+            }
+          : undefined
+      }
+    >
+      <div className="sel-node-badge" aria-hidden="true">
+        {selectable
+          ? '✏️ selectable — drag to highlight, then Stage'
+          : '🔒 not selectable'}
+      </div>
+      <div className="sel-body" ref={bodyRef}>
+        {children}
+      </div>
+    </article>
+  );
+}
+
+const renderSelectableNode: RenderContentNode<SelectionMeta, string> = ({
+  node,
+  state,
+  wrapperProps,
+  children,
+}) => (
+  <SelectableContentNode node={node} wrapperProps={wrapperProps} status={state.status}>
+    {children}
+  </SelectableContentNode>
+);
+
 type RespMode = 'default' | 'custom-toggle' | 'custom-overlay' | 'forced';
 const RESP_MODES: { id: RespMode; label: string; blurb: string }[] = [
   {
@@ -223,7 +377,8 @@ type ExampleId =
   | 'styling'
   | 'responsive'
   | 'object'
-  | 'render-hooks';
+  | 'render-hooks'
+  | 'selection';
 const EXAMPLES: { id: ExampleId; label: string; blurb: string }[] = [
   {
     id: 'quickstart',
@@ -274,6 +429,20 @@ const EXAMPLES: { id: ExampleId; label: string; blurb: string }[] = [
       'spread `wrapperProps` (incl. the measurement `ref`) and decorate around ' +
       '`children`.',
   },
+  {
+    id: 'selection',
+    label: '7 · Text selection',
+    blurb:
+      '`renderContentNode` lets the user select text anywhere and **Stage** it ' +
+      'onto a standalone channel — the reader has no idea anyone is listening. ' +
+      'Staged text keeps a yellow highlight that **survives scrolling out of view ' +
+      'and back** (re-painted from stored character ranges after virtualization ' +
+      'remounts the section). Each selection tracks the node’s id, title and ' +
+      '`meta` (proof `renderContentNode` gets full node metadata). Stage from many ' +
+      'sections, unstage any; a few sections are locked (`user-select:none`, shown ' +
+      'highlighted). The button below lives *outside* <BookReader> and dumps every ' +
+      'staged selection.',
+  },
 ];
 
 type Skin = 'default' | 'themed' | 'custom';
@@ -301,6 +470,32 @@ function App(): JSX.Element {
   const [location, setLocation] = useState<BookLocation | undefined>(undefined);
   const [frameWidth, setFrameWidth] = useState(640);
   const [respMode, setRespMode] = useState<RespMode>('default');
+
+  // Example 7: the staged set (durable) + the transient right-click context menu,
+  // both read off `selectionBus`. `revealed` is the outside button proving the
+  // full staged content came across.
+  const [staged, setStaged] = useState<StagedSelection[]>([]);
+  const [menu, setMenu] = useState<SelMenu | null>(null);
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => selectionBus.subscribe(setStaged), []);
+  useEffect(() => selectionBus.subscribeMenu(setMenu), []);
+  // Dismiss the context menu on a bare click elsewhere, on Escape, or on any
+  // scroll (incl. the reader's internal scroll, hence capture). The menu itself
+  // stops mousedown propagation so clicking its buttons doesn't dismiss it first.
+  useEffect(() => {
+    const close = (): void => selectionBus.closeMenu();
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') selectionBus.closeMenu();
+    };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('scroll', close, true);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('scroll', close, true);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, []);
 
   const active = EXAMPLES.find((e) => e.id === example)!;
 
@@ -376,6 +571,16 @@ function App(): JSX.Element {
             treeWidth={300}
             renderExpandCollapse={renderPlusMinus}
             renderContentNode={renderSectionWrapper}
+            onLocationChange={setLocation}
+          />
+        );
+      case 'selection':
+        return (
+          <BookReader<SelectionMeta, string>
+            tree={selectionBook}
+            fetchContent={fetchSelection}
+            treeWidth={300}
+            renderContentNode={renderSelectableNode}
             onLocationChange={setLocation}
           />
         );
@@ -464,6 +669,135 @@ function App(): JSX.Element {
         <p className="demo-blurb resp-mode-blurb">
           {RESP_MODES.find((m) => m.id === respMode)!.blurb}
         </p>
+      )}
+
+      {example === 'selection' && (
+        <div className="sel-panel">
+          <div className="example-controls">
+            <button
+              type="button"
+              className="sel-reveal-btn"
+              onClick={() => setRevealed(true)}
+              disabled={staged.length === 0}
+            >
+              ▸ Show all staged content ({staged.length})
+            </button>
+            {staged.length > 0 && (
+              <button
+                type="button"
+                className="sel-clear-btn"
+                onClick={() => {
+                  selectionBus.clear();
+                  setRevealed(false);
+                }}
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+
+          <div className="sel-staged" aria-live="polite">
+            {staged.length === 0 ? (
+              <p className="sel-proof-empty">
+                Select text in a <strong>✏️ selectable</strong> section, then{' '}
+                <strong>right-click</strong> → <strong>Stage</strong> (or{' '}
+                <strong>Deselect</strong> a stray selection). Right-click a staged
+                (yellow) highlight to <strong>Unstage</strong> it. The highlighted{' '}
+                <strong>🔒</strong> sections can’t be selected.
+              </p>
+            ) : (
+              <ul className="sel-chips">
+                {staged.map((s) => (
+                  <li key={s.id} className="sel-chip">
+                    <span className="sel-chip-cat">{s.category}</span>
+                    <span className="sel-chip-text" title={s.text}>
+                      “{s.text.length > 50 ? `${s.text.slice(0, 50)}…` : s.text}”
+                    </span>
+                    <button
+                      type="button"
+                      className="sel-chip-x"
+                      aria-label={`Unstage selection from ${s.nodeId}`}
+                      onClick={() => selectionBus.unstage(s.id)}
+                    >
+                      ✕
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {revealed && staged.length > 0 && (
+            <div className="sel-proof">
+              <p className="sel-proof-head">
+                ✅ {staged.length} selection{staged.length === 1 ? '' : 's'}{' '}
+                communicated out of the reader:
+              </p>
+              <ol className="sel-proof-list">
+                {staged.map((s) => (
+                  <li key={s.id}>
+                    <blockquote className="sel-proof-text">“{s.text}”</blockquote>
+                    <span className="sel-proof-meta">
+                      from <strong>{s.nodeTitle}</strong> · id <code>{s.nodeId}</code>{' '}
+                      · meta.category <code>{s.category}</code> · chars {s.start}–
+                      {s.end} · {new Date(s.at).toLocaleTimeString()}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+        </div>
+      )}
+
+      {example === 'selection' && menu && (
+        <div
+          className="sel-menu"
+          role="menu"
+          style={{ left: `${menu.x}px`, top: `${menu.y}px` }}
+          // Keep the live selection + the menu alive: don't let our own mousedown
+          // bubble to the document "close on click elsewhere" handler.
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
+          {menu.kind === 'fresh' ? (
+            <>
+              <button
+                type="button"
+                role="menuitem"
+                className="sel-menu-item"
+                onClick={() => {
+                  selectionBus.stage(menu.selection);
+                  window.getSelection()?.removeAllRanges();
+                }}
+              >
+                ➕ Stage
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="sel-menu-item"
+                onClick={() => {
+                  window.getSelection()?.removeAllRanges();
+                  selectionBus.closeMenu();
+                }}
+              >
+                ✖ Deselect
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              role="menuitem"
+              className="sel-menu-item"
+              onClick={() => selectionBus.unstage(menu.stagedId)}
+            >
+              ➖ Unstage
+            </button>
+          )}
+        </div>
       )}
 
       <p className="demo-readout" aria-live="polite">

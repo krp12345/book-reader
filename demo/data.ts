@@ -108,6 +108,61 @@ export function makeLargeBook(): BookNode {
   };
 }
 
+/**
+ * Per-node **metadata** carried on `BookNode.meta`. The selection example reads
+ * this in `renderContentNode` (via `api.node.meta`) to prove the custom renderer
+ * gets the full node — id, title *and* metadata — not just the content.
+ */
+export interface SelectionMeta {
+  category: string;
+  /** Approximate word count, just to have a second metadata field. */
+  words: number;
+}
+
+const SELECTION_CATEGORIES = [
+  'history',
+  'theory',
+  'method',
+  'primary source',
+  'field notes',
+];
+
+/**
+ * A mid-sized book (≈128 sections — enough to virtualize / scroll sections out
+ * of the DOM) where **every section carries `meta`**. Used by the text-selection
+ * example so staged selections can track node id + title + metadata, and so
+ * highlights must survive virtualized unmount/remount.
+ */
+export function makeSelectionBook(): BookNode<SelectionMeta> {
+  faker.seed(99);
+  const PARTS = 4;
+  const CHAPTERS = 4;
+  const SECTIONS = 8;
+  const parts = Array.from({ length: PARTS }, (_, p) => ({
+    id: `sel.p${p}`,
+    title: `Part ${p + 1}. ${heading()}`,
+    hasContent: false,
+    children: Array.from({ length: CHAPTERS }, (_, c) => ({
+      id: `sel.p${p}.c${c}`,
+      title: `${p + 1}.${c + 1} ${heading()}`,
+      hasContent: false,
+      children: Array.from({ length: SECTIONS }, (_, s) => {
+        const id = `sel.p${p}.c${c}.s${s}`;
+        faker.seed(seedFrom(id));
+        return {
+          id,
+          title: `§${p + 1}.${c + 1}.${s + 1} ${heading()}`,
+          meta: {
+            category: faker.helpers.arrayElement(SELECTION_CATEGORIES),
+            words: faker.number.int({ min: 120, max: 480 }),
+          },
+        } satisfies BookNode<SelectionMeta>;
+      }),
+    })),
+  }));
+  return { id: 'sel', title: `${heading()} — Annotated`, children: parts };
+}
+
 // ---------------------------------------------------------------------------
 // Content
 // ---------------------------------------------------------------------------
@@ -195,7 +250,9 @@ export function makeObjectFetchContent(
  * Builds a `fetchContent` for the demo. Pure prose by default; pass options to
  * stage the slow / failing / empty cases for the states example.
  */
-export function makeFetchContent(opts: FetchOptions = {}): FetchContent {
+export function makeFetchContent<Meta = unknown>(
+  opts: FetchOptions = {},
+): FetchContent<Meta> {
   const { delayMs = 0, failFirstFor, emptyFor } = opts;
   const attempts = new Map<string, number>();
 

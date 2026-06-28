@@ -324,3 +324,198 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
+
+/* --- Example 7: text selection → staging channel -------------------------- */
+/* The whole point: dragging over selectable prose paints the native selection
+   yellow. Scoped to .sel-node so it only applies inside this example. */
+.sel-node ::selection {
+  background: #ffe600;
+  color: #1a1a00;
+}
+.sel-node ::-moz-selection {
+  background: #ffe600;
+  color: #1a1a00;
+}
+/* Locked sections can't be selected at all. They're rare in practice, so make
+   them stand out by highlighting the text (amber band + left rule + label). */
+.sel-node--locked {
+  user-select: none;
+  background: #fff4d6;
+  box-shadow: inset 3px 0 0 #e0a800;
+}
+.sel-node-badge {
+  display: inline-block;
+  margin-bottom: 0.6rem;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  background: #fff7c2;
+  color: #6b5d00;
+  font: 600 0.7rem/1.4 system-ui, sans-serif;
+  letter-spacing: 0.03em;
+}
+.sel-node--locked .sel-node-badge {
+  background: #f6c945;
+  color: #4d3b00;
+}
+/* Persistent highlight painted onto staged text — survives virtualized
+   unmount/remount because it's re-applied from stored character ranges. */
+.sel-node .sel-highlight {
+  background: #ffe600;
+  color: #1a1a00;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px #e0c200;
+}
+
+/* Right-click context menu, anchored at the cursor. */
+.sel-menu {
+  position: fixed;
+  z-index: 1100;
+  min-width: 8.5rem;
+  padding: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  background: #1a1a1a;
+  border-radius: 8px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.4);
+}
+.sel-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.4rem 0.7rem;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #f0f0f0;
+  font: 500 0.85rem/1.2 system-ui, sans-serif;
+  cursor: pointer;
+}
+.sel-menu-item:hover {
+  background: #333;
+  color: #ffe600;
+}
+
+.sel-panel {
+  margin: 0.5rem 0 0.25rem;
+}
+.sel-reveal-btn {
+  padding: 0.45rem 0.9rem;
+  border: 1px solid #ca8a04;
+  border-radius: 6px;
+  background: #facc15;
+  color: #3f3000;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.sel-reveal-btn:hover:not(:disabled) {
+  background: #eab308;
+}
+.sel-reveal-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.sel-clear-btn {
+  padding: 0.45rem 0.8rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  color: #57606a;
+  font: inherit;
+  cursor: pointer;
+}
+
+.sel-staged {
+  margin-top: 0.5rem;
+}
+.sel-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sel-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 22rem;
+  padding: 0.2rem 0.3rem 0.2rem 0.6rem;
+  border: 1px solid #e0c200;
+  border-radius: 999px;
+  background: #fffbea;
+  font-size: 0.82rem;
+}
+.sel-chip-cat {
+  flex: 0 0 auto;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: #f0e3a8;
+  color: #6b5d00;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: lowercase;
+}
+.sel-chip-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #3f3000;
+}
+.sel-chip-x {
+  flex: 0 0 auto;
+  width: 1.25rem;
+  height: 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: #f0e3a8;
+  color: #6b5d00;
+  cursor: pointer;
+  line-height: 1;
+}
+.sel-chip-x:hover {
+  background: #e0c200;
+  color: #1a1a00;
+}
+
+.sel-proof {
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px dashed #d4b106;
+  border-radius: 8px;
+  background: #fffbea;
+}
+.sel-proof-head {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+  color: #4d3b00;
+}
+.sel-proof-list {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+.sel-proof-list > li {
+  margin-bottom: 0.6rem;
+}
+.sel-proof-text {
+  margin: 0 0 0.25rem;
+  padding: 0.4rem 0.75rem;
+  border-left: 3px solid #facc15;
+  background: #fff;
+  font-style: italic;
+  color: #222;
+}
+.sel-proof-meta {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+.sel-proof-empty {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #6b7280;
+}

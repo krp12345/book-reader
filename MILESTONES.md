@@ -740,3 +740,26 @@ Where each owed item landed:
 
 **Remaining (only): the accessibility pass.** Keyboard nav + ARIA roles already ship on the
 tree; the audit is to harden roles/labels/focus across the whole reader, then add a11y tests.
+
+---
+
+## ⏸ PENDING TESTS — demo example 7 (text selection / staging) — added 2026-06-28
+> Demo-only feature (no library API change — `renderContentNode` already receives
+> the full `BookNode`, incl. `meta`). Already covered: **`tests/content/renderContentNode.test.tsx`**
+> proves `node.meta`/`node.title` reach the renderer end-to-end through `<BookReader>`;
+> **`tests/demo/highlight.test.ts`** proves the pure offset/wrap helpers + the
+> remount-restore case (re-painting a stored char range onto a fresh identical DOM).
+>
+> Owed — the **essential real-browser e2e flow** (Playwright; jsdom can't exercise
+> real virtualization unmount/remount nor a native right-click menu):
+> - In demo example 7: select text in a section, **right-click → Stage**; scroll that
+>   section far out of view (it unmounts) then back, and assert the **yellow highlight
+>   is restored** (the requirement-1 guarantee). Stage from a second section too.
+> - Right-click a staged (yellow) highlight → menu shows **Unstage** only; click it and
+>   assert the in-content highlight disappears live. Right-click a fresh selection →
+>   menu shows **Stage + Deselect**; **Deselect** clears the selection without staging.
+>   (Staged text offers no Deselect — must Unstage first.)
+> - Click the outside **“Show all staged content”** button and assert every staged
+>   selection's text + tracked `nodeId`/title/`meta.category` is dumped (proves the
+>   decoupled channel carried it across the <BookReader> boundary).
+> - Confirm a `🔒 user-select:none` section yields no selection/menu.
