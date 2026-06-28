@@ -12,7 +12,7 @@ import type { BookNode, FetchContent, RenderExpandCollapse } from '../../src/typ
 const book: BookNode = {
   id: 'root',
   title: 'Root',
-  children: [{ id: 'c1', title: 'Child 1', hasChildren: false }],
+  children: [{ id: 'c1', title: 'Child 1' }],
 };
 const fc: FetchContent = (n) => `<p>${n.title}</p>`;
 

@@ -2,9 +2,9 @@
 
 A configurable **React 18** component for reading deeply-nested books: a section
 tree on one side and a virtualized, continuous reading surface on the other.
-It scales from tiny inline books to huge, lazily-loaded ones — content is
-fetched on demand, cached, and the scroll view stays stable (no flicker) as you
-read.
+It scales from tiny inline books to huge ones — section **content** is fetched
+on demand, cached, and the scroll view stays stable (no flicker) as you read.
+The section **tree** is provided up front.
 
 - **One component to use:** `<BookReader>`. Everything else exported is an
   advanced building block you can ignore for normal use.
@@ -93,17 +93,15 @@ entirely for a fully-lazy book (see below).
 interface BookNode<Meta = unknown> {
   id: string;            // stable, unique — keys the store, cache & height map
   title: string;         // shown in the section tree
-  children?: BookNode[]; // present ⇒ already-known children
-  hasChildren?: boolean; // lazy: expandable before children are loaded
+  children?: BookNode[]; // present + non-empty ⇒ an expandable branch
   hasContent?: boolean;  // default true; false ⇒ pure organizational branch
   meta?: Meta;           // arbitrary, typed data you attach to a node
 }
 ```
 
-- A node with `children` is fully known.
-- A node with `hasChildren: true` but **no** `children` is "expandable, not yet
-  loaded" — its children come from `loadChildren` on expand.
-- A node with neither is a **leaf**.
+- The whole tree is provided up front via `tree` (a node or an array of roots).
+- A node with a non-empty `children` array is an **expandable branch**.
+- A node with no `children` (or an empty array) is a **leaf**.
 
 ### Fetching content (`fetchContent`)
 
@@ -127,29 +125,6 @@ Returned HTML is **sanitized** by default (allowlist). To opt out or customize:
 <BookReader sanitize={false} ... />           // trust your own HTML
 <BookReader sanitize={(html) => clean(html)} ... /> // custom sanitizer
 ```
-
----
-
-## Lazy trees (huge books)
-
-For books too large to hold in memory, omit `children` on expandable nodes
-(mark them `hasChildren: true`) and supply `loadChildren`. Subtrees are fetched
-on demand when the user expands them — or automatically as the reader scrolls
-toward an unloaded subtree.
-
-```tsx
-<BookReader
-  tree={{ id: 'root', title: 'Encyclopedia', hasChildren: true }}
-  loadChildren={async (node, { path, signal }) => {
-    const res = await fetch(`/api/children/${node.id}`, { signal });
-    return res.json(); // BookNode[]
-  }}
-  fetchContent={fetchContent}
-/>
-```
-
-You can even omit `tree` entirely and let `loadChildren` build the whole book
-from the root down.
 
 ---
 
@@ -481,8 +456,7 @@ still observing changes via `onTreeOpenChange`.
 
 | Prop | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `tree` | `BookNode \| BookNode[]` | — | One root, a forest, or omit for fully-lazy. |
-| `loadChildren` | `LoadChildren` | — | Lazy children loader; enables on-demand expansion. |
+| `tree` | `BookNode \| BookNode[]` | — | One root or a forest; the full tree up front. |
 | `fetchContent` | `FetchContent` | **required** | Resolves a node's HTML body (sync or async). |
 | `getNextNode` / `getPrevNode` | `GetNextNode` / `GetPrevNode` | DFS order | Override reading order. |
 | `location` | `BookLocation` | — | Controlled reading position. |

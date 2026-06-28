@@ -168,10 +168,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-[data-part='book-reader'] [data-part='tree-node-spinner'] {
-  margin-inline-start: var(--reader-tree-gap);
-  color: var(--reader-color-muted);
-}
 
 /* Collapsed-tree toggle: the tree reduces to this button, which floats over the
    top corner of the reading surface (the bar itself is just a positioning

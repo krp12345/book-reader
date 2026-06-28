@@ -25,7 +25,8 @@
   into the skin via `data-expandable`; the bare component now carries only structural
   layout). **Tests written & green: 155 unit + 16 e2e**; build + lint + typecheck
   clean. README updated — **all features now Stable** (⚠️ Experimental markers
-  dropped). Demo is an 8-example switcher. **Dropped earlier:** `renderContentSurface`
+  dropped). Demo is a 7-example switcher (the Lazy-tree example was removed —
+  see 2026-06-28 lazy-tree removal). **Dropped earlier:** `renderContentSurface`
   + broad configurable tree-node/`renderTreeRow`.
 - **Workflow change (2026-06-27):** **code-first, NO TDD.** Think → code → user
   tests the app → tests only after the user approves. See `CONVENTIONS.md`.
@@ -302,6 +303,24 @@ the default caret + a11y/keyboard nav unchanged when no override is supplied.
 ---
 
 ## Session log (append newest on top)
+- 2026-06-28 — **Lazy tree-structure loading removed entirely (at the user's
+  request — "keep things simple").** Scope: only the **tree structure**; lazy
+  **content** (`fetchContent` + cache + virtualization) is untouched and remains
+  the core. Deleted: `loadChildren`/`LoadChildren`/`LoadChildrenContext`, the
+  `BookNode.hasChildren` field, `treeStore.isLoaded`/`setChildren` (children are
+  always known up front; `childIds` is always an array), `scrollSync.nextNodeToLoad`
+  + the `ContentPane.onNeedNode`/`BookReader` auto-load wiring + the tree `version`
+  plumbing, and the `TreeNodeState.loading`/`ExpandCollapseApi.loading` spinner state
+  (+ its `tree-node-spinner` CSS). `useTreeState` simplified to expand/collapse/select
+  only. Demo: the "Lazy tree" example removed (8→7 switcher) + `makeLazyBook`/
+  `loadChildren` generators dropped from `demo/data.ts`. Tests: lazy-only unit specs
+  removed (`treeStore`/`traversal`/`scrollSync`/`TreePane` lazy blocks) and incidental
+  `hasChildren` fixtures converted to real `children`; e2e "Lazy tree renders",
+  "scroll-to-end auto-advances", and "resize pulls in more" removed (the bounded-
+  viewport + no-flicker + nav e2e remain). Docs updated: REQUIREMENTS §2.1 (sync tree
+  only), README (dropped the "Lazy trees" section + `BookNode.hasChildren`/`loadChildren`
+  rows), CLAUDE.md, CONVENTIONS.md. **`tree` is now the sole tree source.** build +
+  lint + typecheck green. ⚠️ Tests not yet re-run by the user this session.
 - 2026-06-28 — **Opinionated-style cleanup + the whole test backlog written (green).**
   Two-part session at the user's request. (1) **Removed the last opinionated inline
   style:** the default tree caret's `visibility` (hide on non-expandable rows) moved

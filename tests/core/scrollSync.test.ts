@@ -4,7 +4,6 @@ import { createReadingOrder } from '../../src/core/traversal';
 import {
   activeNodeAt,
   isNearBottom,
-  nextNodeToLoad,
   withReadingOverrides,
   type NodeSpan,
 } from '../../src/core/scrollSync';
@@ -52,40 +51,6 @@ describe('isNearBottom — bottom-approach detection', () => {
 
   it('is true when the whole book already fits in the viewport', () => {
     expect(isNearBottom(0, 300, 200, 100)).toBe(true);
-  });
-});
-
-//   root
-//   ├─ a   (lazy, hasChildren, not loaded)
-//   └─ b   (leaf)
-const lazyBook: BookNode = {
-  id: 'root',
-  title: 'Root',
-  children: [
-    { id: 'a', title: 'A', hasChildren: true },
-    { id: 'b', title: 'B' },
-  ],
-};
-
-describe('nextNodeToLoad — the next chapter to lazily fetch', () => {
-  it('finds the first expandable-but-unloaded node at/after the start', () => {
-    const store = createTreeStore({ tree: lazyBook });
-    const seq = createReadingOrder(store).getSequence(); // ['root','a','b']
-    expect(nextNodeToLoad(store, seq)).toBe('a');
-  });
-
-  it('scans forward only from `fromId`', () => {
-    const store = createTreeStore({ tree: lazyBook });
-    const seq = createReadingOrder(store).getSequence();
-    // From 'b' onward there is nothing unloaded → undefined.
-    expect(nextNodeToLoad(store, seq, 'b')).toBeUndefined();
-  });
-
-  it('returns undefined once every node in range is loaded', () => {
-    const store = createTreeStore({ tree: lazyBook });
-    store.setChildren('a', [{ id: 'a1', title: 'A.1' }]);
-    const seq = createReadingOrder(store).getSequence();
-    expect(nextNodeToLoad(store, seq)).toBeUndefined();
   });
 });
 

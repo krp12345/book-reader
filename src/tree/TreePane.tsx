@@ -8,7 +8,6 @@ import {
 import type { TreeStore } from '../core/treeStore';
 import type {
   ExpandCollapseApi,
-  LoadChildren,
   RenderExpandCollapse,
   RenderTreeNode,
   TreeNodeState,
@@ -19,7 +18,6 @@ import { defaultTreeNode } from './defaultTreeNode';
 
 export interface TreePaneProps<Meta = unknown> {
   store: TreeStore<Meta>;
-  loadChildren?: LoadChildren<Meta> | undefined;
   selectedId?: string | undefined;
   onSelect?: ((id: string) => void) | undefined;
   renderTreeNode?: RenderTreeNode<Meta> | undefined;
@@ -42,8 +40,8 @@ export interface TreePaneViewProps<Meta = unknown> {
 export function TreePane<Meta = unknown>(
   props: TreePaneProps<Meta>,
 ): JSX.Element {
-  const { store, loadChildren, selectedId, onSelect, renderTreeNode } = props;
-  const state = useTreeState({ store, loadChildren, selectedId, onSelect });
+  const { store, selectedId, onSelect, renderTreeNode } = props;
+  const state = useTreeState({ store, selectedId, onSelect });
   return (
     <TreePaneView
       store={store}
@@ -66,7 +64,7 @@ export function TreePaneView<Meta = unknown>(
 
   const rows = useMemo(
     () => flattenVisible(store, state.expanded),
-    [store, state.expanded, state.version],
+    [store, state.expanded],
   );
 
   const rowRefs = useRef(new Map<string, HTMLDivElement>());
@@ -149,13 +147,11 @@ export function TreePaneView<Meta = unknown>(
         const expandable = store.isExpandable(row.id);
         const expanded = state.expanded.has(row.id);
         const selected = state.selectedId === row.id;
-        const loading = state.loadingIds.has(row.id);
         const nodeState: TreeNodeState = {
           depth: row.depth,
           expandable,
           expanded,
           selected,
-          loading,
         };
 
         return (
@@ -189,7 +185,6 @@ export function TreePaneView<Meta = unknown>(
               renderExpandCollapse({
                 expandable,
                 expanded,
-                loading,
                 depth: row.depth,
                 toggle: () => state.toggle(row.id),
                 expand: () => state.expand(row.id),

@@ -60,21 +60,6 @@ export interface ReadingOverrides<Meta = unknown> {
   getPrevNode?: GetPrevNode<Meta> | undefined;
 }
 
-export function nextNodeToLoad<Meta = unknown>(
-  store: TreeStore<Meta>,
-  sequence: string[],
-  fromId?: string,
-): string | undefined {
-  const from = fromId === undefined ? 0 : Math.max(0, sequence.indexOf(fromId));
-  for (let i = from; i < sequence.length; i++) {
-    const id = sequence[i];
-    if (id !== undefined && store.isExpandable(id) && !store.isLoaded(id)) {
-      return id;
-    }
-  }
-  return undefined;
-}
-
 export function withReadingOverrides<Meta = unknown>(
   store: TreeStore<Meta>,
   base: ReadingOrder,

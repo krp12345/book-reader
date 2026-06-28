@@ -30,7 +30,6 @@ export type {
 export {
   activeNodeAt,
   isNearBottom,
-  nextNodeToLoad,
   withReadingOverrides,
 } from './core/scrollSync';
 export type { NodeSpan, ReadingOverrides } from './core/scrollSync';
@@ -48,8 +47,6 @@ export type {
   GetNextNode,
   GetPrevNode,
   BookLocation,
-  LoadChildren,
-  LoadChildrenContext,
   TreeNodeState,
   RenderTreeNode,
   ExpandCollapseApi,

@@ -134,20 +134,6 @@ describe('createReadingOrder — getSequence', () => {
     const order = createReadingOrder(createTreeStore());
     expect(order.getSequence()).toEqual([]);
   });
-
-  it('stops at an unloaded expandable node, then descends once loaded', () => {
-    const store = createTreeStore({
-      tree: {
-        id: 'root',
-        title: 'Root',
-        children: [{ id: 'lazy', title: 'Lazy', hasChildren: true }],
-      },
-    });
-    const order = createReadingOrder(store);
-    expect(order.getSequence()).toEqual(['root', 'lazy']);
-    store.setChildren('lazy', [{ id: 'kid', title: 'Kid' }]);
-    expect(order.getSequence()).toEqual(['root', 'lazy', 'kid']);
-  });
 });
 
 describe('createReadingOrder — forest of roots', () => {
@@ -183,25 +169,3 @@ describe('createReadingOrder — edges', () => {
   });
 });
 
-describe('createReadingOrder — lazy trees reflect current knowledge', () => {
-  it('treats an unloaded expandable node as a leaf until its children arrive', () => {
-    const store = createTreeStore({
-      tree: {
-        id: 'root',
-        title: 'Root',
-        children: [
-          { id: 'lazy', title: 'Lazy', hasChildren: true },
-          { id: 'after', title: 'After' },
-        ],
-      },
-    });
-    const order = createReadingOrder(store);
-    // Children of `lazy` aren't known yet, so we cannot descend into it.
-    expect(order.getNext('lazy')).toBe('after');
-
-    store.setChildren('lazy', [{ id: 'kid', title: 'Kid' }]);
-    // Now descent is possible.
-    expect(order.getNext('lazy')).toBe('kid');
-    expect(order.getNext('kid')).toBe('after');
-  });
-});

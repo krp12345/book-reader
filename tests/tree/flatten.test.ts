@@ -50,11 +50,11 @@ describe('flattenVisible', () => {
     ]);
   });
 
-  it('does not descend into a node marked expanded but not yet loaded', () => {
+  it('does not descend into a childless node even if it is in the expanded set', () => {
     const store = createTreeStore({
-      tree: { id: 'root', title: 'Root', hasChildren: true },
+      tree: { id: 'root', title: 'Root' },
     });
-    // "root" is in the expanded set, but its children haven't loaded.
+    // "root" is in the expanded set, but it has no children to reveal.
     expect(flattenVisible(store, new Set(['root']))).toEqual([
       { id: 'root', depth: 0 },
     ]);

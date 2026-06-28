@@ -7,7 +7,9 @@
 ## What this is
 A React 18 **library** exposing `<BookReader>`: a two-pane book reader (section
 tree on the left, continuous virtualized reading surface on the right). Scales
-from tiny inline books to huge lazily-loaded ones.
+from tiny inline books to huge ones — the section **tree** is provided up front;
+only section **content** loads lazily (fetch + cache + virtualize). (Lazy
+tree-structure loading was removed 2026-06-28; `tree` is the sole tree source.)
 
 ## Read these first (in order), then act
 1. `REQUIREMENTS.md` — frozen spec. The source of truth for behavior & API.
@@ -29,14 +31,14 @@ src/
   BookReader.tsx      # top-level component, composes the panes
   types.ts            # Node, BookReaderProps, FetchContext, CacheConfig, ...
   core/
-    treeStore.ts      # normalized id-indexed tree; sync + lazy loadChildren
+    treeStore.ts      # normalized id-indexed tree (provided up front via `tree`)
     traversal.ts      # depth-first next/prev reading order
     cache.ts          # bounded LRU content cache (maxChars), pinning, dedup;
                       #   `load(id, factory(signal))` = refcounted, abortable load
                       #   that owns the signal & never caches an aborted result
     virtualizer.ts    # windowing + height map + anchor correction + offsetAt
-    scrollSync.ts     # active-node detection, near-bottom, reading-order overrides,
-                      #   next-lazy-subtree-to-load (pure; React-free)
+    scrollSync.ts     # active-node detection, near-bottom, reading-order overrides
+                      #   (pure; React-free)
   tree/               # left pane: TreePane.tsx, useTreeState.ts, flatten.ts,
                       #   defaultTreeNode.tsx (+ tests)
   content/            # right pane: ContentPane (virtualized scroll surface),
@@ -47,7 +49,7 @@ src/
                       #   --reader-* tokens; emitted to dist/book-reader.css by a
                       #   Vite plugin, exported as `book-reader/styles.css` (opt-in)
 demo/                 # Vite dev harness: main.tsx (4-example switcher) + data.ts
-                      #   (faker-generated, deterministic, lazy book data) + demo.css
+                      #   (faker-generated, deterministic book data) + demo.css
 e2e/                  # Playwright tests (reader.spec.ts) vs the real demo — no
                       #   mocks. `pnpm test:e2e`; playwright.config.ts; not in
                       #   Vitest's src/** include.
@@ -112,7 +114,7 @@ Plus an **opinionated-style cleanup**: the bare component now carries only struc
 layout inline (the default caret's `visibility` moved to the skin via `data-expandable`).
 **Tests: 155 unit + 16 e2e green** (small set of essential integration + real-browser
 flows; only `ResizeObserver`/`scrollIntoView` are stubbed). **All features are now Stable
-in the README** (no ⚠️ Experimental left). Demo = **8-example switcher**. Generic (object)
+in the README** (no ⚠️ Experimental left). Demo = **7-example switcher**. Generic (object)
 content payload shipped earlier in the batch too.
 
 M0–M7 done. **M7 (styling system)**: `src/styles/book-reader.css` is the importable
@@ -149,7 +151,7 @@ container). Demo `.reader-frame` is now `clamp(320px,60vh,760px)` so window resi
 grows the viewport (resize→fetch-more). **Publishing is OUT of scope** — the user
 packages/publishes manually; do not run `npm pack`/`publish` or bump the version.
 **README written** (`README.md` — consumer usage guide: install, quickstart,
-core concepts, lazy trees, states, `location`, styling tiers, prop table).
+core concepts, states, `location`, styling tiers, prop table).
 **137 unit + 6 e2e green.**
 
 **✅ Resolved — scroll flicker (2026-06-27).** The view jumped on *some* scrolls — a
@@ -169,21 +171,19 @@ window. Guarded by `content/ContentPane.anchor.test.tsx` (jsdom logic) + a
 real-browser `e2e/reader.spec.ts` "reading line stays put" test (the StrictMode leak
 only reproduces in a real browser). Remaining M8: a11y pass (README done).
 
-### M6 reference (scroll ⟷ tree sync & auto-advance)
+### M6 reference (scroll ⟷ tree sync)
 Pure mapping in
 `core/scrollSync.ts` — `activeNodeAt` (node under the scroll reference line),
-`isNearBottom`, `nextNodeToLoad` (next expandable-but-unloaded node = next lazy
-subtree to fetch), `withReadingOverrides` (layers `getNextNode`/`getPrevNode` over
+`isNearBottom`, `withReadingOverrides` (layers `getNextNode`/`getPrevNode` over
 the base DFS order; visited-guarded `getSequence`); plus `virtualizer.offsetAt`
 (absolute start of an off-screen node). React wiring: `useVirtualList` now tracks
 **live scroll** (added the missing scroll listener) and exposes `activeId`/
 `activeOffset`/`atBottom`/`scrollToId`; `ContentPane` builds an override-aware
-sequence, reports active changes, asks `onNeedNode` to load the next lazy subtree
-near the bottom, and honours a tokened `scrollRequest`; **`BookReader` is the
+sequence, reports active changes, and honours a tokened `scrollRequest`;
+**`BookReader` is the
 coordinator** — lifts one shared `useTreeState` (`TreePane` split into
 `TreePaneView`+`TreePane`), highlights the active node, auto-expands its path
-deepest-first only when the active node changes, threads `version` into the content
-pane (so lazy loads regrow the reading sequence), and implements controlled/
+deepest-first only when the active node changes, and implements controlled/
 uncontrolled `location` + `onLocationChange` with an echo-guard. New props:
 `getNextNode`/`getPrevNode`/`location`/`defaultLocation`/`onLocationChange`. New
 types: `ReadingOrderContext`, `GetNextNode`/`GetPrevNode`, `BookLocation`. 134 tests

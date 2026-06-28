@@ -12,7 +12,7 @@
  *    thousand article bodies in memory at once.
  */
 import { faker } from '@faker-js/faker';
-import type { BookNode, FetchContent, LoadChildren } from '../src/index';
+import type { BookNode, FetchContent } from '../src/index';
 
 /** FNV-1a → a stable 32-bit seed from a node id (deterministic per-node content). */
 function seedFrom(id: string): number {
@@ -107,28 +107,6 @@ export function makeLargeBook(): BookNode {
     children: parts,
   };
 }
-
-/** Root of a lazy book: children arrive from `loadChildren` on expand. */
-export function makeLazyBook(): BookNode {
-  return { id: 'z', title: 'A Vast Lazy Library', hasChildren: true };
-}
-
-/**
- * Lazy children loader (async tree strategy). Synthesizes 3–5 child sections
- * per node a few levels deep, after a simulated network round-trip.
- */
-export const loadChildren: LoadChildren = async (node, ctx) => {
-  await new Promise((r) => setTimeout(r, 350));
-  if (ctx.signal.aborted) return [];
-  faker.seed(seedFrom(node.id));
-  const depth = node.id.split('.').length;
-  const count = faker.number.int({ min: 3, max: 5 });
-  return Array.from({ length: count }, (_, i) => ({
-    id: `${node.id}.${i}`,
-    title: heading(),
-    hasChildren: depth < 4, // a few levels deep, then leaves
-  }));
-};
 
 // ---------------------------------------------------------------------------
 // Content

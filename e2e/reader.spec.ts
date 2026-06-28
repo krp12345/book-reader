@@ -4,14 +4,11 @@
  * jsdom physically cannot: real layout, a bounded scroll viewport, live
  * `scroll`/`ResizeObserver` events, and virtualization windowing.
  *
- * They guard three behaviours that broke (or couldn't be verified) before:
+ * They guard behaviours that broke (or couldn't be verified) before:
  *  1. content actually renders — no spurious "No content." (the cache-poisoning
  *     bug where an aborted fetch's empty body got cached);
- *  2. scrolling to the end auto-advances — the next lazy subtree is fetched and
- *     rendered (REQUIREMENTS §2.3);
- *  3. enlarging the window grows the reading viewport, which pulls in more
- *     sections (the resize → fetch-more behaviour, driven by the content pane's
- *     ResizeObserver).
+ *  2. the reading surface is a bounded, virtualized scroller (not full-height),
+ *     and scroll-back over read content is a stable cache hit (no flicker).
  *
  * The demo's book data is faker-generated but deterministic (seeded), so the
  * structural assertions below are stable run-to-run.
@@ -44,18 +41,6 @@ async function viewport(page: Page): Promise<{
     scrollH: el.scrollHeight,
     scrollTop: el.scrollTop,
   }));
-}
-
-/**
- * Scroll the content viewport to its current bottom, repeatedly, letting the
- * lazy loader catch up between hops — the surface grows as new subtrees arrive,
- * so one jump isn't enough to reach the true end.
- */
-async function scrollToEnd(page: Page, hops = 8): Promise<void> {
-  for (let i = 0; i < hops; i++) {
-    await content(page).evaluate((el) => el.scrollTo(0, el.scrollHeight));
-    await page.waitForTimeout(450);
-  }
 }
 
 async function openExample(page: Page, name: RegExp): Promise<void> {
@@ -109,42 +94,9 @@ test.describe('content renders (no spurious "No content.")', () => {
     expect(firstText.trim().length).toBeGreaterThan(40);
   });
 
-  test('Lazy tree renders fetched bodies, not empty placeholders', async ({ page }) => {
-    await openExample(page, /Lazy tree/);
-
-    // Give the lazy loads + content fetches a moment to settle.
-    await expect(
-      page.locator('[data-part="content-node"][data-status="loaded"]').first(),
-    ).toBeVisible();
-    await expect(page.getByText('No content.')).toHaveCount(0);
-  });
 });
 
-test.describe('scroll-to-end auto-advances the reading order', () => {
-  test('reaching the bottom fetches and renders the next lazy subtree', async ({
-    page,
-  }) => {
-    await openExample(page, /Lazy tree/);
-    await expect(
-      page.locator('[data-part="content-node"][data-status="loaded"]').first(),
-    ).toBeVisible();
-
-    // The reading frontier before scrolling.
-    const before = new Set(await mountedIds(page));
-
-    await scrollToEnd(page);
-
-    // New sections — ones that weren't mounted before — are now present, proving
-    // the next lazy subtree was fetched and woven into the reading order.
-    const after = await mountedIds(page);
-    const fresh = after.filter((id) => !before.has(id));
-    expect(fresh.length).toBeGreaterThan(0);
-
-    // And those new sections actually show content (no empty/error stuck states).
-    await expect(page.getByText('No content.')).toHaveCount(0);
-    await expect(page.getByRole('alert')).toHaveCount(0);
-  });
-
+test.describe('the reading surface is a bounded, virtualized scroller', () => {
   test('the surface scrolls internally (bounded viewport, virtualized)', async ({
     page,
   }) => {
@@ -154,39 +106,6 @@ test.describe('scroll-to-end auto-advances the reading order', () => {
     const vp = await viewport(page);
     expect(vp.scrollH).toBeGreaterThan(vp.clientH); // there is something to scroll to
     expect(vp.clientH).toBeLessThan(900); // bounded to the frame, not the whole book
-  });
-});
-
-test.describe('resizing the window pulls in more of the book', () => {
-  test('a taller window grows the viewport and loads more sections', async ({
-    page,
-  }) => {
-    await openExample(page, /Lazy tree/);
-    await expect(
-      page.locator('[data-part="content-node"][data-status="loaded"]').first(),
-    ).toBeVisible();
-
-    // Start short, settle at the bottom of what's currently loaded.
-    await page.setViewportSize({ width: 1100, height: 560 });
-    await page.waitForTimeout(300);
-    await scrollToEnd(page);
-    const shortVp = await viewport(page);
-    const before = new Set(await mountedIds(page));
-
-    // Grow the window: the reader-frame is `clamp(320px, 60vh, 760px)`, so the
-    // content viewport gets taller — a real ResizeObserver event for the pane.
-    await page.setViewportSize({ width: 1100, height: 1100 });
-    await expect
-      .poll(async () => (await viewport(page)).clientH)
-      .toBeGreaterThan(shortVp.clientH);
-
-    // More vertical space at the bottom re-triggers the auto-advance, so more
-    // sections are fetched/mounted than the short window had.
-    await scrollToEnd(page, 4);
-    const after = await mountedIds(page);
-    const fresh = after.filter((id) => !before.has(id));
-    expect(fresh.length).toBeGreaterThan(0);
-    await expect(page.getByText('No content.')).toHaveCount(0);
   });
 });
 

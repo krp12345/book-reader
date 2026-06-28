@@ -111,34 +111,3 @@ describe('BookReader — tree click → scroll content', () => {
     });
   });
 });
-
-describe('BookReader — auto-advance', () => {
-  it('loads the next lazy subtree when the reader reaches the bottom', async () => {
-    const lazyBook: BookNode = {
-      id: 'root',
-      title: 'Root',
-      children: [{ id: 'ch', title: 'Chapter', hasChildren: true }],
-    };
-    const loadChildren = vi.fn(async () => [
-      { id: 's1', title: 'S1' },
-      { id: 's2', title: 'S2' },
-    ]);
-
-    render(
-      <BookReader
-        tree={lazyBook}
-        loadChildren={loadChildren}
-        fetchContent={fetchContent}
-        estimateHeight={NODE_HEIGHT}
-      />,
-    );
-
-    // The two-node book fits the viewport → at bottom → 'ch' (lazy) auto-loads,
-    // and its freshly-fetched children appear in the reading surface.
-    expect(await screen.findByText('Body of S1')).toBeInTheDocument();
-    expect(loadChildren).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'ch' }),
-      expect.anything(),
-    );
-  });
-});

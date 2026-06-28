@@ -2,7 +2,6 @@ export interface BookNode<Meta = unknown> {
   id: string;
   title: string;
   children?: BookNode<Meta>[];
-  hasChildren?: boolean;
   hasContent?: boolean;
   meta?: Meta;
 }
@@ -30,23 +29,11 @@ export interface BookLocation {
   offset?: number | undefined;
 }
 
-export interface LoadChildrenContext<Meta = unknown> {
-  node: BookNode<Meta>;
-  path: string[];
-  signal: AbortSignal;
-}
-
-export type LoadChildren<Meta = unknown> = (
-  node: BookNode<Meta>,
-  ctx: LoadChildrenContext<Meta>,
-) => Promise<BookNode<Meta>[]>;
-
 export interface TreeNodeState {
   depth: number;
   expandable: boolean;
   expanded: boolean;
   selected: boolean;
-  loading: boolean;
 }
 
 export type RenderTreeNode<Meta = unknown> = (
@@ -62,17 +49,15 @@ export type RenderTreeNode<Meta = unknown> = (
  * the click handler only.
  */
 export interface ExpandCollapseApi {
-  /** Whether this row has (or can lazily load) children. */
+  /** Whether this row has children. */
   expandable: boolean;
   /** Whether this row is currently expanded. */
   expanded: boolean;
-  /** Whether this row's children are currently being lazily loaded. */
-  loading: boolean;
   /** This row's depth in the tree (0 = root). */
   depth: number;
   /** Toggle this row open/closed. */
   toggle(): void;
-  /** Expand this row (loads children if lazy). */
+  /** Expand this row. */
   expand(): void;
   /** Collapse this row. */
   collapse(): void;
@@ -252,7 +237,6 @@ export type RenderTreeOverlay = (
 
 export interface BookReaderProps<Meta = unknown, Content = string> {
   tree?: BookNode<Meta> | BookNode<Meta>[] | undefined;
-  loadChildren?: LoadChildren<Meta> | undefined;
   fetchContent: FetchContent<Meta, Content>;
 
   getNextNode?: GetNextNode<Meta> | undefined;

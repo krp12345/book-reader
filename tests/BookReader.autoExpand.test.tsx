@@ -16,12 +16,12 @@ const book: BookNode = {
     {
       id: 'p1',
       title: 'Part 1',
-      children: [{ id: 'p1s1', title: 'Section 1.1', hasChildren: false }],
+      children: [{ id: 'p1s1', title: 'Section 1.1' }],
     },
     {
       id: 'p2',
       title: 'Part 2',
-      children: [{ id: 'p2s1', title: 'Section 2.1', hasChildren: false }],
+      children: [{ id: 'p2s1', title: 'Section 2.1' }],
     },
   ],
 };

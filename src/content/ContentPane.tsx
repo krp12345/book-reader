@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, type JSX } from 'react';
 import type { ContentCache } from '../core/cache';
 import type { TreeStore } from '../core/treeStore';
 import { createReadingOrder } from '../core/traversal';
-import { nextNodeToLoad, withReadingOverrides } from '../core/scrollSync';
+import { withReadingOverrides } from '../core/scrollSync';
 import type {
   FetchContent,
   GetNextNode,
@@ -27,7 +27,6 @@ export interface ScrollRequest {
 export interface ContentPaneProps<Meta = unknown, Content = string> {
   store: TreeStore<Meta>;
   fetchContent: FetchContent<Meta, Content>;
-  version?: number | undefined;
   sanitize?: SanitizeOption | undefined;
   cache?: ContentCache<Content> | undefined;
   overscan?: number | undefined;
@@ -36,7 +35,6 @@ export interface ContentPaneProps<Meta = unknown, Content = string> {
   getNextNode?: GetNextNode<Meta> | undefined;
   getPrevNode?: GetPrevNode<Meta> | undefined;
   onActiveChange?: ((id: string, offset: number) => void) | undefined;
-  onNeedNode?: ((id: string) => void) | undefined;
   scrollRequest?: ScrollRequest | undefined;
   renderContent?: RenderContent<Meta, Content> | undefined;
   renderContentNode?: RenderContentNode<Meta, Content> | undefined;
@@ -53,7 +51,6 @@ export function ContentPane<Meta = unknown, Content = string>(
 ): JSX.Element {
   const {
     store,
-    version,
     fetchContent,
     sanitize,
     cache,
@@ -63,7 +60,6 @@ export function ContentPane<Meta = unknown, Content = string>(
     getNextNode,
     getPrevNode,
     onActiveChange,
-    onNeedNode,
     scrollRequest,
   } = props;
 
@@ -73,7 +69,7 @@ export function ContentPane<Meta = unknown, Content = string>(
       getPrevNode,
     });
     return order.getSequence();
-  }, [store, version, getNextNode, getPrevNode]);
+  }, [store, getNextNode, getPrevNode]);
 
   const ids = useMemo(
     () => fullSeq.filter((id) => store.getNode(id)?.hasContent !== false),
@@ -120,7 +116,6 @@ export function ContentPane<Meta = unknown, Content = string>(
     measureRef,
     activeId,
     activeOffset,
-    atBottom,
     scrollToId,
   } = useVirtualList({
     ids,
@@ -134,14 +129,6 @@ export function ContentPane<Meta = unknown, Content = string>(
   useEffect(() => {
     if (activeId !== undefined) onActiveChange?.(activeId, activeOffset);
   }, [activeId, activeOffset, onActiveChange]);
-
-  useEffect(() => {
-    if (onNeedNode === undefined) return;
-    const candidate = nextNodeToLoad(store, fullSeq, activeId);
-    if (candidate !== undefined && (atBottom || candidate === activeId)) {
-      onNeedNode(candidate);
-    }
-  }, [onNeedNode, store, fullSeq, activeId, atBottom]);
 
   const lastScrollToken = useRef<number | undefined>(undefined);
   useEffect(() => {

@@ -25,11 +25,9 @@ to **very large books** (huge trees, loaded lazily) with the same API.
 
 ### 2.1 Tree (structure) input
 - A book is a tree of **sections and subsections to arbitrary depth**.
-- The tree may be supplied **two ways**, both first-class:
-  - **Synchronous** — a full nested object up front (small books).
-  - **Asynchronous** — a `loadChildren(node, ctx)` function for lazy expansion
-    (large books). The whole tree need never be in memory at once.
-- Both strategies must be **fully configurable**, usable independently or mixed.
+- The tree is supplied **synchronously** — a full nested object (or forest of
+  roots) up front, via the `tree` prop. (Lazy tree-structure loading is out of
+  scope; only section *content* loads on demand — see 2.2.)
 - The left tree **auto-expands the active reading path** ("deepest level first")
   so the tree view stays in sync with where the reader is in the text.
 - Both **branch and leaf** nodes may carry readable content.
@@ -122,8 +120,7 @@ flicker" simultaneously possible):
 ```ts
 <BookReader
   // --- data ---
-  tree={treeObjectOrRoot}                      // sync option
-  loadChildren={(node, ctx) => Promise<Node[]>}// async option (either/both)
+  tree={treeObjectOrRoot}                       // full tree up front
   fetchContent={(node, ctx) => string | Promise<string>}
 
   // --- reading order (optional overrides) ---
@@ -149,7 +146,7 @@ flicker" simultaneously possible):
 />
 ```
 
-`Node` (conceptual): `{ id, title, children?, hasChildren?, hasContent?, meta? }`.
+`Node` (conceptual): `{ id, title, children?, hasContent?, meta? }`.
 `ctx` carries: node path, traversal direction, `AbortSignal`, book-level metadata.
 
 ---

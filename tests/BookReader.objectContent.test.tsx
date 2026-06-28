@@ -10,7 +10,7 @@ import { render, screen } from '@testing-library/react';
 import { BookReader } from '../src/BookReader';
 import type { BookNode, ContentState, FetchContent } from '../src/types';
 
-const leaf: BookNode = { id: 'a', title: 'A', hasChildren: false };
+const leaf: BookNode = { id: 'a', title: 'A' };
 // A single-node book keeps exactly one content node mounted.
 const book: BookNode = { id: 'a', title: 'A' };
 

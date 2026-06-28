@@ -51,7 +51,7 @@
 **When tests are written (post-approval), what deserves them:**
 - `traversal.ts` — depth-first next/prev order, edge cases (first/last/empty).
 - `cache.ts` — LRU eviction by `maxChars`/`maxNodes`, pinning, in-flight dedup.
-- `treeStore.ts` — sync load, lazy `loadChildren`, normalization.
+- `treeStore.ts` — normalized id-indexed tree (provided up front).
 - `virtualizer.ts` — height-map updates and anchor-correction math (pure parts).
 - Reading-order + scroll-sync logic at the integration level.
 - Browser-only behavior (real scroll/layout/ResizeObserver, StrictMode) that jsdom

@@ -4,16 +4,15 @@
  * Each tab is a focused, self-contained scenario:
  *   1. Quickstart  — a small inline (sync) book, the minimal usage.
  *   2. Branch      — branch nodes that carry their own content.
- *   3. Lazy tree   — a huge book whose subtrees load on demand (`loadChildren`).
- *   4. Styling     — the three styling tiers + a controlled `location`.
- *   5. Responsive  — width-driven tree collapse into a floated overlay.
- *   6. Object      — a generic (non-string) structured content payload.
- *   7. Render hooks— custom expand/collapse caret + custom content-node wrapper.
- *   8. Headless    — an external toggle (outside <BookReader>) drives the tree
+ *   3. Styling     — the three styling tiers + a controlled `location`.
+ *   4. Responsive  — width-driven tree collapse into a floated overlay.
+ *   5. Object      — a generic (non-string) structured content payload.
+ *   6. Render hooks— custom expand/collapse caret + custom content-node wrapper.
+ *   7. Headless    — an external toggle (outside <BookReader>) drives the tree
  *                    overlay via controlled `treeOpen`/`onTreeOpenChange`.
  *
  * Book data is generated with faker (see `data.ts`) — realistic prose, but
- * deterministic and lazily materialised so a 1,000-section book stays cheap.
+ * deterministic. Section *bodies* still load lazily via `fetchContent`.
  */
 import { StrictMode, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -33,11 +32,9 @@ import type {
   RenderTreeToggle,
 } from '../src/index';
 import {
-  loadChildren,
   makeBranchContentBook,
   makeFetchContent,
   makeLargeBook,
-  makeLazyBook,
   makeObjectFetchContent,
   makeSyncBook,
   type RichSection,
@@ -50,13 +47,11 @@ import './demo.css';
 // Books are deterministic — generate each once.
 const syncBook = makeSyncBook();
 const largeBook = makeLargeBook();
-const lazyBook = makeLazyBook();
 const branchBook = makeBranchContentBook();
 
 // Per-example fetchers (see data.ts). States stages slow + failing + empty nodes.
 const fetchSync = makeFetchContent();
 const fetchBranch = makeFetchContent({ delayMs: 200 });
-const fetchLazy = makeFetchContent({ delayMs: 300 });
 const fetchStyling = makeFetchContent({ delayMs: 150 });
 const fetchObject = makeObjectFetchContent(200);
 
@@ -153,7 +148,6 @@ const respRenderTreeOverlay: RenderTreeOverlay = ({ close, children }) => (
 const renderPlusMinus: RenderExpandCollapse = ({
   expandable,
   expanded,
-  loading,
   toggle,
 }) =>
   expandable ? (
@@ -167,7 +161,7 @@ const renderPlusMinus: RenderExpandCollapse = ({
         toggle();
       }}
     >
-      {loading ? '⋯' : expanded ? '−' : '+'}
+      {expanded ? '−' : '+'}
     </button>
   ) : (
     <span className="rh-caret rh-caret--leaf" aria-hidden="true">
@@ -228,7 +222,6 @@ const RESP_MODES: { id: RespMode; label: string; blurb: string }[] = [
 type ExampleId =
   | 'quickstart'
   | 'branch'
-  | 'lazy'
   | 'styling'
   | 'responsive'
   | 'object'
@@ -240,7 +233,7 @@ const EXAMPLES: { id: ExampleId; label: string; blurb: string }[] = [
     label: '1 · Quickstart',
     blurb:
       'A small inline book passed via `tree`, with a synchronous `fetchContent`. ' +
-      'The simplest possible usage — no loading states, no lazy tree.',
+      'The simplest possible usage — no loading states.',
   },
   {
     id: 'branch',
@@ -251,22 +244,15 @@ const EXAMPLES: { id: ExampleId; label: string; blurb: string }[] = [
       'the Part the active (highlighted) node, not one of its chapters.',
   },
   {
-    id: 'lazy',
-    label: '3 · Lazy tree',
-    blurb:
-      'A vast book with no children up front: `loadChildren` fetches each subtree ' +
-      'on expand (watch the spinner). The whole tree is never in memory at once.',
-  },
-  {
     id: 'styling',
-    label: '4 · Styling & location',
+    label: '3 · Styling & location',
     blurb:
       'A large (virtualized) book across all three styling tiers, with a controlled ' +
       '`location`: the readout follows scrolling, and “Jump” drives the reader.',
   },
   {
     id: 'responsive',
-    label: '5 · Responsive tree',
+    label: '4 · Responsive tree',
     blurb:
       'Reading width wins: when the reader is too narrow to fit the tree *and* the ' +
       'content floor (`contentMinWidth`), the tree collapses to a toggle that opens ' +
@@ -274,7 +260,7 @@ const EXAMPLES: { id: ExampleId; label: string; blurb: string }[] = [
   },
   {
     id: 'object',
-    label: '6 · Object content',
+    label: '5 · Object content',
     blurb:
       '`fetchContent` returns a *structured object* (a typed `RichSection`), not an ' +
       'HTML string. A consumer-owned `renderContent(node, section)` renders it — ' +
@@ -283,7 +269,7 @@ const EXAMPLES: { id: ExampleId; label: string; blurb: string }[] = [
   },
   {
     id: 'render-hooks',
-    label: '7 · Render hooks',
+    label: '6 · Render hooks',
     blurb:
       '`renderExpandCollapse` swaps the disclosure caret for a +/− control ' +
       '(library keeps row a11y + keyboard nav); `renderContentNode` owns the ' +
@@ -293,7 +279,7 @@ const EXAMPLES: { id: ExampleId; label: string; blurb: string }[] = [
   },
   {
     id: 'headless',
-    label: '8 · Headless tree',
+    label: '7 · Headless tree',
     blurb:
       'The tree is `collapseTree="always"`, and a toggle that lives *outside* ' +
       '`<BookReader>` (in the controls bar above) drives the overlay via ' +
@@ -349,16 +335,6 @@ function App(): JSX.Element {
           <BookReader
             tree={branchBook}
             fetchContent={fetchBranch}
-            treeWidth={300}
-            onLocationChange={setLocation}
-          />
-        );
-      case 'lazy':
-        return (
-          <BookReader
-            tree={lazyBook}
-            loadChildren={loadChildren}
-            fetchContent={fetchLazy}
             treeWidth={300}
             onLocationChange={setLocation}
           />

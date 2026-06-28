@@ -24,7 +24,6 @@ export function BookReader<Meta = unknown, Content = string>(
 ): JSX.Element {
   const {
     tree,
-    loadChildren,
     fetchContent,
     cache: cacheConfig,
     prefetchCount,
@@ -159,7 +158,6 @@ export function BookReader<Meta = unknown, Content = string>(
 
   const treeState = useTreeState<Meta>({
     store,
-    loadChildren,
     selectedId: activeId,
     onSelect: goTo,
   });
@@ -170,11 +168,6 @@ export function BookReader<Meta = unknown, Content = string>(
       emit({ nodeId: id, offset });
     },
     [controlled, emit],
-  );
-
-  const handleNeedNode = useCallback(
-    (id: string): void => treeState.load(id),
-    [treeState],
   );
 
   expandRef.current = treeState.expand;
@@ -337,7 +330,6 @@ export function BookReader<Meta = unknown, Content = string>(
             own scrollTop/clientHeight); this wrapper only sizes it. */}
         <ContentPane
           store={store}
-          version={treeState.version}
           fetchContent={fetchContent}
           cache={cache}
           sanitize={sanitize}
@@ -347,7 +339,6 @@ export function BookReader<Meta = unknown, Content = string>(
           getNextNode={getNextNode}
           getPrevNode={getPrevNode}
           onActiveChange={handleActiveChange}
-          onNeedNode={handleNeedNode}
           scrollRequest={scrollRequest}
           renderContent={renderContent}
           renderContentNode={renderContentNode}

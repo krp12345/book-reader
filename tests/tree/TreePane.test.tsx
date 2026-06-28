@@ -94,44 +94,6 @@ describe('TreePane — selection', () => {
   });
 });
 
-describe('TreePane — lazy loading', () => {
-  it('loads children on expand and shows a loading hint until they arrive', async () => {
-    const user = userEvent.setup();
-    const store = createTreeStore({
-      tree: { id: 'root', title: 'Root', hasChildren: true },
-    });
-    let resolve!: (children: BookNode[]) => void;
-    const loadChildren = vi.fn(
-      () => new Promise<BookNode[]>((r) => (resolve = r)),
-    );
-
-    render(<TreePane store={store} loadChildren={loadChildren} />);
-    await user.click(caretOf(treeitem(/Root/)));
-
-    expect(loadChildren).toHaveBeenCalledTimes(1);
-    // Children not resolved yet → none visible.
-    expect(screen.queryByText('Lazy child')).not.toBeInTheDocument();
-
-    resolve([{ id: 'kid', title: 'Lazy child' }]);
-    expect(await screen.findByText('Lazy child')).toBeInTheDocument();
-  });
-
-  it('de-duplicates concurrent loads of the same node', async () => {
-    const user = userEvent.setup();
-    const store = createTreeStore({
-      tree: { id: 'root', title: 'Root', hasChildren: true },
-    });
-    const loadChildren = vi.fn(() => new Promise<BookNode[]>(() => {}));
-    render(<TreePane store={store} loadChildren={loadChildren} />);
-
-    const caret = caretOf(treeitem(/Root/));
-    await user.click(caret); // expand → load
-    await user.click(caret); // collapse
-    await user.click(caret); // expand again while first load still in flight
-    expect(loadChildren).toHaveBeenCalledTimes(1);
-  });
-});
-
 describe('TreePane — keyboard navigation', () => {
   it('moves focus with arrows and expands/selects via keys', async () => {
     const user = userEvent.setup();

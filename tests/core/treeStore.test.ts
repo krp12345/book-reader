@@ -54,11 +54,10 @@ describe('createTreeStore — sync tree', () => {
     expect(store.getParentId('root')).toBeUndefined();
   });
 
-  it('distinguishes a loaded-empty leaf from an unloaded node', () => {
+  it('treats a node with no children key as a non-expandable leaf', () => {
     const store = createTreeStore({ tree: sampleTree });
-    // ch2 has no children key at all → a leaf → "loaded" with empty children.
+    // ch2 has no children key at all → a leaf with empty children.
     expect(store.getChildren('ch2')).toEqual([]);
-    expect(store.isLoaded('ch2')).toBe(true);
     expect(store.isExpandable('ch2')).toBe(false);
   });
 
@@ -66,35 +65,5 @@ describe('createTreeStore — sync tree', () => {
     const store = createTreeStore({ tree: sampleTree });
     expect(store.getPath('ch1a')).toEqual(['root', 'ch1']);
     expect(store.getPath('root')).toEqual([]);
-  });
-});
-
-describe('createTreeStore — lazy tree', () => {
-  it('marks hasChildren nodes as expandable but not yet loaded', () => {
-    const store = createTreeStore({
-      tree: { id: 'root', title: 'Root', hasChildren: true },
-    });
-    expect(store.isExpandable('root')).toBe(true);
-    expect(store.isLoaded('root')).toBe(false);
-    expect(store.getChildren('root')).toBeUndefined();
-  });
-
-  it('absorbs lazily-loaded children and indexes them', () => {
-    const store = createTreeStore({
-      tree: { id: 'root', title: 'Root', hasChildren: true },
-    });
-    store.setChildren('root', [
-      { id: 'x', title: 'X' },
-      { id: 'y', title: 'Y', hasChildren: true },
-    ]);
-
-    expect(store.isLoaded('root')).toBe(true);
-    expect(store.getChildren('root')).toEqual(['x', 'y']);
-    expect(store.getNode('y')?.title).toBe('Y');
-    expect(store.getParentId('x')).toBe('root');
-    expect(store.getPath('x')).toEqual(['root']);
-    // y was loaded as expandable-but-empty
-    expect(store.isExpandable('y')).toBe(true);
-    expect(store.isLoaded('y')).toBe(false);
   });
 });
