@@ -15,6 +15,11 @@
  *
  * The demo's book data is faker-generated but deterministic (seeded), so the
  * structural assertions below are stable run-to-run.
+ *
+ * Also covers the M9 features whose contracts are layout/real-DOM dependent:
+ * responsive tree-collapse, the render hooks (custom caret + content wrapper),
+ * the headless external toggle, object content payloads, and the split inter-node
+ * spacing tokens.
  */
 import { test, expect, type Page, type Locator } from '@playwright/test';
 
@@ -57,6 +62,25 @@ async function openExample(page: Page, name: RegExp): Promise<void> {
   await page.getByRole('tab', { name }).click();
   // Wait for the freshly-mounted reading surface to have content.
   await expect(nodes(page).first()).toBeVisible();
+}
+
+const treePane = (page: Page): Locator => page.locator('[data-part="tree-pane"]');
+const treeToggle = (page: Page): Locator =>
+  page.locator('[data-part="tree-toggle"]');
+const treeOverlay = (page: Page): Locator =>
+  page.locator('[data-part="tree-overlay"]');
+
+/** Drive the Responsive example's controlled width slider (a React input). */
+async function setFrameWidth(page: Page, value: number): Promise<void> {
+  await page.locator('.resp-width input[type="range"]').evaluate((el, v) => {
+    const input = el as HTMLInputElement;
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      'value',
+    )!.set!;
+    setter.call(input, String(v));
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }, value);
 }
 
 test.beforeEach(async ({ page }) => {
@@ -372,5 +396,144 @@ test.describe('tree click navigates the reading surface', () => {
     }
     // The clicked section's title sits at the top (~0), never scrolled above it.
     expect(Math.abs(lastTop)).toBeLessThan(8);
+  });
+});
+
+test.describe('responsive tree-collapse (reading width wins)', () => {
+  // Real layout only: the collapse decision is width-driven (tree 300 +
+  // contentMinWidth 420 ⇒ collapse under ~720px frame). jsdom can't do this.
+  test('narrowing collapses the tree to a popover; widening restores the pane', async ({
+    page,
+  }) => {
+    await openExample(page, /Responsive tree/);
+
+    // Wide: both panes fit, the inline tree is shown.
+    await setFrameWidth(page, 900);
+    await expect(treePane(page)).toBeVisible();
+    await expect(treeToggle(page)).toHaveCount(0);
+
+    // Narrow under the floor: the tree collapses to a toggle (no inline pane).
+    await setFrameWidth(page, 340);
+    await expect(treeToggle(page)).toBeVisible();
+    await expect(treePane(page)).toHaveCount(0);
+
+    // The toggle opens the floated tree at the current position…
+    await treeToggle(page).click();
+    await expect(treeOverlay(page)).toBeVisible();
+
+    // …selecting a section navigates and dismisses the popover.
+    await treeOverlay(page)
+      .locator('[data-part="tree-node"]')
+      .first()
+      .click();
+    await expect(treeOverlay(page)).toHaveCount(0);
+
+    // Widening past the floor brings the inline pane back (no orphaned popover).
+    await setFrameWidth(page, 900);
+    await expect(treePane(page)).toBeVisible();
+    await expect(treeOverlay(page)).toHaveCount(0);
+  });
+});
+
+test.describe('render hooks: custom caret + content wrapper', () => {
+  test('the caret is replaced and the content wrapper is the consumer element', async ({
+    page,
+  }) => {
+    await openExample(page, /Render hooks/);
+
+    // renderExpandCollapse replaced the default caret entirely.
+    await expect(page.locator('[data-part="tree-node-caret"]')).toHaveCount(0);
+    await expect(page.locator('.rh-caret').first()).toBeVisible();
+
+    // renderContentNode owns the wrapper: each section is a <section> (not the
+    // default <article>) and still carries the data-part hook + the status badge.
+    const first = nodes(page).first();
+    await expect(first).toBeVisible();
+    expect(
+      await first.evaluate((el) => el.tagName),
+    ).toBe('SECTION');
+    await expect(first.locator('.rh-node-badge')).toBeVisible();
+
+    // The custom +/− control still drives real expansion (library kept the nav).
+    const rowsBefore = await page.locator('[data-part="tree-node"]').count();
+    await page.locator('.rh-caret').first().click();
+    await expect
+      .poll(async () => page.locator('[data-part="tree-node"]').count())
+      .toBeGreaterThan(rowsBefore);
+  });
+});
+
+test.describe('headless tree (external toggle drives the overlay)', () => {
+  test('a button outside <BookReader> opens/closes the section overlay', async ({
+    page,
+  }) => {
+    await openExample(page, /Headless tree/);
+
+    // collapseTree="always": no inline pane, just the external control.
+    await expect(treePane(page)).toHaveCount(0);
+    const ext = page.locator('.headless-btn');
+    await expect(ext).toHaveText(/Open contents/);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+
+    // The external button opens the controlled overlay…
+    await ext.click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(ext).toHaveText(/Close contents/);
+
+    // …and selecting a section closes it and syncs the external button back
+    // (onTreeOpenChange fired for the library-initiated close).
+    await page
+      .getByRole('dialog')
+      .locator('[data-part="tree-node"]')
+      .first()
+      .click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(ext).toHaveText(/Open contents/);
+  });
+});
+
+test.describe('object content payload', () => {
+  test('a structured object renders without any HTML injection', async ({
+    page,
+  }) => {
+    await openExample(page, /Object content/);
+
+    // The consumer's renderContent drew the typed object…
+    await expect(page.locator('.obj-section').first()).toBeVisible();
+    await expect(page.locator('.obj-head h2').first()).toBeVisible();
+
+    // …and the string-only HTML path never ran for the object payload.
+    await expect(page.locator('[data-part="content-html"]')).toHaveCount(0);
+  });
+});
+
+test.describe('inter-node spacing tokens (independent block/inline padding)', () => {
+  test('content padding splits into block + inline, tunable separately', async ({
+    page,
+  }) => {
+    // Defaults from the real skin: 1.5rem block (24px) / 2rem inline (32px).
+    const first = nodes(page).first();
+    await expect(first).toBeVisible();
+    const pad = (el: Locator) =>
+      el.evaluate((n) => {
+        const s = getComputedStyle(n as HTMLElement);
+        return { top: s.paddingTop, left: s.paddingLeft };
+      });
+    expect(await pad(first)).toEqual({ top: '24px', left: '32px' });
+
+    // Overriding only the *block* token changes vertical spacing, not horizontal —
+    // the whole point of the split (gap between sections, independent of inset).
+    await page
+      .locator('[data-part="book-reader"]')
+      .evaluate((el) =>
+        (el as HTMLElement).style.setProperty(
+          '--reader-content-padding-block',
+          '40px',
+        ),
+      );
+    await expect
+      .poll(async () => (await pad(first)).top)
+      .toBe('40px');
+    expect((await pad(first)).left).toBe('32px');
   });
 });

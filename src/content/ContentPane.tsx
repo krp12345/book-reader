@@ -8,6 +8,7 @@ import type {
   GetNextNode,
   GetPrevNode,
   RenderContent,
+  RenderContentNode,
   RenderEmpty,
   RenderError,
   RenderLoading,
@@ -38,6 +39,7 @@ export interface ContentPaneProps<Meta = unknown, Content = string> {
   onNeedNode?: ((id: string) => void) | undefined;
   scrollRequest?: ScrollRequest | undefined;
   renderContent?: RenderContent<Meta, Content> | undefined;
+  renderContentNode?: RenderContentNode<Meta, Content> | undefined;
   renderLoading?: RenderLoading<Meta> | undefined;
   renderError?: RenderError<Meta> | undefined;
   renderEmpty?: RenderEmpty<Meta> | undefined;
@@ -184,6 +186,7 @@ export function ContentPane<Meta = unknown, Content = string>(
             cache={cache}
             measureRef={measureRef(id)}
             renderContent={props.renderContent}
+            renderContentNode={props.renderContentNode}
             renderLoading={props.renderLoading}
             renderError={props.renderError}
             renderEmpty={props.renderEmpty}

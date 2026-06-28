@@ -99,6 +99,22 @@ e2e/                  # Playwright tests (reader.spec.ts) vs the real demo — n
   those pass and the user has approved the behavior.
 
 ## Current status
+**M9 feature batch BUILT + TEST-COVERED 2026-06-28. Only the accessibility pass
+remains.** Shipped + tested: `renderExpandCollapse`/`ExpandCollapseApi` (caret-only
+tree customization, library keeps row a11y/keyboard nav), inter-node spacing split
+(`--reader-content-padding-block`/`-inline`), `renderContentNode` wrapper render prop
+(`ContentNodeApi`/`ContentNodeWrapperProps`; spread `wrapperProps` incl. `ref` or
+virtualization breaks), headless/controlled tree-collapse (`treeOpen`/`onTreeOpenChange`,
+pair with `collapseTree="always"`), auto-open active branch (driven by explicit
+navigation in `goTo`, **not** the scroll-derived active — so the top of the book is never
+auto-dumped), tree-indent moved into the skin (rows expose `--br-tree-depth`/`data-depth`).
+Plus an **opinionated-style cleanup**: the bare component now carries only structural
+layout inline (the default caret's `visibility` moved to the skin via `data-expandable`).
+**Tests: 155 unit + 16 e2e green** (small set of essential integration + real-browser
+flows; only `ResizeObserver`/`scrollIntoView` are stubbed). **All features are now Stable
+in the README** (no ⚠️ Experimental left). Demo = **8-example switcher**. Generic (object)
+content payload shipped earlier in the batch too.
+
 M0–M7 done. **M7 (styling system)**: `src/styles/book-reader.css` is the importable
 default skin — **presentation only** (font/colors/typography/spacing), scoped under
 `[data-part="book-reader"]`, layered on top of the **functional layout the components

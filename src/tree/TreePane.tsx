@@ -1,6 +1,18 @@
-import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import {
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+} from 'react';
 import type { TreeStore } from '../core/treeStore';
-import type { LoadChildren, RenderTreeNode, TreeNodeState } from '../types';
+import type {
+  ExpandCollapseApi,
+  LoadChildren,
+  RenderExpandCollapse,
+  RenderTreeNode,
+  TreeNodeState,
+} from '../types';
 import { flattenVisible } from './flatten';
 import { useTreeState, type TreeState } from './useTreeState';
 import { defaultTreeNode } from './defaultTreeNode';
@@ -11,6 +23,7 @@ export interface TreePaneProps<Meta = unknown> {
   selectedId?: string | undefined;
   onSelect?: ((id: string) => void) | undefined;
   renderTreeNode?: RenderTreeNode<Meta> | undefined;
+  renderExpandCollapse?: RenderExpandCollapse | undefined;
   className?: string | undefined;
   treeNodeClassName?: string | undefined;
   'aria-label'?: string | undefined;
@@ -20,6 +33,7 @@ export interface TreePaneViewProps<Meta = unknown> {
   store: TreeStore<Meta>;
   state: TreeState;
   renderTreeNode?: RenderTreeNode<Meta> | undefined;
+  renderExpandCollapse?: RenderExpandCollapse | undefined;
   className?: string | undefined;
   treeNodeClassName?: string | undefined;
   'aria-label'?: string | undefined;
@@ -35,6 +49,7 @@ export function TreePane<Meta = unknown>(
       store={store}
       state={state}
       renderTreeNode={renderTreeNode}
+      renderExpandCollapse={props.renderExpandCollapse}
       className={props.className}
       treeNodeClassName={props.treeNodeClassName}
       aria-label={props['aria-label']}
@@ -45,7 +60,8 @@ export function TreePane<Meta = unknown>(
 export function TreePaneView<Meta = unknown>(
   props: TreePaneViewProps<Meta>,
 ): JSX.Element {
-  const { store, state, renderTreeNode, treeNodeClassName } = props;
+  const { store, state, renderTreeNode, renderExpandCollapse, treeNodeClassName } =
+    props;
   const renderNode = renderTreeNode ?? defaultTreeNode;
 
   const rows = useMemo(
@@ -158,30 +174,43 @@ export function TreePaneView<Meta = unknown>(
               .filter(Boolean)
               .join(' ')}
             data-part="tree-node"
+            data-depth={row.depth}
             data-selected={selected || undefined}
-            style={{
-              paddingInlineStart: `calc(${row.depth} * var(--reader-tree-indent, 1rem))`,
-            }}
+            // Depth is *data* (the skin turns it into indentation via
+            // --reader-tree-indent); the bare component carries no inline indent.
+            style={{ '--br-tree-depth': row.depth } as CSSProperties}
             onClick={() => {
               setFocusId(row.id);
               state.select(row.id);
             }}
             onFocus={() => setFocusId(row.id)}
           >
-            <button
-              type="button"
-              className="br-tree-node__caret"
-              data-part="tree-node-caret"
-              aria-hidden="true"
-              tabIndex={-1}
-              style={{ visibility: expandable ? 'visible' : 'hidden' }}
-              onClick={(event) => {
-                event.stopPropagation();
-                state.toggle(row.id);
-              }}
-            >
-              {expanded ? '▾' : '▸'}
-            </button>
+            {renderExpandCollapse ? (
+              renderExpandCollapse({
+                expandable,
+                expanded,
+                loading,
+                depth: row.depth,
+                toggle: () => state.toggle(row.id),
+                expand: () => state.expand(row.id),
+                collapse: () => state.collapse(row.id),
+              } satisfies ExpandCollapseApi)
+            ) : (
+              <button
+                type="button"
+                className="br-tree-node__caret"
+                data-part="tree-node-caret"
+                data-expandable={expandable || undefined}
+                aria-hidden="true"
+                tabIndex={-1}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  state.toggle(row.id);
+                }}
+              >
+                {expanded ? '▾' : '▸'}
+              </button>
+            )}
             {renderNode(node, nodeState)}
           </div>
         );

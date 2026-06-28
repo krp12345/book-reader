@@ -12,3 +12,10 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
   }
   globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
 }
+
+// jsdom doesn't implement scrollIntoView, which the collapsed tree's overlay
+// calls to bring the active row into view on open. No-op it so opening the
+// overlay in a test doesn't throw.
+if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = function scrollIntoView(): void {};
+}

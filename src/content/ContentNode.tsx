@@ -2,10 +2,12 @@ import type { JSX } from 'react';
 import type { ContentCache } from '../core/cache';
 import type {
   BookNode,
+  ContentNodeWrapperProps,
   ContentState,
   FetchContent,
   ReadingDirection,
   RenderContent,
+  RenderContentNode,
   RenderEmpty,
   RenderError,
   RenderLoading,
@@ -21,6 +23,7 @@ export interface ContentNodeProps<Meta = unknown, Content = string> {
   sanitize?: SanitizeOption | undefined;
   cache?: ContentCache<Content> | undefined;
   renderContent?: RenderContent<Meta, Content> | undefined;
+  renderContentNode?: RenderContentNode<Meta, Content> | undefined;
   renderLoading?: RenderLoading<Meta> | undefined;
   renderError?: RenderError<Meta> | undefined;
   renderEmpty?: RenderEmpty<Meta> | undefined;
@@ -76,6 +79,7 @@ export function ContentNode<Meta = unknown, Content = string>(
     sanitize,
     cache,
     renderContent,
+    renderContentNode,
     renderLoading,
     renderError,
     renderEmpty,
@@ -129,16 +133,21 @@ export function ContentNode<Meta = unknown, Content = string>(
     }
   }
 
+  const wrapperProps: ContentNodeWrapperProps = {
+    ref: measureRef ?? (() => {}),
+    className: ['br-content-node', className].filter(Boolean).join(' '),
+    'data-part': 'content-node',
+    'data-node-id': node.id,
+    'data-status': status,
+    'aria-busy': status === 'loading' || undefined,
+  };
+
+  if (renderContentNode) {
+    const state: ContentState<Content> = { status, content: content as Content };
+    return <>{renderContentNode({ node, state, wrapperProps, children: body })}</>;
+  }
+
   return (
-    <article
-      ref={measureRef}
-      className={['br-content-node', className].filter(Boolean).join(' ')}
-      data-part="content-node"
-      data-node-id={node.id}
-      data-status={status}
-      aria-busy={status === 'loading' || undefined}
-    >
-      {body}
-    </article>
+    <article {...wrapperProps}>{body}</article>
   );
 }

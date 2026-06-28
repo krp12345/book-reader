@@ -76,13 +76,17 @@ describe('BookReader — styling hooks', () => {
     );
   });
 
-  it('drives row indentation from the --reader-tree-indent token', () => {
+  it('exposes each row depth as data (skin owns the indent, not inline style)', () => {
     const { container } = render(
       <BookReader tree={book} fetchContent={fetchContent} />,
     );
-    // Every row's inline indent is `calc(depth * var(--reader-tree-indent))`,
-    // so the token is the single knob for nesting width.
+    // Indentation moved out of inline style into the opt-in skin: the row carries
+    // its depth as data (`data-depth` + the `--br-tree-depth` custom property),
+    // and the skin turns that into `padding-inline-start`. So the bare component
+    // carries no inline presentational indent.
     const row = container.querySelector('[data-part="tree-node"]') as HTMLElement;
-    expect(row.style.paddingInlineStart).toContain('var(--reader-tree-indent');
+    expect(row).toHaveAttribute('data-depth', '0');
+    expect(row.style.getPropertyValue('--br-tree-depth')).toBe('0');
+    expect(row.style.paddingInlineStart).toBe('');
   });
 });

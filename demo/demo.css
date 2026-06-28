@@ -286,3 +286,59 @@
   margin: 0 0 0.85rem;
   line-height: 1.6;
 }
+
+/* --- Example 7: render hooks (custom caret + content-node wrapper) --------- */
+.rh-caret {
+  flex: 0 0 auto;
+  width: 1.2em;
+  height: 1.2em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid #cfd6de;
+  border-radius: 4px;
+  background: #fff;
+  color: #3a4654;
+  font-size: 0.85em;
+  line-height: 1;
+  cursor: pointer;
+}
+.rh-caret:hover {
+  background: #eef1f5;
+}
+.rh-caret--leaf {
+  border: 0;
+  background: none;
+  color: #b0b8c1;
+  cursor: default;
+}
+.rh-node-badge {
+  display: inline-block;
+  margin-bottom: 0.6rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: #eef1f5;
+  color: #57606a;
+  font: 600 0.7rem/1.4 system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* --- Example 8: headless tree (external toggle) --------------------------- */
+.headless-btn {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #cfd6de;
+  border-radius: 6px;
+  background: #fff;
+  color: #1f2328;
+  font: inherit;
+  cursor: pointer;
+}
+.headless-btn:hover {
+  background: #eef1f5;
+}
+.headless-hint {
+  color: #57606a;
+  font-size: 0.85rem;
+}

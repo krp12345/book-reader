@@ -8,6 +8,9 @@
  *   4. Styling     — the three styling tiers + a controlled `location`.
  *   5. Responsive  — width-driven tree collapse into a floated overlay.
  *   6. Object      — a generic (non-string) structured content payload.
+ *   7. Render hooks— custom expand/collapse caret + custom content-node wrapper.
+ *   8. Headless    — an external toggle (outside <BookReader>) drives the tree
+ *                    overlay via controlled `treeOpen`/`onTreeOpenChange`.
  *
  * Book data is generated with faker (see `data.ts`) — realistic prose, but
  * deterministic and lazily materialised so a 1,000-section book stays cheap.
@@ -20,8 +23,10 @@ import type {
   BookReaderClassNames,
   BookReaderProps,
   RenderContent,
+  RenderContentNode,
   RenderEmpty,
   RenderError,
+  RenderExpandCollapse,
   RenderLoading,
   RenderTreeNode,
   RenderTreeOverlay,
@@ -141,6 +146,51 @@ const respRenderTreeOverlay: RenderTreeOverlay = ({ close, children }) => (
   </div>
 );
 
+// --- M9: render hooks (custom caret + custom content-node wrapper) -----------
+// `renderExpandCollapse` replaces *only* the disclosure control; the library
+// keeps the row wrapper, aria-expanded, and keyboard nav. A +/− button here,
+// with a dot for leaves. (stopPropagation so it doesn't also select the row.)
+const renderPlusMinus: RenderExpandCollapse = ({
+  expandable,
+  expanded,
+  loading,
+  toggle,
+}) =>
+  expandable ? (
+    <button
+      type="button"
+      className="rh-caret"
+      aria-hidden="true"
+      tabIndex={-1}
+      onClick={(e) => {
+        e.stopPropagation();
+        toggle();
+      }}
+    >
+      {loading ? '⋯' : expanded ? '−' : '+'}
+    </button>
+  ) : (
+    <span className="rh-caret rh-caret--leaf" aria-hidden="true">
+      •
+    </span>
+  );
+
+// `renderContentNode` owns the *wrapper* element. Spread `wrapperProps` (incl.
+// the measurement `ref` virtualization needs) onto your own tag, then decorate
+// around the rendered `children`. Here: a <section> with a status badge.
+const renderSectionWrapper: RenderContentNode<unknown, string> = ({
+  state,
+  wrapperProps,
+  children,
+}) => (
+  <section {...wrapperProps}>
+    <div className="rh-node-badge" aria-hidden="true">
+      {state.status}
+    </div>
+    {children}
+  </section>
+);
+
 type RespMode = 'default' | 'custom-toggle' | 'custom-overlay' | 'forced';
 const RESP_MODES: { id: RespMode; label: string; blurb: string }[] = [
   {
@@ -181,7 +231,9 @@ type ExampleId =
   | 'lazy'
   | 'styling'
   | 'responsive'
-  | 'object';
+  | 'object'
+  | 'render-hooks'
+  | 'headless';
 const EXAMPLES: { id: ExampleId; label: string; blurb: string }[] = [
   {
     id: 'quickstart',
@@ -229,6 +281,25 @@ const EXAMPLES: { id: ExampleId; label: string; blurb: string }[] = [
       'fully typed, no sanitize, no `dangerouslySetInnerHTML`. The cache, ' +
       'virtualization and no-flicker scroll-back all work the same on objects.',
   },
+  {
+    id: 'render-hooks',
+    label: '7 · Render hooks',
+    blurb:
+      '`renderExpandCollapse` swaps the disclosure caret for a +/− control ' +
+      '(library keeps row a11y + keyboard nav); `renderContentNode` owns the ' +
+      'content-node *wrapper* element (here a <section> with a status badge) — ' +
+      'spread `wrapperProps` (incl. the measurement `ref`) and decorate around ' +
+      '`children`.',
+  },
+  {
+    id: 'headless',
+    label: '8 · Headless tree',
+    blurb:
+      'The tree is `collapseTree="always"`, and a toggle that lives *outside* ' +
+      '`<BookReader>` (in the controls bar above) drives the overlay via ' +
+      'controlled `treeOpen`/`onTreeOpenChange`. Selecting a section closes the ' +
+      'overlay and the external button reflects it.',
+  },
 ];
 
 type Skin = 'default' | 'themed' | 'custom';
@@ -256,6 +327,8 @@ function App(): JSX.Element {
   const [location, setLocation] = useState<BookLocation | undefined>(undefined);
   const [frameWidth, setFrameWidth] = useState(640);
   const [respMode, setRespMode] = useState<RespMode>('default');
+  // Headless example: open state owned *here*, outside <BookReader>.
+  const [headlessOpen, setHeadlessOpen] = useState(false);
 
   const active = EXAMPLES.find((e) => e.id === example)!;
 
@@ -333,8 +406,31 @@ function App(): JSX.Element {
             onLocationChange={setLocation}
           />
         );
+      case 'render-hooks':
+        return (
+          <BookReader
+            tree={largeBook}
+            fetchContent={fetchStyling}
+            treeWidth={300}
+            renderExpandCollapse={renderPlusMinus}
+            renderContentNode={renderSectionWrapper}
+            onLocationChange={setLocation}
+          />
+        );
+      case 'headless':
+        return (
+          <BookReader
+            tree={largeBook}
+            fetchContent={fetchStyling}
+            treeWidth={300}
+            collapseTree="always"
+            treeOpen={headlessOpen}
+            onTreeOpenChange={setHeadlessOpen}
+            onLocationChange={setLocation}
+          />
+        );
     }
-  }, [example, skin, location, respMode]);
+  }, [example, skin, location, respMode, headlessOpen]);
 
   return (
     <main className="demo-page">
@@ -418,6 +514,24 @@ function App(): JSX.Element {
         <p className="demo-blurb resp-mode-blurb">
           {RESP_MODES.find((m) => m.id === respMode)!.blurb}
         </p>
+      )}
+
+      {example === 'headless' && (
+        <div className="example-controls">
+          {/* This toggle lives OUTSIDE <BookReader> and drives its overlay. */}
+          <button
+            type="button"
+            className="headless-btn"
+            aria-haspopup="dialog"
+            aria-expanded={headlessOpen}
+            onClick={() => setHeadlessOpen((o) => !o)}
+          >
+            {headlessOpen ? '✕ Close contents' : '☰ Open contents'}
+          </button>
+          <span className="headless-hint">
+            External control — <code>treeOpen={String(headlessOpen)}</code>
+          </span>
+        </div>
       )}
 
       <p className="demo-readout" aria-live="polite">

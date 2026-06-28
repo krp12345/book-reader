@@ -55,7 +55,14 @@
   --reader-tree-row-padding-block: 0.3rem;
   --reader-tree-row-padding-inline: 0.5rem;
   --reader-tree-gap: 0.35rem;
-  --reader-content-padding: 1.5rem 2rem;
+  /* Content-node padding is split block/inline so the *vertical gap between
+     adjacent sections* (2× the block padding) can be tuned independently of the
+     horizontal text inset. `--reader-content-padding` stays as a back-compat
+     shorthand: set it to override both at once. Defaults reproduce `1.5rem 2rem`. */
+  --reader-content-padding: var(--reader-content-padding-block)
+    var(--reader-content-padding-inline);
+  --reader-content-padding-block: 1.5rem;
+  --reader-content-padding-inline: 2rem;
   --reader-content-max-width: 42rem;
   --reader-content-paragraph-margin: 0 0 1em;
   --reader-content-heading-margin: 1.6em 0 0.6em;
@@ -96,13 +103,18 @@
   padding: var(--reader-tree-padding);
 }
 
-/* A single tree row. Depth indentation is applied inline by TreePane via
-   --reader-tree-indent; here we own the rest of the row's look. */
+/* A single tree row. TreePane sets each row's depth as the `--br-tree-depth`
+   data variable (and `data-depth`); the skin owns turning it into indentation
+   via --reader-tree-indent, so the bare (no-CSS) component carries zero inline
+   indent. */
 [data-part='book-reader'] [data-part='tree-node'] {
   display: flex;
   align-items: center;
   gap: var(--reader-tree-gap);
   padding-block: var(--reader-tree-row-padding-block);
+  padding-inline-start: calc(
+    var(--br-tree-depth, 0) * var(--reader-tree-indent)
+  );
   padding-inline-end: var(--reader-tree-row-padding-inline);
   border-radius: var(--reader-radius);
   cursor: pointer;
@@ -123,7 +135,9 @@
   outline-offset: -2px;
 }
 
-/* Expand/collapse caret. */
+/* Expand/collapse caret. A non-expandable (leaf) row still renders the caret as
+   an invisible spacer so labels stay aligned — the hide lives here in the skin,
+   not inline, so the bare component carries no presentational style. */
 [data-part='book-reader'] [data-part='tree-node-caret'] {
   flex: 0 0 auto;
   width: 1.1em;
@@ -138,6 +152,9 @@
   font-size: 0.7em;
   line-height: 1;
   cursor: pointer;
+}
+[data-part='book-reader'] [data-part='tree-node-caret']:not([data-expandable]) {
+  visibility: hidden;
 }
 [data-part='book-reader'] [data-part='tree-node-caret']:hover {
   color: var(--reader-color-fg);

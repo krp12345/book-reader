@@ -40,6 +40,8 @@ export function BookReader<Meta = unknown, Content = string>(
     treeCollapseLabel = 'Contents',
     treeOverlayMinWidth = 240,
     treeOverlayMinHeight = 200,
+    treeOpen,
+    onTreeOpenChange,
     renderTreeToggle,
     renderTreeOverlay,
     sanitize,
@@ -48,7 +50,9 @@ export function BookReader<Meta = unknown, Content = string>(
     className,
     classNames,
     renderTreeNode,
+    renderExpandCollapse,
     renderContent,
+    renderContentNode,
     renderLoading,
     renderError,
     renderEmpty,
@@ -95,7 +99,18 @@ export function BookReader<Meta = unknown, Content = string>(
   // floated overlay (reading width wins). The overlay reuses the shared tree
   // state, so selection/expansion stay in sync with the inline tree.
   const [rootRef, rootWidth] = useElementWidth<HTMLDivElement>();
-  const [overlayOpen, setOverlayOpen] = useState(false);
+  // Overlay open state is controlled when `treeOpen` is supplied (drive it from
+  // your own toggle outside the reader), uncontrolled otherwise.
+  const treeOpenControlled = treeOpen !== undefined;
+  const [internalOverlayOpen, setInternalOverlayOpen] = useState(false);
+  const overlayOpen = treeOpenControlled ? treeOpen : internalOverlayOpen;
+  const setOverlayOpen = useCallback(
+    (next: boolean) => {
+      if (!treeOpenControlled) setInternalOverlayOpen(next);
+      onTreeOpenChange?.(next);
+    },
+    [treeOpenControlled, onTreeOpenChange],
+  );
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
   const treeWidthPx = lengthToPx(treeWidth);
@@ -111,23 +126,35 @@ export function BookReader<Meta = unknown, Content = string>(
   const openOverlay = useCallback(() => {
     returnFocusRef.current = (document.activeElement as HTMLElement) ?? null;
     setOverlayOpen(true);
-  }, []);
-  const closeOverlay = useCallback(() => setOverlayOpen(false), []);
+  }, [setOverlayOpen]);
+  const closeOverlay = useCallback(
+    () => setOverlayOpen(false),
+    [setOverlayOpen],
+  );
 
   // A widened reader stops being collapsed — don't leave a popover orphaned open.
   useEffect(() => {
-    if (!collapsed) setOverlayOpen(false);
-  }, [collapsed]);
+    if (!collapsed && overlayOpen) setOverlayOpen(false);
+  }, [collapsed, overlayOpen, setOverlayOpen]);
+
+  // Assigned from treeState.expand below (treeState needs `goTo`, so the ref
+  // breaks the cycle). Lets `goTo` open the tree without a forward reference.
+  const expandRef = useRef<(id: string) => void>(() => {});
 
   const goTo = useCallback(
     (id: string): void => {
       if (!controlled) setInternalLocation({ nodeId: id });
       emit({ nodeId: id });
       requestScroll(id);
+      // Navigating *onto* a branch opens its own children, so selecting a Part
+      // reveals its sections. This is driven by explicit navigation (a tree
+      // click), not the scroll-derived active node — so the top of the book is
+      // never auto-dumped on load.
+      if (store.isExpandable(id)) expandRef.current(id);
       // Selecting a section from the floated tree navigates and dismisses it.
-      setOverlayOpen(false);
+      if (overlayOpen) setOverlayOpen(false);
     },
-    [controlled, emit, requestScroll],
+    [controlled, emit, requestScroll, store, overlayOpen, setOverlayOpen],
   );
 
   const treeState = useTreeState<Meta>({
@@ -150,10 +177,12 @@ export function BookReader<Meta = unknown, Content = string>(
     [treeState],
   );
 
-  const expandRef = useRef(treeState.expand);
   expandRef.current = treeState.expand;
   useEffect(() => {
     if (activeId === undefined) return;
+    // Reveal the active node by opening its ancestors (deepest-first). The active
+    // *branch's own* children are opened on explicit navigation in `goTo`, not
+    // here, so a scroll-derived active change never auto-expands the tree.
     const path = store.getPath(activeId);
     for (let i = path.length - 1; i >= 0; i--) {
       const ancestorId = path[i];
@@ -195,6 +224,7 @@ export function BookReader<Meta = unknown, Content = string>(
       store={store}
       state={treeState}
       renderTreeNode={renderTreeNode}
+      renderExpandCollapse={renderExpandCollapse}
       treeNodeClassName={classNames?.treeNode}
     />
   );
@@ -320,6 +350,7 @@ export function BookReader<Meta = unknown, Content = string>(
           onNeedNode={handleNeedNode}
           scrollRequest={scrollRequest}
           renderContent={renderContent}
+          renderContentNode={renderContentNode}
           renderLoading={renderLoading}
           renderError={renderError}
           renderEmpty={renderEmpty}

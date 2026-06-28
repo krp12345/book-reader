@@ -12,9 +12,6 @@ read.
   content is a synchronous cache hit; only the visible window is mounted.
 - **Sanitized HTML** content by default, with full styling/render overrides.
 
-> Some features are marked ⚠️ **Experimental** — they work but their API may
-> change and they are not yet test-covered. See [Feature stability](#feature-stability).
-
 ---
 
 ## Install
@@ -185,9 +182,6 @@ HTML.
 
 ## Custom content payloads
 
-> ⚠️ **Experimental — API may change and is not yet covered by tests.** See
-> [Feature stability](#feature-stability).
-
 By default `fetchContent` returns a **sanitized HTML string**. You can instead
 return **any typed object** and own the rendering end-to-end. `BookReader` is
 generic over the content type: `<BookReader<Meta, Content>>`.
@@ -275,9 +269,6 @@ tree.
 
 ## Collapsible tree
 
-> ⚠️ **Experimental — works and is user-approved, but not yet test-covered; API may
-> change.** See [Feature stability](#feature-stability).
-
 The tree can collapse into a **toggle button + popover** so the reading surface
 gets the full width. `collapseTree` picks the mode (the modes are mutually
 exclusive — the collapsed UI and every customization hook below are identical
@@ -356,10 +347,19 @@ fighting hard-coded values; the defaults preserve the out-of-the-box look.
 Spacing tokens: `--reader-tree-padding`, `--reader-tree-indent`,
 `--reader-tree-row-padding-block`, `--reader-tree-row-padding-inline`,
 `--reader-tree-gap`, `--reader-content-padding`,
+`--reader-content-padding-block`, `--reader-content-padding-inline`,
 `--reader-content-paragraph-margin`, `--reader-content-heading-margin`,
 `--reader-content-blockquote-margin`, `--reader-content-blockquote-padding`,
 `--reader-content-code-padding`, `--reader-content-state-gap`,
 `--reader-content-retry-padding`.
+
+The content-node padding is split into `--reader-content-padding-block` and
+`--reader-content-padding-inline`, so the **vertical gap between adjacent
+sections** (twice the block padding) is tunable independently of the horizontal
+text inset. `--reader-content-padding` remains a shorthand that overrides both at
+once. Tree-row indentation comes from `--reader-tree-indent` × each row's depth
+(applied by the skin), so it lives entirely in CSS — the bare, un-skinned
+component carries no inline indent.
 
 **2. Target `data-part` hooks or per-slot `classNames`.** Stable hooks exist on
 every slot (`book-reader`, `tree`, `tree-node`, `content`, `content-node`), and
@@ -382,7 +382,98 @@ you can also pass class names directly:
 ```
 
 **3. Render props** (`renderTreeNode`, `renderContent`, `renderLoading`,
-`renderError`, `renderEmpty`) — full control over the markup, as shown above.
+`renderError`, `renderEmpty`, plus `renderExpandCollapse` and
+`renderContentNode` below) — full control over the markup, as shown above.
+
+---
+
+## Render hooks: caret & content wrapper
+
+Two render props let you replace structural pieces the other render props don't
+reach — without re-implementing tree a11y/keyboard nav or breaking
+virtualization.
+
+**`renderExpandCollapse`** replaces *only* the disclosure caret in each tree
+row. The library keeps the row wrapper, `aria-expanded`, and keyboard nav; your
+control is presentation plus its click handler. It receives
+`{ expandable, expanded, loading, depth, toggle, expand, collapse }`:
+
+```tsx
+<BookReader
+  renderExpandCollapse={({ expandable, expanded, loading, toggle }) =>
+    expandable ? (
+      <button
+        type="button"
+        aria-hidden="true"
+        tabIndex={-1}
+        onClick={(e) => {
+          e.stopPropagation(); // don't also select the row
+          toggle();
+        }}
+      >
+        {loading ? '⋯' : expanded ? '−' : '+'}
+      </button>
+    ) : null
+  }
+  ...
+/>
+```
+
+**`renderContentNode`** owns the per-section *wrapper element* (tag, classes,
+attrs, handlers), where `renderContent` replaces only the inner body. You get
+`{ node, state, wrapperProps, children }`: spread `wrapperProps` onto your
+element — **including its `ref`, which the height map depends on** — and render
+`children` (the body the default/`renderContent` renderer produced) inside:
+
+```tsx
+<BookReader
+  renderContentNode={({ state, wrapperProps, children }) => (
+    <section {...wrapperProps}>
+      <div className="badge">{state.status}</div>
+      {children}
+    </section>
+  )}
+  ...
+/>
+```
+
+`renderContent` (inner body) and `renderContentNode` (wrapper) compose freely.
+
+---
+
+## Headless tree control
+
+The collapsed tree's overlay open/closed state can be **controlled**, so the
+toggle that opens the section list can live *outside* `<BookReader>` (your own
+header, sidebar, or command bar). Pair `collapseTree="always"` (tree lives only
+in the overlay) with `treeOpen` + `onTreeOpenChange`:
+
+```tsx
+function Reader() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+        ☰ Contents
+      </button>
+      <div style={{ height: '80vh' }}>
+        <BookReader
+          tree={book}
+          fetchContent={fetchContent}
+          collapseTree="always"
+          treeOpen={open}
+          onTreeOpenChange={setOpen}
+        />
+      </div>
+    </>
+  );
+}
+```
+
+`onTreeOpenChange` fires for every open/close the reader initiates too (a
+section selected from the overlay, Esc/outside-click), so your external control
+stays in sync. Omit `treeOpen` to keep the built-in uncontrolled behavior while
+still observing changes via `onTreeOpenChange`.
 
 ---
 
@@ -408,11 +499,15 @@ you can also pass class names directly:
 | `treeOverlayMinHeight` | `number \| string` | `200` | Min height of the default collapsed popover (capped at `70vh`). |
 | `renderTreeToggle` | `RenderTreeToggle` | default button | Custom collapsed trigger. |
 | `renderTreeOverlay` | `RenderTreeOverlay` | portal drawer | Custom collapsed popover container. |
+| `treeOpen` | `boolean` | — | Controlled overlay open state (headless). |
+| `onTreeOpenChange` | `(open) => void` | — | Notified when the overlay opens/closes. |
 | `sanitize` | `boolean \| (html) => string` | `true` | HTML sanitization control. |
 | `overscan` | `number` | `2` | Virtualization buffer (nodes each side). |
 | `estimateHeight` | `number` | `200` | Assumed px for unmeasured nodes. |
 | `className` / `classNames` | `string` / `BookReaderClassNames` | — | Styling hooks (tier 2). |
 | `renderTreeNode` / `renderContent` / `renderLoading` / `renderError` / `renderEmpty` | render props | defaults ship | Markup overrides (tier 3). |
+| `renderExpandCollapse` | `RenderExpandCollapse` | default caret | Replace the tree row disclosure control. |
+| `renderContentNode` | `RenderContentNode` | default `<article>` | Own the per-section wrapper element. |
 | `aria-label` | `string` | — | Accessible label for the reader. |
 
 All props are generic over `Meta`, so `node.meta` is fully typed everywhere
@@ -434,22 +529,16 @@ virtualizer. See `src/index.ts` for the full surface.
 
 ## Feature stability
 
-Every shipped feature is documented here as soon as it lands. Features fall into
-two tiers:
+**Every shipped feature is Stable** — documented and covered by tests (jsdom/RTL
+integration for the wiring + real-browser Playwright e2e for the layout/scroll
+behaviour). That includes the collapsible tree, custom (object) content payloads,
+the render hooks (`renderExpandCollapse` / `renderContentNode`), and headless tree
+control (`treeOpen` / `onTreeOpenChange`) alongside the core tree, content
+fetching, caching, virtualization, reading position, and styling.
 
-- **Stable** — the default. Documented and test-covered; the API is settled.
-- ⚠️ **Experimental** — works and is documented, but the API may still change and
-  it is **not yet covered by tests**. Use it knowing it may shift in a later
-  release.
-
-A feature graduates from Experimental to Stable once its tests are in place. The
-currently-experimental features are flagged inline with a ⚠️ callout:
-
-- [Collapsible tree](#collapsible-tree) — responsive/forced collapse + named modes.
-- [Custom content payloads](#custom-content-payloads) — typed object content.
-
-Everything else (the tree, content fetching, caching, virtualization, reading
-position, and styling) is **Stable** and test-covered.
+The one area still in progress is a dedicated **accessibility** pass (keyboard nav
+and ARIA roles already ship on the tree; the audit is to harden them across the
+whole reader).
 
 ---
 

@@ -8,16 +8,25 @@
 ---
 
 ## ▶ STATUS — keep this block current (update at end of every session)
-- **Current milestone:** M8 — Hardening, docs, examples (in progress)
+- **Current milestone:** M9 — feature batch built + **test-covered** (155 unit + 16
+  e2e green). Only the **accessibility pass** remains. M8 hardening/docs done.
 - **Overall progress:** 7 / 9 milestones complete (M0, M2–M7 done; M1 core types done)
-- **Next action (BATCH mode, set 2026-06-28):** build **all** remaining M9 features
-  **in one pass, no per-feature gate** — configurable expand/collapse control,
-  inter-node spacing split, `renderContentNode`, headless tree-collapse, auto-open
-  active branch, tidy default styles — **EXCLUDING the accessibility pass** (stays
-  LAST, separate). Then the **user tests the whole batch & drives iterations**, and
-  milestones get refined after. No tests written/run unless the user asks (see
-  PENDING TESTS, bottom). **Dropped:** `renderContentSurface` + broad configurable
-  tree-node/`renderTreeRow`. Full brief in `NEXT_SESSION.md`.
+- **Next action:** the **accessibility pass** — the only remaining M9 item. Tree
+  keyboard nav + ARIA roles already ship; harden roles/labels/focus across the whole
+  reader, then add a11y tests. Everything else is built, documented (Stable), and
+  test-covered.
+- **✅ Shipped + tested (2026-06-28):** the whole M9 feature batch **plus its tests**.
+  Features: configurable expand/collapse control (`renderExpandCollapse`/
+  `ExpandCollapseApi`), inter-node spacing split (`--reader-content-padding-block`/
+  `-inline`), `renderContentNode` wrapper prop, headless/controlled tree-collapse
+  (`treeOpen`/`onTreeOpenChange`), auto-open active branch (driven by explicit
+  navigation in `goTo`, not scroll), tree-indent moved into the skin. Plus an
+  **opinionated-style cleanup** (the default caret's `visibility` moved from inline
+  into the skin via `data-expandable`; the bare component now carries only structural
+  layout). **Tests written & green: 155 unit + 16 e2e**; build + lint + typecheck
+  clean. README updated — **all features now Stable** (⚠️ Experimental markers
+  dropped). Demo is an 8-example switcher. **Dropped earlier:** `renderContentSurface`
+  + broad configurable tree-node/`renderTreeRow`.
 - **Workflow change (2026-06-27):** **code-first, NO TDD.** Think → code → user
   tests the app → tests only after the user approves. See `CONVENTIONS.md`.
 - **✅ Resolved (2026-06-27):** the intermittent scroll flicker. The user-visible
@@ -227,7 +236,15 @@ user 2026-06-27.
 - [ ] **Richer node data.** `BookNode.meta` already carries arbitrary data; verify
       the render props (`renderTreeNode`, `renderContent`) expose it ergonomically
       so advanced users get "full control of all the things" without casts.
-- [ ] **Configurable expand/collapse control (contract).** ← the **only** tree
+- [x] **Configurable expand/collapse control (contract).** ✅ implemented
+      2026-06-28 (awaiting user test). `renderExpandCollapse?: RenderExpandCollapse`
+      + `ExpandCollapseApi { expandable; expanded; loading; depth; toggle; expand;
+      collapse }` in `types.ts`; replaces *only* the caret in `TreePane.tsx`
+      (library keeps row wrapper + `aria-expanded` + keyboard nav + the
+      `data-part="tree-node-caret"` default). Threaded `TreePaneView`→`TreePane`→
+      `BookReader` (shared `treeView`, so the overlay tree gets it too). Demo
+      example 7 "Render hooks" (+/− caret). Tests deferred → backlog item 5.
+      ← the **only** tree
       customization in scope (broader tree-node/row wrapper was **dropped** by the
       user 2026-06-28). Today the **caret (`▾`/`▸`) is hard-coded** in `TreePane.tsx`
       and `renderTreeNode(node, state)` only replaces the row's *inner label*. Make
@@ -245,21 +262,38 @@ user 2026-06-27.
       Threads through `TreePaneView` → `TreePane` → `BookReader` (+ the overlay tree,
       which shares the same `treeView`). New type in `types.ts`; new prop on
       `BookReaderProps`. Demo: a tree example swapping the caret for a custom one.
-- [ ] **Inter-node spacing control (see note below).** Add a dedicated token so the
-      *gap between adjacent sections* is tunable independently of horizontal
-      content padding (today both come from the single `--reader-content-padding`
-      shorthand). Candidate: split into `--reader-content-padding-block` /
-      `--reader-content-padding-inline`, or a `--reader-content-node-gap`.
-- [ ] **Per-node content wrapper render prop (`renderContentNode`).** Hand back the
-      content-node wrapper props (`ref={measureRef}` / `data-node-id` / `data-status`
-      / `aria-busy`) so a consumer can spread them onto their *own* element (pick the
-      tag, add classes/attrs/handlers) — current `renderContent` replaces only the
-      slot's *inner* content, not its `<article>` wrapper. **Content side only** —
+- [x] **Inter-node spacing control.** ✅ implemented 2026-06-28 (awaiting user
+      test). Split the content-node padding into `--reader-content-padding-block` /
+      `--reader-content-padding-inline` (vertical gap between sections = 2× block
+      padding, tunable independently of the inline inset); `--reader-content-padding`
+      kept as a shorthand that overrides both. Defaults reproduce `1.5rem 2rem`.
+      Tests deferred → backlog item 7.
+- [x] **Per-node content wrapper render prop (`renderContentNode`).** ✅ implemented
+      2026-06-28 (awaiting user test). `RenderContentNode` + `ContentNodeApi
+      { node; state; wrapperProps; children }` + `ContentNodeWrapperProps`
+      (`ref`/`className`/`data-part`/`data-node-id`/`data-status`/`aria-busy`).
+      `ContentNode` builds the wrapper props and, when the prop is supplied, hands
+      body + props to the consumer instead of its `<article>`. Threaded
+      `ContentPane`→`BookReader`. Demo example 7 wraps each section in a `<section>`
+      with a status badge. Tests deferred → backlog item 6. **Content side only** —
       the tree-row wrapper (`renderTreeRow`) and `renderContentSurface` were dropped.
-- [ ] (Maybe) **Headless / controlled tree-collapse:** expose collapse + overlay
-      open state (`treeOpen`/`onTreeOpenChange`) and the tree as a standalone, so
-      the toggle/tree can live *outside* `<BookReader>` (own header/sidebar). Only
-      if the user confirms they need out-of-reader placement.
+- [x] **Headless / controlled tree-collapse.** ✅ implemented 2026-06-28 (awaiting
+      user test). Controlled overlay open state via `treeOpen` + `onTreeOpenChange`
+      (uncontrolled when omitted; still observable). Pairs with
+      `collapseTree="always"` so an external toggle outside `<BookReader>` drives the
+      section overlay. `onTreeOpenChange` fires for library-initiated closes too
+      (select-from-overlay, Esc/outside-click, widen). Demo example 8 "Headless
+      tree". The "tree as a standalone" need is met by the already-exported
+      `TreePane`/`TreePaneView`. Tests deferred → backlog item 10.
+- [x] **Auto-open active branch.** ✅ implemented + tested 2026-06-28. Selecting a
+      branch (explicit navigation via `goTo`) opens its *own* children, not just its
+      ancestors — so clicking a Part reveals its sections. Driven by navigation, not
+      the scroll-derived active id, so the top of the book is never auto-dumped on
+      load. Covered by `tests/BookReader.autoExpand.test.tsx`.
+- [x] **Tidy default styles (tree-indent into skin).** ✅ implemented 2026-06-28.
+      Rows now expose depth as data (`--br-tree-depth` + `data-depth`); the skin
+      computes `padding-inline-start` from it × `--reader-tree-indent`, so the bare
+      component carries zero inline indent. Tests deferred → backlog item 8.
 **Done when:** a demo example renders object-content nodes via a custom
 `renderContent`, with the string path unchanged (back-compat); and a tree example
 swaps the expand/collapse caret for a custom component via the new contract, with
@@ -268,6 +302,52 @@ the default caret + a11y/keyboard nav unchanged when no override is supplied.
 ---
 
 ## Session log (append newest on top)
+- 2026-06-28 — **Opinionated-style cleanup + the whole test backlog written (green).**
+  Two-part session at the user's request. (1) **Removed the last opinionated inline
+  style:** the default tree caret's `visibility` (hide on non-expandable rows) moved
+  out of inline style into the opt-in skin via a `data-expandable` attribute, so the
+  bare (no-skin) component now carries *only* structural layout — no presentational
+  inline style anywhere. (2) **Wrote the deferred test backlog** as a small set of
+  essential integration + real-browser e2e flows (not exhaustive units; minimal
+  mocking): new `tests/BookReader.objectContent.test.tsx`, `tests/tree/expandCollapse.test.tsx`,
+  `tests/content/renderContentNode.test.tsx`, `tests/BookReader.collapse.test.tsx`
+  (modes + headless + overlay-min), `tests/BookReader.autoExpand.test.tsx`; updated the
+  styling indent test for the new `--br-tree-depth` mechanism; added 5 e2e blocks
+  (responsive collapse, render hooks, headless toggle, object content, spacing split).
+  Added `scrollIntoView` no-op to `vitest.setup.ts`. **Refined auto-open-active-branch
+  while writing tests:** the real-browser run showed the active node *flips during load*,
+  so the previous "active branch expands itself" logic auto-dumped the root on mount and
+  broke the collapsed-at-top contract (and two existing e2e). Re-driven off **explicit
+  navigation** (`goTo` — a tree selection) instead of the scroll-derived active id, so
+  selecting a Part opens its sections but the top of the book is never auto-expanded.
+  **155 unit + 16 e2e green; build + lint + typecheck clean.** README: dropped all ⚠️
+  Experimental markers — **every feature is now Stable** (test-covered); Feature-stability
+  section rewritten. MILESTONES PENDING-TESTS backlog cleared (replaced with a
+  what-landed-where map). **Only remaining: the accessibility pass.**
+- 2026-06-28 — **M9 batch built in one pass (awaiting user test).** Per the user's
+  batch directive, shipped *all* remaining M9 features (a11y excluded) together:
+  (1) **`renderExpandCollapse`** + `ExpandCollapseApi` — replaces only the tree
+  caret; library keeps row wrapper + `aria-expanded` + keyboard nav +
+  `data-part="tree-node-caret"`; threaded `TreePaneView`→`TreePane`→`BookReader`.
+  (2) **Inter-node spacing split** — `--reader-content-padding` is now the
+  `--reader-content-padding-block`/`-inline` shorthand; vertical section gap is
+  tunable independently (defaults `1.5rem 2rem` unchanged). (3) **`renderContentNode`**
+  + `ContentNodeApi`/`ContentNodeWrapperProps` — consumer owns the per-section
+  wrapper element; spreads back `ref`(measureRef)/`className`/`data-*`/`aria-busy`;
+  composes with `renderContent`. (4) **Headless/controlled tree-collapse** —
+  `treeOpen`/`onTreeOpenChange` make the overlay open state controllable (drive it
+  from a toggle outside `<BookReader>`, pair with `collapseTree="always"`); fires on
+  library-initiated closes too. (5) **Auto-open active branch** — the auto-expand
+  effect now also expands the active node itself when it's a branch. (6) **Tidy
+  default styles** — tree rows expose depth as `--br-tree-depth`/`data-depth` and the
+  skin owns the indent calc, so the bare component has zero inline indent. Touched
+  `types.ts`, `index.ts`, `tree/TreePane.tsx`, `content/ContentNode.tsx`+`ContentPane.tsx`,
+  `BookReader.tsx`, `styles/book-reader.css`; demo grew to an **8-example switcher**
+  (new "Render hooks" + "Headless tree" examples, `demo/demo.css` styles). README:
+  new "Render hooks" + "Headless tree control" sections + prop-table rows +
+  Feature-stability entries (both render props + headless ⚠️ Experimental). Owed tests
+  logged (PENDING TESTS items 5–10). build/lint/typecheck green; **no tests written
+  or run** (HARD RULE). **Next: user tests the batch → iterate → a11y pass + tests.**
 - 2026-06-28 — **Collapse modes given named values (ergonomic polish; no new feature).**
   Brainstormed the user's "let the developer force the button/popover even at full
   width" ask and **confirmed it already shipped** — `collapseTree={true}` forces the
@@ -607,61 +687,39 @@ the default caret + a11y/keyboard nav unchanged when no override is supplied.
 
 ---
 
-## ⏸ PENDING TESTS — kept LAST on purpose (do not act without the user's say-so)
-> 🚫 **HARD RULE (2026-06-28):** do **NOT** write any of these tests, and do **NOT**
-> run `pnpm test` / `pnpm test:e2e`, **unless the user explicitly asks in that turn.**
-> All test-writing is **batched to the end of development** (user decision). Only
-> `pnpm build` + lint + typecheck run unprompted meanwhile.
->
-> 🚫 **HARD RULE — bookkeeping is MANDATORY & CONTINUOUS.** This is the durable,
-> append-only **source of truth** for missing tests (NEXT_SESSION.md mirrors only the
-> active slice). The moment a feature/change ships without tests, **append its owed
-> cases here** — shipped behavior must never go unlogged.
->
-> 🎯 **Coverage philosophy: ESSENTIAL END-TO-END, not depth-first units.** Book-keep
-> (and later write) a *small set* of essential **e2e / integration** flows that prove
-> each feature works **for the user** (prefer real-browser `e2e/` Playwright + key
-> cross-module paths). Do **not** plan exhaustive per-file unit coverage. Each entry
-> below should name the essential user-facing flow to verify, not every internal assertion.
 
-**Owed unit / e2e cases (write later, in one pass, only when told):**
+## ✅ TESTS WRITTEN — backlog cleared 2026-06-28
+> The deferred test backlog has been **written and is green** (155 unit + 16 e2e).
+> Coverage philosophy honoured: a *small set* of essential integration + real-browser
+> e2e flows that prove each feature works **for the user**, driven through the public
+> `<BookReader>` / the demo — not exhaustive per-file units, minimal mocking (only the
+> jsdom-missing `ResizeObserver` + `scrollIntoView` stubs in `vitest.setup.ts`).
 
-1. **Generic (object) content payload** — jsdom/RTL unit (`tests/content/`, `tests/BookReader.*`):
-   - Object `fetchContent` → `renderContent(node, payload, state)` gets the *typed*
-     object; `state.content === payload`, `state.status === 'loaded'`.
-   - **Object path is never sanitized / never `dangerouslySetInnerHTML`'d** (object
-     with an HTML-looking string field passes through untouched; no
-     `[data-part="content-html"]` node for objects).
-   - **String path unchanged (back-compat):** default renderer still sanitizes +
-     `dangerouslySetInnerHTML`s; `ContentState.content` holds the *sanitized* string.
-   - **Empty detection** (`isEmptyContent`): blank/whitespace string → `'empty'`;
-     `null`/`undefined` → `'empty'`; non-empty object → `'loaded'`.
-   - **Object + no `renderContent`** → body renders nothing (no unsafe default), status `'loaded'`.
-   - **Cache stores objects:** scroll-back = synchronous cache hit (no refetch);
-     custom `cache.sizeOf` honored (default `sizeOf` = `String(content).length`).
-   - **`prefetchNodeContent`** caches objects (sanitize skipped) and still sanitizes strings.
-   - **error/retry** unchanged on the object path.
-   - **API rename guard:** `ContentState.html` → `ContentState.content`.
-2. **Responsive tree-collapse** — **e2e** (`e2e/`): real resize → tree collapses →
-   open popover at current reading position → select navigates + closes → widen
-   restores the inline pane. Plus jsdom unit: collapse threshold + `lengthToPx`,
-   prop/`classNames` wiring (`treeToggle`/`treeOverlay`).
-3. **`treeOverlayMinWidth`** / **`treeOverlayMinHeight`** — unit: number→px / CSS-string
-   resolution, `min-width`/`min-height` applied to the default popover (height capped
-   by `max-height: 70vh`).
-4. **ResizeObserver test-infra** — global stub in `vitest.setup.ts` + the
-   `useReaderWidth` clientWidth read keep the suite green; no new test owed, just re-run.
+Where each owed item landed:
+- **Generic object content payload** → `tests/BookReader.objectContent.test.tsx`
+  (identity/`status`, never sanitized/HTML-injected, object-no-`renderContent` renders
+  nothing, nullish ⇒ empty, string path still sanitizes) + e2e `object content payload`.
+- **Responsive tree-collapse** (`auto`) + **named modes** → e2e `responsive tree-collapse`
+  (real resize → collapse → open popover → select navigates+closes → widen restores) and
+  `collapse modes` unit (`always`/`never` forced states).
+- **`treeOverlayMinWidth/Height`** → `tests/BookReader.collapse.test.tsx` (min-size applied
+  to the default popover).
+- **renderExpandCollapse** → `tests/tree/expandCollapse.test.tsx` (default caret keeps
+  `data-part`/`data-expandable`/row `aria-expanded`; custom control replaces the caret and
+  its api drives state) + e2e `render hooks`.
+- **renderContentNode** → `tests/content/renderContentNode.test.tsx` (consumer element +
+  spread hooks, composes with `renderContent`, default `<article>` fallback) + e2e
+  `render hooks` (custom `<section>` wrapper; no-flicker e2e unaffected).
+- **Inter-node spacing split** → e2e `inter-node spacing tokens` (computed block/inline
+  padding; overriding only the block token moves vertical spacing, not horizontal).
+- **Tree-indent into the skin** → `tests/BookReader.styling.test.tsx` (`data-depth` +
+  `--br-tree-depth`; no inline `padding-inline-start`).
+- **Auto-open active branch** → `tests/BookReader.autoExpand.test.tsx` (selecting a branch
+  opens its own children; sibling stays closed; no auto-dump at the top of the book).
+- **Headless / controlled tree-collapse** → `tests/BookReader.collapse.test.tsx`
+  (external toggle drives `treeOpen`; `onTreeOpenChange` syncs on select-close; uncontrolled
+  reporting) + e2e `headless tree`.
+- **ResizeObserver / scrollIntoView infra** → global stubs in `vitest.setup.ts`.
 
-**Add-when-built (features still pending dev — note their owed tests here as they land):**
-- **Configurable expand/collapse control** (`renderExpandCollapse` / `ExpandCollapseApi`):
-  custom caret replaces the default; default caret + a11y/keyboard nav unchanged with
-  no override; `toggle`/`expand`/`collapse` from the API drive tree state.
-- **`renderContentNode`** (content-node wrapper): wrapper props (`measureRef`/
-  `data-node-id`/`data-status`) spread onto a custom element; virtualization still
-  measures (no regression).
-- **Inter-node spacing token split**: new token applies the gap independently of inline padding.
-- **Named collapse modes** (`collapseTree: 'auto' | 'always' | 'never'`): unit — each
-  string resolves to the right `collapsed` state (`'always'`/`true` ⇒ collapsed at any
-  width; `'never'`/`false` ⇒ never; `'auto'` ⇒ width-driven). Fold into the existing
-  **Responsive tree-collapse** e2e flow (item 2 above) rather than a standalone test —
-  e.g. assert `collapseTree="always"` shows the toggle+popover at full width.
+**Remaining (only): the accessibility pass.** Keyboard nav + ARIA roles already ship on the
+tree; the audit is to harden roles/labels/focus across the whole reader, then add a11y tests.
