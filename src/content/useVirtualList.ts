@@ -15,12 +15,12 @@ import {
 } from '../core/virtualizer';
 import { activeNodeByCoverage, isNearBottom } from '../core/scrollSync';
 
-export interface UseVirtualListOptions {
+export interface UseVirtualListOptions<Content = string> {
   ids: string[];
   overscan?: number | undefined;
   prefetchCount?: number | undefined;
   estimateHeight?: number | undefined;
-  cache?: ContentCache<string> | undefined;
+  cache?: ContentCache<Content> | undefined;
   prefetch?: ((id: string) => void) | undefined;
 }
 
@@ -45,7 +45,9 @@ interface Metrics {
 const readHeight = (el: HTMLElement): number =>
   el.getBoundingClientRect().height;
 
-export function useVirtualList(options: UseVirtualListOptions): VirtualList {
+export function useVirtualList<Content = string>(
+  options: UseVirtualListOptions<Content>,
+): VirtualList {
   const { ids, overscan = 0, prefetchCount = 0, cache, prefetch } = options;
 
   const scrollRef = useRef<HTMLDivElement>(null);

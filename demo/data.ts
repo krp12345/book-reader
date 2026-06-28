@@ -157,6 +157,62 @@ function renderBody(node: BookNode): string {
   return blocks.join('');
 }
 
+// ---------------------------------------------------------------------------
+// Object (generic) content payload
+// ---------------------------------------------------------------------------
+
+/**
+ * A **structured** section payload — not an HTML string. The consumer owns its
+ * rendering end-to-end via `renderContent`, so the reader never sanitizes or
+ * `dangerouslySetInnerHTML`s anything here. This is the M9 "generic content"
+ * path: `fetchContent` returns `RichSection`, the cache stores `RichSection`,
+ * and `renderContent(node, section)` is fully typed.
+ */
+export interface RichSection {
+  heading: string;
+  /** Estimated reading time, minutes. */
+  readingTime: number;
+  tags: string[];
+  paragraphs: string[];
+  /** An optional pulled-out callout box. */
+  callout?: string;
+}
+
+/** Deterministic structured payload for a node (seeded from its id). */
+function richBody(node: BookNode): RichSection {
+  faker.seed(seedFrom(node.id));
+  const paraCount = faker.number.int({ min: 3, max: 6 });
+  const paragraphs = Array.from({ length: paraCount }, () =>
+    faker.lorem.paragraph({ min: 3, max: 7 }),
+  );
+  return {
+    heading: node.title,
+    readingTime: faker.number.int({ min: 2, max: 9 }),
+    tags: faker.helpers.arrayElements(
+      ['history', 'theory', 'field notes', 'primary source', 'method', 'aside'],
+      faker.number.int({ min: 1, max: 3 }),
+    ),
+    paragraphs,
+    ...(faker.datatype.boolean()
+      ? { callout: faker.lorem.sentence() }
+      : {}),
+  };
+}
+
+/**
+ * Builds a `fetchContent` that returns the **structured** `RichSection` object
+ * instead of an HTML string (a small simulated latency so you see loading).
+ */
+export function makeObjectFetchContent(
+  delayMs = 200,
+): FetchContent<unknown, RichSection> {
+  return async (node, ctx) => {
+    if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
+    if (ctx.signal.aborted) return richBody(node);
+    return richBody(node);
+  };
+}
+
 /**
  * Builds a `fetchContent` for the demo. Pure prose by default; pass options to
  * stage the slow / failing / empty cases for the states example.

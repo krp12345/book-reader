@@ -23,12 +23,12 @@ export interface ScrollRequest {
   token: number;
 }
 
-export interface ContentPaneProps<Meta = unknown> {
+export interface ContentPaneProps<Meta = unknown, Content = string> {
   store: TreeStore<Meta>;
-  fetchContent: FetchContent<Meta>;
+  fetchContent: FetchContent<Meta, Content>;
   version?: number | undefined;
   sanitize?: SanitizeOption | undefined;
-  cache?: ContentCache<string> | undefined;
+  cache?: ContentCache<Content> | undefined;
   overscan?: number | undefined;
   prefetchCount?: number | undefined;
   estimateHeight?: number | undefined;
@@ -37,7 +37,7 @@ export interface ContentPaneProps<Meta = unknown> {
   onActiveChange?: ((id: string, offset: number) => void) | undefined;
   onNeedNode?: ((id: string) => void) | undefined;
   scrollRequest?: ScrollRequest | undefined;
-  renderContent?: RenderContent<Meta> | undefined;
+  renderContent?: RenderContent<Meta, Content> | undefined;
   renderLoading?: RenderLoading<Meta> | undefined;
   renderError?: RenderError<Meta> | undefined;
   renderEmpty?: RenderEmpty<Meta> | undefined;
@@ -46,8 +46,8 @@ export interface ContentPaneProps<Meta = unknown> {
   'aria-label'?: string | undefined;
 }
 
-export function ContentPane<Meta = unknown>(
-  props: ContentPaneProps<Meta>,
+export function ContentPane<Meta = unknown, Content = string>(
+  props: ContentPaneProps<Meta, Content>,
 ): JSX.Element {
   const {
     store,

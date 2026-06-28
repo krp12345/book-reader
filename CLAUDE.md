@@ -70,6 +70,28 @@ e2e/                  # Playwright tests (reader.spec.ts) vs the real demo — n
 - **Code first — NO TDD** (changed 2026-06-27). Think → code → the **user** tests
   the running app → **only after the user approves**, write regression tests. Never
   write tests before implementation or before approval (unless the user asks).
+- 🚫 **HARD RULE (2026-06-28): do NOT write tests AND do NOT run the test suite
+  (`pnpm test` / `pnpm test:e2e`) unless the user *explicitly* asks in that turn.**
+  All test work is batched to the end of development — the user will say when.
+  Until then, only `pnpm build` + lint + typecheck verify a change. The growing
+  test backlog lives at the **very bottom of `MILESTONES.md`** ("⏸ PENDING TESTS")
+  so it isn't forgotten; add to it, don't act on it.
+- 🚫 **HARD RULE (2026-06-28) — TEST BOOKKEEPING IS MANDATORY & CONTINUOUS.** Every
+  feature/change that ships **without** tests MUST have its owed tests logged
+  **immediately** in the bottom-of-`MILESTONES.md` "⏸ PENDING TESTS" backlog — never
+  let shipped behavior go unrecorded. The backlog is the durable source of truth
+  (NEXT_SESSION mirrors only the active slice). **Coverage philosophy: book-keep and
+  later write a small set of ESSENTIAL END-TO-END / integration tests** (real-browser
+  `e2e/` Playwright + key cross-module flows) that prove the feature works **for the
+  user** — **NOT** exhaustive per-file/unit coverage. Frame every backlog entry around
+  the essential e2e flow, not depth-first unit assertions.
+- 🚫 **HARD RULE (2026-06-28): README + stability lifecycle.** The moment a
+  milestone/feature is **coded**, document it in `README.md` — never defer. A
+  freshly-coded feature is marked ⚠️ **Experimental** (API may change; not yet
+  test-covered). It graduates to **Stable** (drop the ⚠️) **only after its tests
+  exist** — and test timing is **user-controlled** (see the test HARD RULE).
+  Lifecycle: **code → document as Experimental → (user calls for tests) → Stable.**
+  Full detail in `CONVENTIONS.md` › "README & feature stability".
 - `core/` must not import React (keeps it pure + unit-testable).
 - Tests (when written, post-approval) use Vitest next to source as `*.test.ts(x)`;
   browser-only behavior goes in `e2e/` (Playwright), not jsdom.

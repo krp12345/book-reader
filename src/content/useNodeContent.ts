@@ -10,39 +10,50 @@ import type {
 } from '../types';
 import { resolveSanitizer } from './sanitize';
 
-export interface UseNodeContentOptions<Meta = unknown> {
+export interface UseNodeContentOptions<Meta = unknown, Content = string> {
   node: BookNode<Meta>;
   path: string[];
-  fetchContent: FetchContent<Meta>;
+  fetchContent: FetchContent<Meta, Content>;
   direction?: ReadingDirection | undefined;
   sanitize?: SanitizeOption | undefined;
-  cache?: ContentCache<string> | undefined;
+  cache?: ContentCache<Content> | undefined;
 }
 
-export interface NodeContent {
+export interface NodeContent<Content = string> {
   status: ContentStatus;
-  html: string;
+  /** The resolved payload; `undefined` while loading / empty / errored. */
+  content: Content | undefined;
   error: unknown;
   retry: () => void;
 }
 
-interface InternalState {
+interface InternalState<Content> {
   status: ContentStatus;
-  html: string;
+  content: Content | undefined;
   error: unknown;
 }
 
-const LOADING: InternalState = {
+const LOADING: InternalState<never> = {
   status: 'loading',
-  html: '',
+  content: undefined,
   error: undefined,
 };
 
-export function useNodeContent<Meta = unknown>(
-  options: UseNodeContentOptions<Meta>,
-): NodeContent {
+const isThenable = <T>(value: T | Promise<T>): value is Promise<T> =>
+  typeof value === 'object' &&
+  value !== null &&
+  typeof (value as { then?: unknown }).then === 'function';
+
+/** A string payload is "empty" when blank; a nullish payload is always empty. */
+const isEmptyContent = (content: unknown): boolean =>
+  content == null ||
+  (typeof content === 'string' && content.trim() === '');
+
+export function useNodeContent<Meta = unknown, Content = string>(
+  options: UseNodeContentOptions<Meta, Content>,
+): NodeContent<Content> {
   const { node, path, fetchContent, direction, sanitize, cache } = options;
-  const [state, setState] = useState<InternalState>(LOADING);
+  const [state, setState] = useState<InternalState<Content>>(LOADING);
   const [attempt, setAttempt] = useState(0);
 
   const retry = useCallback(() => setAttempt((a) => a + 1), []);
@@ -50,55 +61,59 @@ export function useNodeContent<Meta = unknown>(
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
-    const apply = resolveSanitizer(sanitize);
+    const applyHtml = resolveSanitizer(sanitize);
+    // Sanitization is a string-only concern; object payloads pass through.
+    const sanitizeContent = (content: Content): Content =>
+      typeof content === 'string' ? (applyHtml(content) as Content) : content;
 
-    const settleHtml = (html: string): void => {
+    const settle = (content: Content): void => {
       if (!active) return;
       setState({
-        status: html.trim() === '' ? 'empty' : 'loaded',
-        html,
+        status: isEmptyContent(content) ? 'empty' : 'loaded',
+        content,
         error: undefined,
       });
     };
 
     const fail = (error: unknown): void => {
       if (!active || controller.signal.aborted) return;
-      setState({ status: 'error', html: '', error });
+      setState({ status: 'error', content: undefined, error });
     };
 
     if (cache !== undefined && attempt === 0) {
       const cached = cache.get(node.id);
       if (cached !== undefined) {
-        settleHtml(cached);
+        settle(cached);
         return () => {
           active = false;
         };
       }
     }
 
+    const produce = (
+      signal: AbortSignal,
+    ): Content | Promise<Content> => {
+      const ctx: FetchContext<Meta> = {
+        node,
+        path,
+        direction: direction ?? 'forward',
+        signal,
+      };
+      const result = fetchContent(node, ctx);
+      return isThenable(result)
+        ? Promise.resolve(result).then(sanitizeContent)
+        : sanitizeContent(result);
+    };
+
     if (cache !== undefined) {
-      const { value, error, promise, release } = cache.load(
-        node.id,
-        (signal) => {
-          const ctx: FetchContext<Meta> = {
-            node,
-            path,
-            direction: direction ?? 'forward',
-            signal,
-          };
-          const result = fetchContent(node, ctx);
-          return typeof result === 'string'
-            ? apply(result)
-            : Promise.resolve(result).then(apply);
-        },
-      );
+      const { value, error, promise, release } = cache.load(node.id, produce);
       if (error !== undefined) {
         fail(error);
       } else if (value !== undefined) {
-        settleHtml(value);
+        settle(value);
       } else {
         setState((prev) => (prev.status === 'loading' ? prev : LOADING));
-        promise.then(settleHtml, fail);
+        promise.then(settle, fail);
       }
       return () => {
         active = false;
@@ -106,15 +121,9 @@ export function useNodeContent<Meta = unknown>(
       };
     }
 
-    const ctx: FetchContext<Meta> = {
-      node,
-      path,
-      direction: direction ?? 'forward',
-      signal: controller.signal,
-    };
-    let result: string | Promise<string>;
+    let result: Content | Promise<Content>;
     try {
-      result = fetchContent(node, ctx);
+      result = produce(controller.signal);
     } catch (error) {
       fail(error);
       return () => {
@@ -123,11 +132,11 @@ export function useNodeContent<Meta = unknown>(
       };
     }
 
-    if (typeof result === 'string') {
-      settleHtml(apply(result));
-    } else {
+    if (isThenable(result)) {
       setState((prev) => (prev.status === 'loading' ? prev : LOADING));
-      Promise.resolve(result).then(apply).then(settleHtml, fail);
+      result.then(settle, fail);
+    } else {
+      settle(result);
     }
 
     return () => {

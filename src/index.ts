@@ -36,6 +36,8 @@ export {
 export type { NodeSpan, ReadingOverrides } from './core/scrollSync';
 export { sanitizeHtml } from './content/sanitize';
 export { defaultTreeNode } from './tree/defaultTreeNode';
+export { TreeOverlay } from './tree/TreeOverlay';
+export type { TreeOverlayProps } from './tree/TreeOverlay';
 
 export type {
   BookNode,
@@ -50,6 +52,10 @@ export type {
   LoadChildrenContext,
   TreeNodeState,
   RenderTreeNode,
+  TreeToggleApi,
+  RenderTreeToggle,
+  TreeOverlayApi,
+  RenderTreeOverlay,
   FetchContext,
   FetchContent,
   SanitizeOption,

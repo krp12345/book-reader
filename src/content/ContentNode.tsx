@@ -13,14 +13,14 @@ import type {
 } from '../types';
 import { useNodeContent } from './useNodeContent';
 
-export interface ContentNodeProps<Meta = unknown> {
+export interface ContentNodeProps<Meta = unknown, Content = string> {
   node: BookNode<Meta>;
   path: string[];
-  fetchContent: FetchContent<Meta>;
+  fetchContent: FetchContent<Meta, Content>;
   direction?: ReadingDirection | undefined;
   sanitize?: SanitizeOption | undefined;
-  cache?: ContentCache<string> | undefined;
-  renderContent?: RenderContent<Meta> | undefined;
+  cache?: ContentCache<Content> | undefined;
+  renderContent?: RenderContent<Meta, Content> | undefined;
   renderLoading?: RenderLoading<Meta> | undefined;
   renderError?: RenderError<Meta> | undefined;
   renderEmpty?: RenderEmpty<Meta> | undefined;
@@ -65,8 +65,8 @@ function DefaultError({
   );
 }
 
-export function ContentNode<Meta = unknown>(
-  props: ContentNodeProps<Meta>,
+export function ContentNode<Meta = unknown, Content = string>(
+  props: ContentNodeProps<Meta, Content>,
 ): JSX.Element {
   const {
     node,
@@ -83,7 +83,7 @@ export function ContentNode<Meta = unknown>(
     measureRef,
   } = props;
 
-  const { status, html, error, retry } = useNodeContent({
+  const { status, content, error, retry } = useNodeContent<Meta, Content>({
     node,
     path,
     fetchContent,
@@ -108,16 +108,23 @@ export function ContentNode<Meta = unknown>(
       body = renderEmpty ? renderEmpty(node) : <DefaultEmpty />;
       break;
     case 'loaded': {
-      const state: ContentState = { status, html };
-      body = renderContent ? (
-        renderContent(node, html, state)
-      ) : (
-        <div
-          className="br-content__html"
-          data-part="content-html"
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
-      );
+      const loaded = content as Content;
+      const state: ContentState<Content> = { status, content: loaded };
+      if (renderContent) {
+        body = renderContent(node, loaded, state);
+      } else if (typeof loaded === 'string') {
+        // Default renderer is the sanitized-HTML path; object payloads require
+        // a custom `renderContent` (there is no safe default for them).
+        body = (
+          <div
+            className="br-content__html"
+            data-part="content-html"
+            dangerouslySetInnerHTML={{ __html: loaded }}
+          />
+        );
+      } else {
+        body = null;
+      }
       break;
     }
   }

@@ -168,3 +168,121 @@
   border-radius: 8px;
   overflow: hidden;
 }
+
+/* --- Example 6: responsive tree-collapse --------------------------------- */
+.resp-controls {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+.resp-width {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: #57606a;
+}
+.resp-width input[type='range'] {
+  width: 220px;
+}
+.resp-mode-blurb {
+  margin-top: -0.25rem;
+}
+
+/* Custom collapsed trigger (renderTreeToggle). */
+.resp-toggle {
+  margin: 0.5rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid #2563eb;
+  border-radius: 6px;
+  background: #2563eb;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.resp-toggle:hover {
+  background: #1d4ed8;
+}
+
+/* Custom overlay container (renderTreeOverlay) — a centered modal card. */
+.resp-overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.45);
+}
+.resp-overlay-card {
+  display: flex;
+  flex-direction: column;
+  width: min(380px, 90vw);
+  max-height: 80vh;
+  overflow: hidden;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+.resp-overlay-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e2e5e9;
+}
+.resp-overlay-head button {
+  border: 0;
+  background: none;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #57606a;
+}
+.resp-overlay-body {
+  overflow: auto;
+}
+
+/* --- Example 7: object (structured) content payload ----------------------- */
+.obj-section {
+  padding: 1.25rem 1.5rem;
+}
+.obj-head h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1.3rem;
+}
+.obj-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 1rem;
+  font-size: 0.8rem;
+}
+.obj-time {
+  color: #57606a;
+  font-weight: 600;
+}
+.obj-tag {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: #eef1f5;
+  color: #3a4654;
+  text-transform: lowercase;
+}
+.obj-callout {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border-left: 3px solid #4a7dff;
+  background: #f3f6ff;
+  border-radius: 0 6px 6px 0;
+  font-style: italic;
+  color: #2c3a52;
+}
+.obj-para {
+  margin: 0 0 0.85rem;
+  line-height: 1.6;
+}

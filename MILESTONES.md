@@ -10,11 +10,14 @@
 ## ▶ STATUS — keep this block current (update at end of every session)
 - **Current milestone:** M8 — Hardening, docs, examples (in progress)
 - **Overall progress:** 7 / 9 milestones complete (M0, M2–M7 done; M1 core types done)
-- **Next action:** **make tree-click navigation seamless + the component
-  predictable** (clicking a node must scroll the reading surface to it, landing the
-  node's title at the top; branch nodes currently no-op; the title sometimes drifts
-  above the fold; cache eviction must stay stable). Full brief in `NEXT_SESSION.md`.
-  Then the last remaining M8 item — the **accessibility pass** (README is done).
+- **Next action (BATCH mode, set 2026-06-28):** build **all** remaining M9 features
+  **in one pass, no per-feature gate** — configurable expand/collapse control,
+  inter-node spacing split, `renderContentNode`, headless tree-collapse, auto-open
+  active branch, tidy default styles — **EXCLUDING the accessibility pass** (stays
+  LAST, separate). Then the **user tests the whole batch & drives iterations**, and
+  milestones get refined after. No tests written/run unless the user asks (see
+  PENDING TESTS, bottom). **Dropped:** `renderContentSurface` + broad configurable
+  tree-node/`renderTreeRow`. Full brief in `NEXT_SESSION.md`.
 - **Workflow change (2026-06-27):** **code-first, NO TDD.** Think → code → user
   tests the app → tests only after the user approves. See `CONVENTIONS.md`.
 - **✅ Resolved (2026-06-27):** the intermittent scroll flicker. The user-visible
@@ -34,7 +37,7 @@
   guide). See the latest session-log entry. **Publishing is out of scope** — the
   user packages manually (no version bump / publish from here).
 - **Blocked on:** nothing. Package name = `book-reader`. pnpm is the package manager.
-- **Last updated:** 2026-06-27
+- **Last updated:** 2026-06-28
 
 ---
 
@@ -206,7 +209,128 @@ manually; do not run `npm pack`/`publish` or bump the version.)
 
 ---
 
+## M9 — Generic (object) node + content payloads, headless control (planned)
+**Goal:** let advanced users model nodes and section content as **arbitrary
+objects, not just strings**, and own the rendering end-to-end. Requested by the
+user 2026-06-27.
+- [x] **Generic content payload.** ✅ implemented 2026-06-28 (awaiting user test).
+      `fetchContent` now returns a generic `Content` (default `string` for
+      back-compat): `FetchContent<Meta, Content>` returns `Content`; `RenderContent`
+      receives the typed `Content`. Sanitize/`dangerouslySetInnerHTML` only applies
+      to the string path; object payloads pass through and the consumer's
+      `renderContent` owns output. `Content` threaded through `useNodeContent`,
+      the cache (`ContentCache<Content>`, `sizeOf`), `ContentNode`, `ContentPane`,
+      `useVirtualList`, `prefetchNodeContent`, `BookReader`. **`ContentState.html`
+      renamed → `ContentState.content`.** Demo example 7 "Object content"
+      (`RichSection` payload + typed `renderObjectContent`). Regression tests
+      deferred → NEXT_SESSION PENDING TESTS.
+- [ ] **Richer node data.** `BookNode.meta` already carries arbitrary data; verify
+      the render props (`renderTreeNode`, `renderContent`) expose it ergonomically
+      so advanced users get "full control of all the things" without casts.
+- [ ] **Configurable expand/collapse control (contract).** ← the **only** tree
+      customization in scope (broader tree-node/row wrapper was **dropped** by the
+      user 2026-06-28). Today the **caret (`▾`/`▸`) is hard-coded** in `TreePane.tsx`
+      and `renderTreeNode(node, state)` only replaces the row's *inner label*. Make
+      the expand/collapse disclosure a first-class, replaceable component with a
+      stable **contract** so consumers can ship their own control (icon, animated
+      chevron, +/− button, twisty) **without re-implementing tree a11y or keyboard
+      nav**. Proposed API (names provisional):
+        - `renderExpandCollapse?: RenderExpandCollapse` — replaces just the
+          disclosure control. `RenderExpandCollapse = (api: ExpandCollapseApi) =>
+          ReactNode`, where `ExpandCollapseApi = { expandable; expanded; loading;
+          depth; toggle(); expand(); collapse() }`. The library still renders the row
+          wrapper + wires `onClick`→`toggle` and `aria-expanded`; the custom
+          component is **presentation only**. Keep `data-part="tree-node-caret"` as
+          the no-JS CSS hook.
+      Threads through `TreePaneView` → `TreePane` → `BookReader` (+ the overlay tree,
+      which shares the same `treeView`). New type in `types.ts`; new prop on
+      `BookReaderProps`. Demo: a tree example swapping the caret for a custom one.
+- [ ] **Inter-node spacing control (see note below).** Add a dedicated token so the
+      *gap between adjacent sections* is tunable independently of horizontal
+      content padding (today both come from the single `--reader-content-padding`
+      shorthand). Candidate: split into `--reader-content-padding-block` /
+      `--reader-content-padding-inline`, or a `--reader-content-node-gap`.
+- [ ] **Per-node content wrapper render prop (`renderContentNode`).** Hand back the
+      content-node wrapper props (`ref={measureRef}` / `data-node-id` / `data-status`
+      / `aria-busy`) so a consumer can spread them onto their *own* element (pick the
+      tag, add classes/attrs/handlers) — current `renderContent` replaces only the
+      slot's *inner* content, not its `<article>` wrapper. **Content side only** —
+      the tree-row wrapper (`renderTreeRow`) and `renderContentSurface` were dropped.
+- [ ] (Maybe) **Headless / controlled tree-collapse:** expose collapse + overlay
+      open state (`treeOpen`/`onTreeOpenChange`) and the tree as a standalone, so
+      the toggle/tree can live *outside* `<BookReader>` (own header/sidebar). Only
+      if the user confirms they need out-of-reader placement.
+**Done when:** a demo example renders object-content nodes via a custom
+`renderContent`, with the string path unchanged (back-compat); and a tree example
+swaps the expand/collapse caret for a custom component via the new contract, with
+the default caret + a11y/keyboard nav unchanged when no override is supplied.
+
+---
+
 ## Session log (append newest on top)
+- 2026-06-28 — **Collapse modes given named values (ergonomic polish; no new feature).**
+  Brainstormed the user's "let the developer force the button/popover even at full
+  width" ask and **confirmed it already shipped** — `collapseTree={true}` forces the
+  collapsed UI at any width, `'auto'` is width-driven, `false` never collapses; the
+  modes are mutually exclusive and **all customization hooks** (`renderTreeToggle`/
+  `renderTreeOverlay`/`treeCollapseLabel`/`treeOverlayMin*`/`classNames`) apply across
+  modes because every mode funnels through one `collapsed` boolean → one render path.
+  So **no new milestone**; instead did the elegance polish the user asked for: the
+  prop now accepts **named modes** `collapseTree: 'auto' | 'always' | 'never'` (the
+  `true`/`false` booleans still accepted for back-compat: `true`⇒`'always'`,
+  `false`⇒`'never'`). Touched `types.ts` (type + doc), `BookReader.tsx` (`forceCollapsed`/
+  `forceExpanded` derivation), demo example 6 "Always collapsed" now uses
+  `collapseTree="always"`. build/lint/typecheck green. **Code-first → no tests yet**;
+  owed case logged below. **Also documented the collapse feature in the README** (new
+  "Collapsible tree" section + `collapseTree`/`contentMinWidth`/`treeCollapseLabel`/
+  `treeOverlayMin*`/`renderTreeToggle`/`renderTreeOverlay` rows in the prop table +
+  `treeToggle`/`treeOverlay` classNames) — it had postdated the responsive feature and
+  was previously undocumented. **New HARD RULE (user, in `CLAUDE.md` + `CONVENTIONS.md`):
+  the moment a feature is coded it gets documented in `README.md` marked ⚠️ Experimental;
+  it graduates to Stable only once its tests exist (test timing user-controlled).**
+  Applied it: added a **Feature stability** section + documented the generic **object
+  content payload** ("Custom content payloads") and marked **both** it and the
+  **Collapsible tree** ⚠️ Experimental (both shipped, neither test-covered yet);
+  everything older/test-covered stays Stable.
+- 2026-06-28 — **M9 scope trimmed + reprioritized (user).** **Dropped**
+  `renderContentSurface` (whole-text-area wrapper) and the broad **configurable tree
+  node / `renderTreeRow`** wrapper. **Kept** only the *expand/collapse control* as
+  configurable — narrowed that item to `renderExpandCollapse` + `ExpandCollapseApi`
+  contract (caret-only; library keeps row wrapper + a11y/keyboard nav). `renderTreeRow`
+  removed; the per-node *content* wrapper survives as `renderContentNode` (content
+  side only). **Accessibility pass moved to LAST.** New order: 3 expand/collapse
+  control ← NEXT · 4 inter-node spacing · 5 `renderContentNode` · 6 headless collapse ·
+  7 auto-open active branch · 8 tidy default styles · 9 a11y. Also removed the demo
+  **"States" example** (loading/error/empty) — demo is now a 6-example switcher.
+- 2026-06-28 — **M9: generic (object) content payload implemented (awaiting user test).**
+  Threaded a `Content = string` generic through the entire content path so
+  `fetchContent` can return any typed payload, not only sanitized HTML strings
+  (default `string` ⇒ existing usage unchanged). Sanitize/`dangerouslySetInnerHTML`
+  now run **only** on the string path; object payloads pass through to a
+  consumer-owned `renderContent(node, payload, state)`. Touched `types.ts`
+  (`FetchContent<Meta,Content>`, `RenderContent<Meta,Content>`, `ContentState<Content>`
+  — **field `html`→`content`**, `BookReaderProps<Meta,Content>`), `useNodeContent`
+  (generic + `isEmptyContent`), `ContentNode` (renderContent-wins / string-default /
+  object-no-default), `ContentPane`, `useVirtualList`, `prefetchNodeContent`,
+  `BookReader`; `core/cache.ts` was already generic. Demo example 7 "Object content"
+  (`RichSection` payload + `makeObjectFetchContent` + typed `renderObjectContent` +
+  `.obj-*` CSS). build/lint/typecheck green. **Code-first → no regression tests yet**;
+  full backlog noted in NEXT_SESSION PENDING TESTS. Next: `renderContentSurface`.
+- 2026-06-28 — **Responsive tree-collapse implemented (awaiting user test); M9 added;
+  next-session order set by the user.** Built the "reading width wins" collapse:
+  when the reader can't fit tree + `contentMinWidth`, the tree collapses to a toggle
+  **stacked above** the reading surface (not overlapping) that opens a **popover
+  anchored below it**, showing the same wired tree **at the current reading position**
+  (active row focused + scrolled in). New props `contentMinWidth`/`collapseTree`/
+  `treeCollapseLabel`/`renderTreeToggle`/`renderTreeOverlay` + types; new
+  `src/useReaderWidth.ts` (`useElementWidth` + `lengthToPx`) and `src/tree/TreeOverlay.tsx`
+  (in-subtree popover, dialog a11y, Esc + outside-click, focus return). Demo example 6
+  "Responsive tree" (width slider + 4 modes). build/lint/typecheck green; headless-Chromium
+  smoke-tested. **Not yet user-approved → no regression tests yet** (code-first). Added
+  **M9** (generic object content payload, `renderContentSurface` wrapper render prop,
+  inter-node spacing token split, maybe headless tree-collapse). **User set the
+  next-session order** (see STATUS / NEXT_SESSION): finalize collapse → object payload →
+  `renderContentSurface` → spacing split → a11y → 4 opted-in extras.
 - 2026-06-27 — **M8: README usage guide written; publishing/version goals removed
   from the plan.** Added `README.md` — a consumer-facing usage guide derived from
   `src/types.ts`, `package.json`, and the demo: install (+ React 18 peer dep, opt-in
@@ -480,3 +604,64 @@ manually; do not run `npm pack`/`publish` or bump the version.)
   Next: `core/traversal.ts` (depth-first reading order) via TDD.
 - 2026-06-26 — Spec frozen (`REQUIREMENTS.md`), milestones drafted, `CLAUDE.md`
   created. No implementation code yet. Next: M0 scaffold (awaiting package name).
+
+---
+
+## ⏸ PENDING TESTS — kept LAST on purpose (do not act without the user's say-so)
+> 🚫 **HARD RULE (2026-06-28):** do **NOT** write any of these tests, and do **NOT**
+> run `pnpm test` / `pnpm test:e2e`, **unless the user explicitly asks in that turn.**
+> All test-writing is **batched to the end of development** (user decision). Only
+> `pnpm build` + lint + typecheck run unprompted meanwhile.
+>
+> 🚫 **HARD RULE — bookkeeping is MANDATORY & CONTINUOUS.** This is the durable,
+> append-only **source of truth** for missing tests (NEXT_SESSION.md mirrors only the
+> active slice). The moment a feature/change ships without tests, **append its owed
+> cases here** — shipped behavior must never go unlogged.
+>
+> 🎯 **Coverage philosophy: ESSENTIAL END-TO-END, not depth-first units.** Book-keep
+> (and later write) a *small set* of essential **e2e / integration** flows that prove
+> each feature works **for the user** (prefer real-browser `e2e/` Playwright + key
+> cross-module paths). Do **not** plan exhaustive per-file unit coverage. Each entry
+> below should name the essential user-facing flow to verify, not every internal assertion.
+
+**Owed unit / e2e cases (write later, in one pass, only when told):**
+
+1. **Generic (object) content payload** — jsdom/RTL unit (`tests/content/`, `tests/BookReader.*`):
+   - Object `fetchContent` → `renderContent(node, payload, state)` gets the *typed*
+     object; `state.content === payload`, `state.status === 'loaded'`.
+   - **Object path is never sanitized / never `dangerouslySetInnerHTML`'d** (object
+     with an HTML-looking string field passes through untouched; no
+     `[data-part="content-html"]` node for objects).
+   - **String path unchanged (back-compat):** default renderer still sanitizes +
+     `dangerouslySetInnerHTML`s; `ContentState.content` holds the *sanitized* string.
+   - **Empty detection** (`isEmptyContent`): blank/whitespace string → `'empty'`;
+     `null`/`undefined` → `'empty'`; non-empty object → `'loaded'`.
+   - **Object + no `renderContent`** → body renders nothing (no unsafe default), status `'loaded'`.
+   - **Cache stores objects:** scroll-back = synchronous cache hit (no refetch);
+     custom `cache.sizeOf` honored (default `sizeOf` = `String(content).length`).
+   - **`prefetchNodeContent`** caches objects (sanitize skipped) and still sanitizes strings.
+   - **error/retry** unchanged on the object path.
+   - **API rename guard:** `ContentState.html` → `ContentState.content`.
+2. **Responsive tree-collapse** — **e2e** (`e2e/`): real resize → tree collapses →
+   open popover at current reading position → select navigates + closes → widen
+   restores the inline pane. Plus jsdom unit: collapse threshold + `lengthToPx`,
+   prop/`classNames` wiring (`treeToggle`/`treeOverlay`).
+3. **`treeOverlayMinWidth`** / **`treeOverlayMinHeight`** — unit: number→px / CSS-string
+   resolution, `min-width`/`min-height` applied to the default popover (height capped
+   by `max-height: 70vh`).
+4. **ResizeObserver test-infra** — global stub in `vitest.setup.ts` + the
+   `useReaderWidth` clientWidth read keep the suite green; no new test owed, just re-run.
+
+**Add-when-built (features still pending dev — note their owed tests here as they land):**
+- **Configurable expand/collapse control** (`renderExpandCollapse` / `ExpandCollapseApi`):
+  custom caret replaces the default; default caret + a11y/keyboard nav unchanged with
+  no override; `toggle`/`expand`/`collapse` from the API drive tree state.
+- **`renderContentNode`** (content-node wrapper): wrapper props (`measureRef`/
+  `data-node-id`/`data-status`) spread onto a custom element; virtualization still
+  measures (no regression).
+- **Inter-node spacing token split**: new token applies the gap independently of inline padding.
+- **Named collapse modes** (`collapseTree: 'auto' | 'always' | 'never'`): unit — each
+  string resolves to the right `collapsed` state (`'always'`/`true` ⇒ collapsed at any
+  width; `'never'`/`false` ⇒ never; `'auto'` ⇒ width-driven). Fold into the existing
+  **Responsive tree-collapse** e2e flow (item 2 above) rather than a standalone test —
+  e.g. assert `collapseTree="always"` shows the toggle+popover at full width.

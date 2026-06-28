@@ -12,6 +12,9 @@ read.
   content is a synchronous cache hit; only the visible window is mounted.
 - **Sanitized HTML** content by default, with full styling/render overrides.
 
+> Some features are marked ⚠️ **Experimental** — they work but their API may
+> change and they are not yet test-covered. See [Feature stability](#feature-stability).
+
 ---
 
 ## Install
@@ -180,6 +183,45 @@ HTML.
 
 ---
 
+## Custom content payloads
+
+> ⚠️ **Experimental — API may change and is not yet covered by tests.** See
+> [Feature stability](#feature-stability).
+
+By default `fetchContent` returns a **sanitized HTML string**. You can instead
+return **any typed object** and own the rendering end-to-end. `BookReader` is
+generic over the content type: `<BookReader<Meta, Content>>`.
+
+```tsx
+interface RichSection {
+  heading: string;
+  paragraphs: string[];
+}
+
+<BookReader<unknown, RichSection>
+  tree={tree}
+  fetchContent={async (node) => loadSection(node.id)} // returns a RichSection
+  renderContent={(node, section) => (
+    <article>
+      <h2>{section.heading}</h2>
+      {section.paragraphs.map((p, i) => <p key={i}>{p}</p>)}
+    </article>
+  )}
+/>
+```
+
+Notes:
+
+- **Object payloads are never sanitized** (only the default string path is) — you
+  render them yourself, so you own their safety.
+- An object payload **requires** a `renderContent`; there is no default renderer
+  for objects (nothing renders without one).
+- The string path is **unchanged** (back-compat): omit the `Content` type and
+  everything behaves exactly as documented above.
+- Objects are cached like strings; scroll-back stays a synchronous cache hit.
+
+---
+
 ## Reading position (`location`)
 
 The reader tracks an active node (the section under the reading line) plus a
@@ -231,6 +273,60 @@ tree.
 
 ---
 
+## Collapsible tree
+
+> ⚠️ **Experimental — works and is user-approved, but not yet test-covered; API may
+> change.** See [Feature stability](#feature-stability).
+
+The tree can collapse into a **toggle button + popover** so the reading surface
+gets the full width. `collapseTree` picks the mode (the modes are mutually
+exclusive — the collapsed UI and every customization hook below are identical
+across them; only the *trigger* differs):
+
+```tsx
+<BookReader collapseTree="auto"   ... /> // default — collapse only when too narrow
+<BookReader collapseTree="always" ... /> // always collapsed, at any width
+<BookReader collapseTree="never"  ... /> // never collapse (classic two-pane)
+```
+
+Booleans are accepted for back-compat: `true` ⇒ `"always"`, `false` ⇒ `"never"`.
+
+In `"auto"` mode, the tree collapses when the reader can't fit both the tree and
+`contentMinWidth` (reading width wins). When collapsed, the toggle opens a
+popover containing the **same wired tree** (selection/expansion stay in sync),
+scrolled to the current reading position.
+
+```tsx
+<BookReader
+  tree={tree}
+  fetchContent={fetchContent}
+  collapseTree="auto"
+  contentMinWidth={420}          // reading-surface floor (number ⇒ px, or CSS length)
+  treeCollapseLabel="Contents"   // default toggle button text
+  treeOverlayMinWidth={240}      // popover min width (default 240)
+  treeOverlayMinHeight={200}     // popover min height (default 200; capped at 70vh)
+/>
+```
+
+Customize the collapsed UI without losing the built-in tree a11y/keyboard nav:
+
+```tsx
+<BookReader
+  // Custom trigger — gets open state + open/close/toggle + the label:
+  renderTreeToggle={({ isOpen, toggle, label }) => (
+    <button aria-expanded={isOpen} onClick={toggle}>☰ {label}</button>
+  )}
+  // Custom container — gets the fully-wired tree as `children` + a `close()`:
+  renderTreeOverlay={({ children, close }) => (
+    <MyModal onDismiss={close}>{children}</MyModal>
+  )}
+  classNames={{ treeToggle: 'my-toggle', treeOverlay: 'my-overlay' }}
+  ...
+/>
+```
+
+---
+
 ## Styling
 
 Three tiers, from least to most invasive (use the lowest that gets the job
@@ -278,6 +374,8 @@ you can also pass class names directly:
     treeNode: 'my-row',
     content: 'my-content',
     contentNode: 'my-node',
+    treeToggle: 'my-toggle',   // collapsed-tree trigger
+    treeOverlay: 'my-overlay', // collapsed-tree popover
   }}
   ...
 />
@@ -303,6 +401,13 @@ you can also pass class names directly:
 | `prefetchCount` | `number` | `2` | Nodes past the window kept warm. |
 | `treeSide` | `'left' \| 'right'` | `'left'` | Which side the tree sits on. |
 | `treeWidth` | `number \| string` | `320` | Tree pane width (number ⇒ px). |
+| `collapseTree` | `'auto' \| 'always' \| 'never' \| boolean` | `'auto'` | Tree-collapse mode (`true`⇒`'always'`, `false`⇒`'never'`). |
+| `contentMinWidth` | `number \| string` | `360` | Reading-surface floor; in `'auto'` mode the tree collapses below it. |
+| `treeCollapseLabel` | `string` | `'Contents'` | Default collapsed toggle button text. |
+| `treeOverlayMinWidth` | `number \| string` | `240` | Min width of the default collapsed popover. |
+| `treeOverlayMinHeight` | `number \| string` | `200` | Min height of the default collapsed popover (capped at `70vh`). |
+| `renderTreeToggle` | `RenderTreeToggle` | default button | Custom collapsed trigger. |
+| `renderTreeOverlay` | `RenderTreeOverlay` | portal drawer | Custom collapsed popover container. |
 | `sanitize` | `boolean \| (html) => string` | `true` | HTML sanitization control. |
 | `overscan` | `number` | `2` | Virtualization buffer (nodes each side). |
 | `estimateHeight` | `number` | `200` | Assumed px for unmeasured nodes. |
@@ -324,6 +429,27 @@ library also exports its building blocks: the panes (`TreePane`, `TreePaneView`,
 `createVirtualizer`, the `scrollSync` helpers, and `sanitizeHtml`). These let you
 recompose the reader without reimplementing the tree store, cache, or
 virtualizer. See `src/index.ts` for the full surface.
+
+---
+
+## Feature stability
+
+Every shipped feature is documented here as soon as it lands. Features fall into
+two tiers:
+
+- **Stable** — the default. Documented and test-covered; the API is settled.
+- ⚠️ **Experimental** — works and is documented, but the API may still change and
+  it is **not yet covered by tests**. Use it knowing it may shift in a later
+  release.
+
+A feature graduates from Experimental to Stable once its tests are in place. The
+currently-experimental features are flagged inline with a ⚠️ callout:
+
+- [Collapsible tree](#collapsible-tree) — responsive/forced collapse + named modes.
+- [Custom content payloads](#custom-content-payloads) — typed object content.
+
+Everything else (the tree, content fetching, caching, virtualization, reading
+position, and styling) is **Stable** and test-covered.
 
 ---
 

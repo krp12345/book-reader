@@ -9,12 +9,18 @@ import {
 import { createContentCache, type ContentCache } from './core/cache';
 import { createTreeStore } from './core/treeStore';
 import { TreePaneView } from './tree/TreePane';
+import { TreeOverlay } from './tree/TreeOverlay';
 import { useTreeState } from './tree/useTreeState';
 import { ContentPane, type ScrollRequest } from './content/ContentPane';
-import type { BookLocation, BookReaderProps } from './types';
+import { lengthToPx, useElementWidth } from './useReaderWidth';
+import type {
+  BookLocation,
+  BookReaderProps,
+  TreeToggleApi,
+} from './types';
 
-export function BookReader<Meta = unknown>(
-  props: BookReaderProps<Meta>,
+export function BookReader<Meta = unknown, Content = string>(
+  props: BookReaderProps<Meta, Content>,
 ): JSX.Element {
   const {
     tree,
@@ -29,6 +35,13 @@ export function BookReader<Meta = unknown>(
     onLocationChange,
     treeSide = 'left',
     treeWidth = 320,
+    contentMinWidth = 360,
+    collapseTree = 'auto',
+    treeCollapseLabel = 'Contents',
+    treeOverlayMinWidth = 240,
+    treeOverlayMinHeight = 200,
+    renderTreeToggle,
+    renderTreeOverlay,
     sanitize,
     overscan,
     estimateHeight,
@@ -46,9 +59,9 @@ export function BookReader<Meta = unknown>(
     [tree],
   );
 
-  const cacheRef = useRef<ContentCache<string>>();
+  const cacheRef = useRef<ContentCache<Content>>();
   if (cacheRef.current === undefined) {
-    cacheRef.current = createContentCache(cacheConfig);
+    cacheRef.current = createContentCache<Content>(cacheConfig);
   }
   const cache = cacheRef.current;
 
@@ -77,11 +90,42 @@ export function BookReader<Meta = unknown>(
     setScrollRequest({ id, offset, token: tokenRef.current });
   }, []);
 
+  // Responsive collapse: when the reader is too narrow to fit the tree *and*
+  // the reading-surface floor, the tree collapses to a toggle that opens a
+  // floated overlay (reading width wins). The overlay reuses the shared tree
+  // state, so selection/expansion stay in sync with the inline tree.
+  const [rootRef, rootWidth] = useElementWidth<HTMLDivElement>();
+  const [overlayOpen, setOverlayOpen] = useState(false);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+
+  const treeWidthPx = lengthToPx(treeWidth);
+  const contentMinWidthPx = lengthToPx(contentMinWidth);
+  const forceCollapsed = collapseTree === true || collapseTree === 'always';
+  const forceExpanded = collapseTree === false || collapseTree === 'never';
+  const collapsed =
+    forceCollapsed ||
+    (!forceExpanded &&
+      rootWidth > 0 &&
+      rootWidth - treeWidthPx < contentMinWidthPx);
+
+  const openOverlay = useCallback(() => {
+    returnFocusRef.current = (document.activeElement as HTMLElement) ?? null;
+    setOverlayOpen(true);
+  }, []);
+  const closeOverlay = useCallback(() => setOverlayOpen(false), []);
+
+  // A widened reader stops being collapsed — don't leave a popover orphaned open.
+  useEffect(() => {
+    if (!collapsed) setOverlayOpen(false);
+  }, [collapsed]);
+
   const goTo = useCallback(
     (id: string): void => {
       if (!controlled) setInternalLocation({ nodeId: id });
       emit({ nodeId: id });
       requestScroll(id);
+      // Selecting a section from the floated tree navigates and dismisses it.
+      setOverlayOpen(false);
     },
     [controlled, emit, requestScroll],
   );
@@ -135,9 +179,37 @@ export function BookReader<Meta = unknown>(
   }, [controlled, requestScroll]);
 
   const width = typeof treeWidth === 'number' ? `${treeWidth}px` : treeWidth;
+  const overlayMinWidth =
+    typeof treeOverlayMinWidth === 'number'
+      ? `${treeOverlayMinWidth}px`
+      : treeOverlayMinWidth;
+  const overlayMinHeight =
+    typeof treeOverlayMinHeight === 'number'
+      ? `${treeOverlayMinHeight}px`
+      : treeOverlayMinHeight;
+
+  // The wired tree — shared by the inline pane and the floated overlay so both
+  // reflect the same selection/expansion state.
+  const treeView = (
+    <TreePaneView
+      store={store}
+      state={treeState}
+      renderTreeNode={renderTreeNode}
+      treeNodeClassName={classNames?.treeNode}
+    />
+  );
+
+  const toggleApi: TreeToggleApi = {
+    isOpen: overlayOpen,
+    open: openOverlay,
+    close: closeOverlay,
+    toggle: () => (overlayOpen ? closeOverlay() : openOverlay()),
+    label: treeCollapseLabel,
+  };
 
   return (
     <div
+      ref={rootRef}
       className={['br-reader', className, classNames?.root]
         .filter(Boolean)
         .join(' ')}
@@ -150,21 +222,75 @@ export function BookReader<Meta = unknown>(
         // an auto-height parent this resolves to auto (fine for tiny inline books).
         height: '100%',
         display: 'flex',
-        flexDirection: treeSide === 'right' ? 'row-reverse' : 'row',
+        // Collapsed → stack the toggle above the reading surface (a column);
+        // otherwise the two panes sit side-by-side.
+        flexDirection: collapsed
+          ? 'column'
+          : treeSide === 'right'
+            ? 'row-reverse'
+            : 'row',
       }}
     >
-      <div
-        className={['br-tree-pane', classNames?.tree].filter(Boolean).join(' ')}
-        data-part="tree-pane"
-        style={{ flex: `0 0 ${width}`, overflow: 'auto' }}
-      >
-        <TreePaneView
-          store={store}
-          state={treeState}
-          renderTreeNode={renderTreeNode}
-          treeNodeClassName={classNames?.treeNode}
-        />
-      </div>
+      {!collapsed && (
+        <div
+          className={['br-tree-pane', classNames?.tree]
+            .filter(Boolean)
+            .join(' ')}
+          data-part="tree-pane"
+          style={{ flex: `0 0 ${width}`, overflow: 'auto' }}
+        >
+          {treeView}
+        </div>
+      )}
+      {/* Collapsed: the tree reduces to a toggle row stacked above the reading
+          surface (it never overlaps the text), with the tree popover anchored
+          beneath it. position:relative makes this bar the popover's anchor. */}
+      {collapsed && (
+        <div
+          data-part="tree-toggle-bar"
+          style={{
+            flex: '0 0 auto',
+            position: 'relative',
+            display: 'flex',
+            justifyContent: treeSide === 'right' ? 'flex-end' : 'flex-start',
+          }}
+        >
+          {renderTreeToggle ? (
+            renderTreeToggle(toggleApi)
+          ) : (
+            <button
+              type="button"
+              data-part="tree-toggle"
+              className={['br-tree-toggle', classNames?.treeToggle]
+                .filter(Boolean)
+                .join(' ')}
+              aria-haspopup="dialog"
+              aria-expanded={overlayOpen}
+              onClick={toggleApi.toggle}
+            >
+              {treeCollapseLabel}
+            </button>
+          )}
+          {overlayOpen &&
+            (renderTreeOverlay ? (
+              renderTreeOverlay({ close: closeOverlay, children: treeView })
+            ) : (
+              <TreeOverlay
+                onClose={closeOverlay}
+                returnFocusTo={returnFocusRef.current}
+                treeSide={treeSide}
+                width={width}
+                minWidth={overlayMinWidth}
+                minHeight={overlayMinHeight}
+                className={['br-tree-overlay', classNames?.treeOverlay]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                {treeView}
+              </TreeOverlay>
+            ))}
+        </div>
+      )}
       <div
         className={['br-content-pane', classNames?.content]
           .filter(Boolean)

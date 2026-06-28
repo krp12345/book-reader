@@ -156,6 +156,40 @@
   color: var(--reader-color-muted);
 }
 
+/* Collapsed-tree toggle: the tree reduces to this button, which floats over the
+   top corner of the reading surface (the bar itself is just a positioning
+   anchor — it carries no box). */
+[data-part='book-reader'] [data-part='tree-toggle'] {
+  margin: var(--reader-tree-padding);
+  padding: var(--reader-tree-row-padding-block)
+    var(--reader-tree-row-padding-inline);
+  border: 1px solid var(--reader-color-border);
+  border-radius: var(--reader-radius);
+  background: var(--reader-color-bg);
+  color: var(--reader-color-fg);
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+[data-part='book-reader'] [data-part='tree-toggle']:hover {
+  background: var(--reader-color-hover);
+}
+[data-part='book-reader'] [data-part='tree-toggle']:focus-visible {
+  outline: var(--reader-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Floated tree popover — anchored beneath the toggle, inside the reader subtree
+   (so tokens + the tree-node rules below reach it without a portal). */
+[data-part='book-reader'] [data-part='tree-overlay'] {
+  background: var(--reader-tree-bg);
+  color: var(--reader-color-fg);
+  border: 1px solid var(--reader-color-border);
+  border-radius: var(--reader-radius);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+}
+
 /* Reading surface. */
 [data-part='book-reader'] [data-part='content'] {
   background: var(--reader-content-bg);

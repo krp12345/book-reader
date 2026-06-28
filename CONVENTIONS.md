@@ -69,6 +69,24 @@ is expected. But the test follows approval — it never gates the implementation
 - A change is **shippable** when `pnpm build` + lint + typecheck are green and the
   user has approved the behavior; the regression tests land right after approval.
 
+## README & feature stability (HARD RULE — 2026-06-28, by the user)
+
+Documentation and stability tier track the same code-first loop as testing:
+
+1. **The moment a milestone/feature is coded, document it in `README.md`** — do not
+   defer README updates to "later." Every shipped feature must be discoverable there.
+2. **A newly-coded feature is marked ⚠️ Experimental in the README** ("API may change;
+   not yet test-covered"). Use the inline ⚠️ callout + the **Feature stability**
+   section.
+3. **A feature graduates to Stable only after its tests are written** — and test
+   timing is **controlled by the user** (see the test HARD RULE: no tests written/run
+   unless the user explicitly asks in that turn). When the user has had the tests
+   added, drop the ⚠️ markers and move it to Stable.
+
+So the lifecycle is: **code → document as Experimental → (user calls for tests) →
+tests added → mark Stable.** Never leave shipped behavior undocumented; never mark a
+feature Stable before its tests exist.
+
 ## General code style
 - Match surrounding code; keep modules small and single-purpose per the
   architecture map in `CLAUDE.md`.
