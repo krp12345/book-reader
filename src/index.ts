@@ -3,6 +3,8 @@ export const VERSION = '0.0.0';
 export { BookReader } from './BookReader';
 export { TreePane, TreePaneView } from './tree/TreePane';
 export type { TreePaneProps, TreePaneViewProps } from './tree/TreePane';
+export { TreeSearch } from './tree/TreeSearch';
+export type { TreeSearchProps } from './tree/TreeSearch';
 export { ContentPane } from './content/ContentPane';
 export type { ContentPaneProps, ScrollRequest } from './content/ContentPane';
 export { ContentNode } from './content/ContentNode';
@@ -57,6 +59,13 @@ export type {
   RenderTreeOverlay,
   FetchContext,
   FetchContent,
+  FetchChildren,
+  LazyStatus,
+  SearchContext,
+  SearchFn,
+  ResetFn,
+  SearchApi,
+  RenderSearch,
   SanitizeOption,
   ContentStatus,
   ContentState,

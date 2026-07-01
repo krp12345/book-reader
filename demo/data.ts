@@ -12,7 +12,14 @@
  *    thousand article bodies in memory at once.
  */
 import { faker } from '@faker-js/faker';
-import type { BookNode, FetchContent } from '../src/index';
+import type {
+  BookNode,
+  FetchChildren,
+  FetchContent,
+  ResetFn,
+  SearchFn,
+} from '../src/index';
+import { fetchBus } from './fetchBus';
 
 /** FNV-1a → a stable 32-bit seed from a node id (deterministic per-node content). */
 function seedFrom(id: string): number {
@@ -161,6 +168,127 @@ export function makeSelectionBook(): BookNode<SelectionMeta> {
     })),
   }));
   return { id: 'sel', title: `${heading()} — Annotated`, children: parts };
+}
+
+// ---------------------------------------------------------------------------
+// Lazy tree + search/reset
+// ---------------------------------------------------------------------------
+//
+// A book whose branches are **lazy**: only the root + its parts ship up front;
+// chapters and sections are fetched on demand (tree expand or scroll) via
+// `fetchChildren`. Node ids encode depth as a path ("lz/0/2/5"), so a single
+// generator can resolve any branch — including the synthetic branches a search
+// returns. Every fetch is logged to `fetchBus` for the on-screen inspector.
+
+const LZ_LABEL: Record<number, string> = { 2: 'Part', 3: 'Chapter', 4: '§' };
+
+function lazyTitle(id: string): string {
+  faker.seed(seedFrom(id));
+  const depth = id.split('/').length;
+  const label = LZ_LABEL[depth] ?? 'Section';
+  const n = Number(id.split('/').pop()) + 1;
+  return `${label} ${n}. ${heading()}`;
+}
+
+/** Deterministic children for a branch id; leaves (depth ≥ 4) carry content. */
+function lazyChildrenOf(id: string): BookNode[] {
+  const childDepth = id.split('/').length + 1;
+  const count = childDepth === 2 ? 4 : childDepth === 3 ? 4 : 6;
+  const leaf = childDepth >= 4;
+  return Array.from({ length: count }, (_, i) => {
+    const cid = `${id}/${i}`;
+    const node: BookNode = { id: cid, title: lazyTitle(cid) };
+    return leaf ? node : { ...node, lazy: true, hasContent: false };
+  });
+}
+
+/**
+ * The lazy book: a root with its own intro content, and 4 **lazy** parts whose
+ * sub-trees load on demand. (`hasContent: false` on a part means a pure
+ * organisational branch — descending past it is what `fetchChildren` resolves.)
+ */
+export function makeLazyBook(): BookNode {
+  faker.seed(123);
+  return {
+    id: 'lz',
+    title: `${heading()} — A Lazy Atlas`,
+    children: Array.from({ length: 4 }, (_, i) => {
+      const id = `lz/${i}`;
+      return { id, title: lazyTitle(id), lazy: true, hasContent: false };
+    }),
+  };
+}
+
+export function makeLazyFetchChildren(delayMs = 350): FetchChildren {
+  return async (node, ctx) => {
+    const started = fetchBus.start('children', node.id);
+    if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
+    if (ctx.signal.aborted) {
+      fetchBus.abort('children', node.id, started);
+      return [];
+    }
+    const children = lazyChildrenOf(node.id);
+    fetchBus.ok('children', node.id, started, `${children.length} children`);
+    return children;
+  };
+}
+
+/** Content fetch for the lazy example — same prose, but logged to the inspector. */
+export function makeLazyFetchContent(delayMs = 250): FetchContent {
+  return async (node, ctx) => {
+    const started = fetchBus.start('content', node.id);
+    if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
+    if (ctx.signal.aborted) {
+      fetchBus.abort('content', node.id, started);
+      return '';
+    }
+    fetchBus.ok('content', node.id, started);
+    return renderBody(node);
+  };
+}
+
+/**
+ * A search that **replaces the whole tree** with a results book. The results are
+ * themselves lazy branches (ids under "q/…"), so after the swap the reader
+ * recursively resolves down to the first real section — exactly the "jump to the
+ * first page" flow. Resolved by the same `fetchChildren` generator.
+ */
+export function makeLazySearch(delayMs = 400): SearchFn {
+  return async (query, ctx) => {
+    const started = fetchBus.start('search', query || '(empty)');
+    if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
+    if (ctx.signal.aborted) {
+      fetchBus.abort('search', query, started);
+      return [];
+    }
+    faker.seed(seedFrom(`q:${query}`));
+    const tree: BookNode = {
+      id: 'q',
+      title: `Results for “${query || '…'}”`,
+      hasContent: false,
+      children: Array.from({ length: 3 }, (_, i) => ({
+        id: `q/${i}`,
+        title: `Match group ${i + 1}. ${heading()}`,
+        lazy: true,
+        hasContent: false,
+      })),
+    };
+    fetchBus.ok('search', query || '(empty)', started, '3 groups');
+    return tree;
+  };
+}
+
+export function makeLazyReset(delayMs = 300): ResetFn {
+  return async (ctx) => {
+    const started = fetchBus.start('reset', '—');
+    if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
+    if (ctx.signal.aborted) {
+      fetchBus.abort('reset', '—', started);
+      return [];
+    }
+    fetchBus.ok('reset', '—', started, 'original book');
+    return makeLazyBook();
+  };
 }
 
 // ---------------------------------------------------------------------------

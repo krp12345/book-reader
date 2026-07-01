@@ -5,6 +5,8 @@ export interface UseTreeStateOptions<Meta = unknown> {
   store: TreeStore<Meta>;
   selectedId?: string | undefined;
   onSelect?: ((id: string) => void) | undefined;
+  /** Called when a node is expanded — used to trigger lazy child fetches. */
+  onExpand?: ((id: string) => void) | undefined;
 }
 
 export interface TreeState {
@@ -19,7 +21,12 @@ export interface TreeState {
 export function useTreeState<Meta = unknown>(
   options: UseTreeStateOptions<Meta>,
 ): TreeState {
-  const { store, selectedId: controlledSelectedId, onSelect } = options;
+  const {
+    store,
+    selectedId: controlledSelectedId,
+    onSelect,
+    onExpand,
+  } = options;
 
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(
     () => new Set(),
@@ -33,9 +40,11 @@ export function useTreeState<Meta = unknown>(
   const expand = useCallback(
     (id: string): void => {
       if (!store.isExpandable(id)) return;
+      // Opening a lazy branch is one of the two triggers that loads its children.
+      onExpand?.(id);
       setExpanded((prev) => new Set(prev).add(id));
     },
-    [store],
+    [store, onExpand],
   );
 
   const collapse = useCallback((id: string): void => {

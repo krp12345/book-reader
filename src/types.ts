@@ -3,6 +3,15 @@ export interface BookNode<Meta = unknown> {
   title: string;
   children?: BookNode<Meta>[];
   hasContent?: boolean;
+  /**
+   * Marks a **branch placeholder** whose children are not in the initial tree
+   * and are fetched on demand via `fetchChildren` (when the node is expanded in
+   * the tree *or* the reading surface scrolls to it). A `lazy` node renders as
+   * expandable even with no `children`. If `children` is already provided, the
+   * node is treated as pre-resolved and never fetched. `lazy` governs *children
+   * acquisition only* — orthogonal to the node's own content (`hasContent`).
+   */
+  lazy?: boolean;
   meta?: Meta;
 }
 
@@ -91,6 +100,68 @@ export type FetchContent<Meta = unknown, Content = string> = (
   node: BookNode<Meta>,
   ctx: FetchContext<Meta>,
 ) => Content | Promise<Content>;
+
+/**
+ * Resolves the **immediate children** of a `lazy` node. The library calls this
+ * once per node when the node is first opened (tree expand) or scrolled to, wraps
+ * it in loading/error/retry, and never refetches once resolved. Returned children
+ * may themselves be `lazy` (one level per call, lazy to arbitrary depth).
+ */
+export type FetchChildren<Meta = unknown> = (
+  node: BookNode<Meta>,
+  ctx: FetchContext<Meta>,
+) => BookNode<Meta>[] | Promise<BookNode<Meta>[]>;
+
+/** The status of a `lazy` node's child fetch. */
+export type LazyStatus = 'unloaded' | 'loading' | 'loaded' | 'error';
+
+/** Context passed to `onSearch` / `onReset`. Carries an abort signal. */
+export interface SearchContext {
+  signal: AbortSignal;
+}
+
+/**
+ * Runs a search. Receives the typed query and returns a **whole new tree** (same
+ * shape as the `tree` prop) that *replaces* the current book; the reader resets
+ * to the first page. May be async. Lazy nodes in the result are supported.
+ */
+export type SearchFn<Meta = unknown> = (
+  query: string,
+  ctx: SearchContext,
+) => BookNode<Meta> | BookNode<Meta>[] | Promise<BookNode<Meta> | BookNode<Meta>[]>;
+
+/**
+ * Produces the tree to restore when the user resets the search (typically the
+ * original book). Same return contract as `SearchFn`.
+ */
+export type ResetFn<Meta = unknown> = (
+  ctx: SearchContext,
+) => BookNode<Meta> | BookNode<Meta>[] | Promise<BookNode<Meta> | BookNode<Meta>[]>;
+
+/**
+ * The control surface handed to `renderSearch`. A custom search box drives the
+ * query and triggers search/reset; the library owns the tree-replacement,
+ * loading and first-page resolution. There are no result lists — search replaces
+ * the whole tree.
+ */
+export interface SearchApi {
+  /** The current query text. */
+  query: string;
+  /** Update the query text. */
+  setQuery(query: string): void;
+  /** Run `onSearch` with the current query. */
+  submit(): void;
+  /** Run `onReset` to restore the tree. */
+  reset(): void;
+  /** Whether a search/reset is currently running. */
+  isSearching: boolean;
+  /** The last search/reset error, if any. */
+  error: unknown;
+  /** Whether a reset is available (an `onReset` is configured). */
+  canReset: boolean;
+}
+
+export type RenderSearch = (api: SearchApi) => import('react').ReactNode;
 
 export type SanitizeOption = boolean | ((html: string) => string);
 
@@ -196,6 +267,7 @@ export interface BookReaderClassNames {
   contentNode?: string | undefined;
   treeToggle?: string | undefined;
   treeOverlay?: string | undefined;
+  search?: string | undefined;
 }
 
 /**
@@ -238,6 +310,30 @@ export type RenderTreeOverlay = (
 export interface BookReaderProps<Meta = unknown, Content = string> {
   tree?: BookNode<Meta> | BookNode<Meta>[] | undefined;
   fetchContent: FetchContent<Meta, Content>;
+
+  /**
+   * Resolves the children of `lazy` nodes on demand (tree expand or scroll).
+   * Required only if the tree contains `lazy` nodes; a lazy node opened with no
+   * `fetchChildren` configured shows an error state.
+   */
+  fetchChildren?: FetchChildren<Meta> | undefined;
+
+  /** Show the tree search box (top of the tree pane). Default `false`. */
+  showSearch?: boolean | undefined;
+  /**
+   * Runs when the user submits the search box (Enter / Search button). Returns a
+   * whole new tree that replaces the book; the reader resets to the first page.
+   */
+  onSearch?: SearchFn<Meta> | undefined;
+  /**
+   * Runs when the user clicks Reset. Returns the tree to restore (typically the
+   * original book). When omitted, the Reset control is hidden.
+   */
+  onReset?: ResetFn<Meta> | undefined;
+  /** Placeholder text for the default search input. Default `'Search…'`. */
+  searchPlaceholder?: string | undefined;
+  /** Replaces the default search box UI (input + Search/Reset buttons). */
+  renderSearch?: RenderSearch | undefined;
 
   getNextNode?: GetNextNode<Meta> | undefined;
   getPrevNode?: GetPrevNode<Meta> | undefined;

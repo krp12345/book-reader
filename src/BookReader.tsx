@@ -9,13 +9,17 @@ import {
 import { createContentCache, type ContentCache } from './core/cache';
 import { createTreeStore } from './core/treeStore';
 import { TreePaneView } from './tree/TreePane';
+import { TreeSearch } from './tree/TreeSearch';
 import { TreeOverlay } from './tree/TreeOverlay';
 import { useTreeState } from './tree/useTreeState';
+import { useLazyChildren } from './useLazyChildren';
 import { ContentPane, type ScrollRequest } from './content/ContentPane';
 import { lengthToPx, useElementWidth } from './useReaderWidth';
 import type {
   BookLocation,
+  BookNode,
   BookReaderProps,
+  SearchContext,
   TreeToggleApi,
 } from './types';
 
@@ -25,6 +29,12 @@ export function BookReader<Meta = unknown, Content = string>(
   const {
     tree,
     fetchContent,
+    fetchChildren,
+    showSearch = false,
+    onSearch,
+    onReset,
+    searchPlaceholder,
+    renderSearch,
     cache: cacheConfig,
     prefetchCount,
     getNextNode,
@@ -65,6 +75,19 @@ export function BookReader<Meta = unknown, Content = string>(
     cacheRef.current = createContentCache<Content>(cacheConfig);
   }
   const cache = cacheRef.current;
+
+  // Lazy-tree orchestration: fetch `lazy` nodes' children on demand (driven by
+  // tree expand below and by the reading surface scrolling to them).
+  const { ensure: ensureLazy, ensureAsync } = useLazyChildren<Meta>(
+    store,
+    fetchChildren,
+  );
+
+  // Search/reset (tree replacement) state.
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<unknown>(undefined);
+  const searchAbortRef = useRef<AbortController | null>(null);
+  useEffect(() => () => searchAbortRef.current?.abort(), []);
 
   const controlled = location !== undefined;
   const [internalLocation, setInternalLocation] = useState<
@@ -148,6 +171,7 @@ export function BookReader<Meta = unknown, Content = string>(
     store,
     selectedId: activeId,
     onSelect: goTo,
+    onExpand: ensureLazy,
   });
 
   const handleActiveChange = useCallback(
@@ -188,6 +212,82 @@ export function BookReader<Meta = unknown, Content = string>(
     requestScroll(startedAt.current.nodeId, startedAt.current.offset);
   }, [controlled, requestScroll]);
 
+  // After a search/reset replaces the tree, take the reader to "the first page":
+  // descend the leftmost path (resolving lazy branches along the way) until the
+  // first node that actually carries content, and navigate there.
+  const gotoFirstShowable = useCallback(
+    async (signal: AbortSignal): Promise<void> => {
+      let id: string | undefined = store.getRootIds()[0];
+      const seen = new Set<string>();
+      while (id !== undefined && !seen.has(id)) {
+        seen.add(id);
+        if (signal.aborted) return;
+        const node = store.getNode(id);
+        if (node === undefined) break;
+        if (node.hasContent !== false) {
+          goTo(id);
+          return;
+        }
+        // A pure organisational branch — descend into it, resolving lazily first.
+        if (store.isLazy(id) && store.getLazyStatus(id) !== 'loaded') {
+          try {
+            await ensureAsync(id);
+          } catch {
+            break;
+          }
+          if (signal.aborted) return;
+        }
+        id = store.getChildren(id)?.[0];
+      }
+      const first = store.getRootIds()[0];
+      if (first !== undefined) goTo(first);
+    },
+    [store, goTo, ensureAsync],
+  );
+
+  const runReplace = useCallback(
+    (produce: (ctx: SearchContext) => ReturnType<NonNullable<typeof onSearch>>) => {
+      searchAbortRef.current?.abort();
+      const controller = new AbortController();
+      searchAbortRef.current = controller;
+      const { signal } = controller;
+
+      setSearching(true);
+      setSearchError(undefined);
+
+      void (async () => {
+        try {
+          const next = await produce({ signal });
+          if (signal.aborted) return;
+          // Clear the old tree and reading position, then resolve the first page.
+          if (!controlled) setInternalLocation(undefined);
+          store.replaceTree(next as BookNode<Meta> | BookNode<Meta>[]);
+          await gotoFirstShowable(signal);
+        } catch (error) {
+          if (!signal.aborted) setSearchError(error);
+        } finally {
+          if (!signal.aborted) setSearching(false);
+        }
+      })();
+    },
+    [controlled, store, gotoFirstShowable],
+  );
+
+  const handleSearch = useCallback(
+    (query: string) => {
+      if (onSearch === undefined) return;
+      runReplace((ctx) => onSearch(query, ctx));
+    },
+    [onSearch, runReplace],
+  );
+
+  const handleReset = useCallback(() => {
+    if (onReset === undefined) return;
+    runReplace((ctx) => onReset(ctx));
+  }, [onReset, runReplace]);
+
+  const searchVisible = showSearch && onSearch !== undefined;
+
   const width = typeof treeWidth === 'number' ? `${treeWidth}px` : treeWidth;
   const overlayMinWidth =
     typeof treeOverlayMinWidth === 'number'
@@ -199,15 +299,36 @@ export function BookReader<Meta = unknown, Content = string>(
       : treeOverlayMinHeight;
 
   // The wired tree — shared by the inline pane and the floated overlay so both
-  // reflect the same selection/expansion state.
+  // reflect the same selection/expansion state. The optional search box sits on
+  // top; while a search/reset runs the old tree is replaced by a loading panel.
   const treeView = (
-    <TreePaneView
-      store={store}
-      state={treeState}
-      renderTreeNode={renderTreeNode}
-      renderExpandCollapse={renderExpandCollapse}
-      treeNodeClassName={classNames?.treeNode}
-    />
+    <>
+      {searchVisible && (
+        <TreeSearch
+          onSearch={handleSearch}
+          onReset={onReset !== undefined ? handleReset : undefined}
+          isSearching={searching}
+          error={searchError}
+          placeholder={searchPlaceholder}
+          renderSearch={renderSearch}
+          className={classNames?.search}
+        />
+      )}
+      {searching ? (
+        <p className="br-tree-loading" data-part="tree-loading">
+          Loading…
+        </p>
+      ) : (
+        <TreePaneView
+          store={store}
+          state={treeState}
+          renderTreeNode={renderTreeNode}
+          renderExpandCollapse={renderExpandCollapse}
+          onRetryLazy={ensureLazy}
+          treeNodeClassName={classNames?.treeNode}
+        />
+      )}
+    </>
   );
 
   const toggleApi: TreeToggleApi = {
@@ -315,26 +436,39 @@ export function BookReader<Meta = unknown, Content = string>(
         }}
       >
         {/* ContentPane owns the scroll surface (virtualization needs to read its
-            own scrollTop/clientHeight); this wrapper only sizes it. */}
-        <ContentPane
-          store={store}
-          fetchContent={fetchContent}
-          cache={cache}
-          sanitize={sanitize}
-          overscan={overscan}
-          prefetchCount={prefetchCount}
-          estimateHeight={estimateHeight}
-          getNextNode={getNextNode}
-          getPrevNode={getPrevNode}
-          onActiveChange={handleActiveChange}
-          scrollRequest={scrollRequest}
-          renderContent={renderContent}
-          renderContentNode={renderContentNode}
-          renderLoading={renderLoading}
-          renderError={renderError}
-          renderEmpty={renderEmpty}
-          contentNodeClassName={classNames?.contentNode}
-        />
+            own scrollTop/clientHeight); this wrapper only sizes it. While a
+            search/reset runs, the old reading surface is replaced by a loading
+            panel (the new tree's first page resolves before it remounts). */}
+        {searching ? (
+          <p
+            className="br-content__loading"
+            data-part="content-loading"
+            style={{ margin: 'auto' }}
+          >
+            Loading…
+          </p>
+        ) : (
+          <ContentPane
+            store={store}
+            fetchContent={fetchContent}
+            cache={cache}
+            sanitize={sanitize}
+            overscan={overscan}
+            prefetchCount={prefetchCount}
+            estimateHeight={estimateHeight}
+            getNextNode={getNextNode}
+            getPrevNode={getPrevNode}
+            onActiveChange={handleActiveChange}
+            ensureLazy={ensureLazy}
+            scrollRequest={scrollRequest}
+            renderContent={renderContent}
+            renderContentNode={renderContentNode}
+            renderLoading={renderLoading}
+            renderError={renderError}
+            renderEmpty={renderEmpty}
+            contentNodeClassName={classNames?.contentNode}
+          />
+        )}
       </div>
     </div>
   );

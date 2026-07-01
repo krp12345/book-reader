@@ -15,6 +15,7 @@ import type {
 import { flattenVisible } from './flatten';
 import { useTreeState, type TreeState } from './useTreeState';
 import { defaultTreeNode } from './defaultTreeNode';
+import { useStoreVersion } from '../useStoreVersion';
 
 export interface TreePaneProps<Meta = unknown> {
   store: TreeStore<Meta>;
@@ -32,6 +33,8 @@ export interface TreePaneViewProps<Meta = unknown> {
   state: TreeState;
   renderTreeNode?: RenderTreeNode<Meta> | undefined;
   renderExpandCollapse?: RenderExpandCollapse | undefined;
+  /** Retry a failed lazy child fetch (from the placeholder row's Retry button). */
+  onRetryLazy?: ((id: string) => void) | undefined;
   className?: string | undefined;
   treeNodeClassName?: string | undefined;
   'aria-label'?: string | undefined;
@@ -58,22 +61,34 @@ export function TreePane<Meta = unknown>(
 export function TreePaneView<Meta = unknown>(
   props: TreePaneViewProps<Meta>,
 ): JSX.Element {
-  const { store, state, renderTreeNode, renderExpandCollapse, treeNodeClassName } =
-    props;
+  const {
+    store,
+    state,
+    renderTreeNode,
+    renderExpandCollapse,
+    treeNodeClassName,
+    onRetryLazy,
+  } = props;
   const renderNode = renderTreeNode ?? defaultTreeNode;
 
+  // Recompute visible rows when lazy children load / the tree is replaced.
+  const version = useStoreVersion(store);
   const rows = useMemo(
     () => flattenVisible(store, state.expanded),
-    [store, state.expanded],
+    [store, state.expanded, version],
   );
+  // Only real nodes are keyboard-navigable (lazy status rows are not focusable).
+  const navRows = useMemo(() => rows.filter((r) => r.kind === 'node'), [rows]);
 
   const rowRefs = useRef(new Map<string, HTMLDivElement>());
   const [focusId, setFocusId] = useState<string | undefined>(undefined);
 
-  const activeId = rows.some((r) => r.id === focusId) ? focusId : rows[0]?.id;
+  const activeId = navRows.some((r) => r.id === focusId)
+    ? focusId
+    : navRows[0]?.id;
 
   function moveTo(index: number): void {
-    const target = rows[index];
+    const target = navRows[index];
     if (!target) return;
     setFocusId(target.id);
     rowRefs.current.get(target.id)?.focus();
@@ -82,9 +97,9 @@ export function TreePaneView<Meta = unknown>(
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
     const index = Math.max(
       0,
-      rows.findIndex((r) => r.id === activeId),
+      navRows.findIndex((r) => r.id === activeId),
     );
-    const current = rows[index];
+    const current = navRows[index];
     if (!current) return;
 
     switch (event.key) {
@@ -102,7 +117,7 @@ export function TreePaneView<Meta = unknown>(
         break;
       case 'End':
         event.preventDefault();
-        moveTo(rows.length - 1);
+        moveTo(navRows.length - 1);
         break;
       case 'ArrowRight':
         event.preventDefault();
@@ -118,7 +133,7 @@ export function TreePaneView<Meta = unknown>(
         } else {
           const parentId = store.getParentId(current.id);
           if (parentId !== undefined) {
-            moveTo(rows.findIndex((r) => r.id === parentId));
+            moveTo(navRows.findIndex((r) => r.id === parentId));
           }
         }
         break;
@@ -141,6 +156,43 @@ export function TreePaneView<Meta = unknown>(
       onKeyDown={onKeyDown}
     >
       {rows.map((row) => {
+        if (row.kind === 'lazy') {
+          return (
+            <div
+              key={`${row.id}::lazy`}
+              role="treeitem"
+              aria-level={row.depth + 1}
+              aria-disabled
+              className="br-tree-node br-tree-node--lazy"
+              data-part="tree-node-lazy"
+              data-depth={row.depth}
+              data-status={row.status}
+              style={{ '--br-tree-depth': row.depth } as CSSProperties}
+            >
+              {row.status === 'loading' ? (
+                <span className="br-tree-lazy__loading" data-part="tree-lazy-loading">
+                  Loading…
+                </span>
+              ) : (
+                <span className="br-tree-lazy__error" data-part="tree-lazy-error" role="alert">
+                  Couldn’t load.
+                  <button
+                    type="button"
+                    className="br-tree-lazy__retry"
+                    data-part="tree-lazy-retry"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onRetryLazy?.(row.id);
+                    }}
+                  >
+                    Retry
+                  </button>
+                </span>
+              )}
+            </div>
+          );
+        }
+
         const node = store.getNode(row.id);
         if (!node) return null;
 

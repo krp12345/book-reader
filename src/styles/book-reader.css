@@ -283,3 +283,118 @@
   background: var(--reader-color-error);
   color: var(--reader-color-accent-fg);
 }
+
+/* Lazy content placeholder (a branch reached by scrolling, still loading). */
+[data-part='book-reader'] [data-part='content-lazy-loading'] {
+  color: var(--reader-color-muted);
+  font-style: italic;
+}
+[data-part='book-reader'] [data-part='content-lazy-error'] {
+  display: flex;
+  align-items: center;
+  gap: var(--reader-content-state-gap);
+  color: var(--reader-color-error);
+}
+[data-part='book-reader'] [data-part='content-lazy-retry'] {
+  cursor: pointer;
+  padding: var(--reader-content-retry-padding);
+  border: 1px solid currentColor;
+  border-radius: var(--reader-radius);
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+[data-part='book-reader'] [data-part='content-lazy-retry']:hover {
+  background: var(--reader-color-error);
+  color: var(--reader-color-accent-fg);
+}
+
+/* Tree search box (top of the tree pane). */
+[data-part='book-reader'] [data-part='tree-search'] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--reader-tree-gap);
+  padding: var(--reader-tree-padding);
+  border-bottom: 1px solid var(--reader-color-border);
+}
+[data-part='book-reader'] [data-part='tree-search-input'] {
+  flex: 1 1 8rem;
+  min-width: 0;
+  padding: var(--reader-tree-row-padding-block)
+    var(--reader-tree-row-padding-inline);
+  border: 1px solid var(--reader-color-border);
+  border-radius: var(--reader-radius);
+  background: var(--reader-color-bg);
+  color: var(--reader-color-fg);
+  font: inherit;
+}
+[data-part='book-reader'] [data-part='tree-search-input']:focus-visible {
+  outline: var(--reader-focus-ring);
+  outline-offset: 1px;
+}
+[data-part='book-reader'] [data-part='tree-search-submit'],
+[data-part='book-reader'] [data-part='tree-search-reset'] {
+  cursor: pointer;
+  padding: var(--reader-tree-row-padding-block)
+    var(--reader-tree-row-padding-inline);
+  border: 1px solid var(--reader-color-border);
+  border-radius: var(--reader-radius);
+  background: var(--reader-color-bg);
+  color: var(--reader-color-fg);
+  font: inherit;
+}
+[data-part='book-reader'] [data-part='tree-search-submit'] {
+  background: var(--reader-color-accent);
+  color: var(--reader-color-accent-fg);
+  border-color: var(--reader-color-accent);
+}
+[data-part='book-reader'] [data-part='tree-search-submit']:disabled,
+[data-part='book-reader'] [data-part='tree-search-reset']:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+[data-part='book-reader'] [data-part='tree-search-error'] {
+  flex: 1 1 100%;
+  color: var(--reader-color-error);
+  font-size: 0.85em;
+}
+
+/* Loading panel shown in the tree pane while a search/reset runs. */
+[data-part='book-reader'] [data-part='tree-loading'] {
+  padding: var(--reader-tree-padding);
+  color: var(--reader-color-muted);
+  font-style: italic;
+}
+
+/* Lazy status rows inside the tree (a loading/error branch placeholder). */
+[data-part='book-reader'] [data-part='tree-node-lazy'] {
+  display: flex;
+  align-items: center;
+  gap: var(--reader-tree-gap);
+  padding-block: var(--reader-tree-row-padding-block);
+  padding-inline-start: calc(
+    var(--br-tree-depth, 0) * var(--reader-tree-indent) +
+      var(--reader-tree-row-padding-inline)
+  );
+  padding-inline-end: var(--reader-tree-row-padding-inline);
+  font-size: 0.9em;
+}
+[data-part='book-reader'] [data-part='tree-lazy-loading'] {
+  color: var(--reader-color-muted);
+  font-style: italic;
+}
+[data-part='book-reader'] [data-part='tree-lazy-error'] {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--reader-tree-gap);
+  color: var(--reader-color-error);
+}
+[data-part='book-reader'] [data-part='tree-lazy-retry'] {
+  cursor: pointer;
+  padding: 0 0.4em;
+  border: 1px solid currentColor;
+  border-radius: var(--reader-radius);
+  background: none;
+  color: inherit;
+  font: inherit;
+}

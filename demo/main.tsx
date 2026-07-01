@@ -4,11 +4,14 @@
  * Each tab is a focused, self-contained scenario:
  *   1. Quickstart  — a small inline (sync) book, the minimal usage.
  *   2. Branch      — branch nodes that carry their own content.
- *   3. Styling     — the three styling tiers + a controlled `location`.
- *   4. Responsive  — width-driven tree collapse into a floated overlay.
- *   5. Object      — a generic (non-string) structured content payload.
- *   6. Render hooks— custom expand/collapse caret + custom content-node wrapper.
- *   7. Selection   — `renderContentNode` captures the user's text selection and
+ *   3. Lazy & search — `lazy` branches fetched on demand (`fetchChildren`) by
+ *                    expand *or* scroll; search/reset replace the whole tree; a
+ *                    live fetch-inspector sidecar; default + custom search box.
+ *   4. Styling     — the three styling tiers + a controlled `location`.
+ *   5. Responsive  — width-driven tree collapse into a floated overlay.
+ *   6. Object      — a generic (non-string) structured content payload.
+ *   7. Render hooks— custom expand/collapse caret + custom content-node wrapper.
+ *   8. Selection   — `renderContentNode` captures the user's text selection and
  *                    sends it out over a decoupled channel; an outside button
  *                    reads it back (some sections are deliberately unselectable).
  *
@@ -39,6 +42,7 @@ import type {
   RenderError,
   RenderExpandCollapse,
   RenderLoading,
+  RenderSearch,
   RenderTreeNode,
   RenderTreeOverlay,
   RenderTreeToggle,
@@ -47,12 +51,18 @@ import {
   makeBranchContentBook,
   makeFetchContent,
   makeLargeBook,
+  makeLazyBook,
+  makeLazyFetchChildren,
+  makeLazyFetchContent,
+  makeLazyReset,
+  makeLazySearch,
   makeObjectFetchContent,
   makeSelectionBook,
   makeSyncBook,
   type RichSection,
   type SelectionMeta,
 } from './data';
+import { fetchBus, type FetchEvent } from './fetchBus';
 import {
   selectionBus,
   type SelMenu,
@@ -69,6 +79,13 @@ const syncBook = makeSyncBook();
 const largeBook = makeLargeBook();
 const branchBook = makeBranchContentBook();
 const selectionBook = makeSelectionBook();
+const lazyBook = makeLazyBook();
+
+// Lazy example: content + children fetchers, and search/reset tree producers.
+const fetchLazyContent = makeLazyFetchContent();
+const fetchLazyChildren = makeLazyFetchChildren();
+const lazySearch = makeLazySearch();
+const lazyReset = makeLazyReset();
 const fetchSelection = makeFetchContent<SelectionMeta>({ delayMs: 120 });
 
 // Per-example fetchers (see data.ts). States stages slow + failing + empty nodes.
@@ -337,6 +354,111 @@ const renderSelectableNode: RenderContentNode<SelectionMeta, string> = ({
   </SelectableContentNode>
 );
 
+// --- Lazy & search: the on-screen fetch inspector ----------------------------
+// A sidecar panel that renders every fetchContent / fetchChildren / search /
+// reset call live off `fetchBus` — so you can *see* the lazy loading and the
+// tree-replacement happening without opening devtools. Pure demo glue.
+function FetchInspector(): JSX.Element {
+  const [events, setEvents] = useState<FetchEvent[]>([]);
+  useEffect(() => fetchBus.subscribe(setEvents), []);
+
+  const counts = useMemo(() => {
+    const c = { content: 0, children: 0, search: 0, reset: 0 };
+    for (const e of events) if (e.phase === 'ok') c[e.kind] += 1;
+    return c;
+  }, [events]);
+
+  return (
+    <aside className="fetch-inspector" aria-label="Fetch activity">
+      <header className="fi-head">
+        <strong>Fetch activity</strong>
+        <button type="button" className="fi-clear" onClick={() => fetchBus.clear()}>
+          Clear
+        </button>
+      </header>
+      <div className="fi-counts">
+        <span className="fi-count" data-kind="content">
+          content <b>{counts.content}</b>
+        </span>
+        <span className="fi-count" data-kind="children">
+          children <b>{counts.children}</b>
+        </span>
+        <span className="fi-count" data-kind="search">
+          search <b>{counts.search}</b>
+        </span>
+        <span className="fi-count" data-kind="reset">
+          reset <b>{counts.reset}</b>
+        </span>
+      </div>
+      <ol className="fi-log">
+        {events.length === 0 && (
+          <li className="fi-empty">
+            No fetches yet. Expand a branch, scroll, or run a search.
+          </li>
+        )}
+        {events.map((e) => (
+          <li key={e.seq} className={`fi-row fi-${e.phase}`}>
+            <span className="fi-kind" data-kind={e.kind}>
+              {e.kind}
+            </span>
+            <code className="fi-label" title={e.label}>
+              {e.label}
+            </code>
+            <span className="fi-phase">
+              {e.phase}
+              {e.ms !== undefined ? ` · ${e.ms}ms` : ''}
+              {e.detail ? ` · ${e.detail}` : ''}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </aside>
+  );
+}
+
+// Advanced: a fully custom search box (the `renderSearch` prop). The library
+// still owns the tree-replacement + first-page resolution; this only owns the
+// control UI. No result list — search *replaces* the tree.
+const renderCustomSearch: RenderSearch = ({
+  query,
+  setQuery,
+  submit,
+  reset,
+  isSearching,
+  canReset,
+}) => (
+  <div className="cs-search" data-searching={isSearching || undefined}>
+    <span className="cs-search-icon" aria-hidden="true">
+      🔎
+    </span>
+    <input
+      className="cs-search-input"
+      value={query}
+      placeholder="custom search box…"
+      aria-label="Search the book"
+      disabled={isSearching}
+      onChange={(e) => setQuery(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') submit();
+      }}
+    />
+    <button type="button" className="cs-search-go" onClick={submit} disabled={isSearching}>
+      {isSearching ? '…' : 'Go'}
+    </button>
+    {canReset && (
+      <button
+        type="button"
+        className="cs-search-reset"
+        onClick={reset}
+        disabled={isSearching}
+        aria-label="Reset search"
+      >
+        ↺
+      </button>
+    )}
+  </div>
+);
+
 type RespMode = 'default' | 'custom-toggle' | 'custom-overlay' | 'forced';
 const RESP_MODES: { id: RespMode; label: string; blurb: string }[] = [
   {
@@ -374,6 +496,7 @@ const RESP_MODES: { id: RespMode; label: string; blurb: string }[] = [
 type ExampleId =
   | 'quickstart'
   | 'branch'
+  | 'lazy'
   | 'styling'
   | 'responsive'
   | 'object'
@@ -396,15 +519,26 @@ const EXAMPLES: { id: ExampleId; label: string; blurb: string }[] = [
       'the Part the active (highlighted) node, not one of its chapters.',
   },
   {
+    id: 'lazy',
+    label: '3 · Lazy & search',
+    blurb:
+      'Branches marked `lazy` load their children on demand — by expanding them ' +
+      'in the tree *or* by scrolling the reading surface to them (`fetchChildren`). ' +
+      'The search box **replaces the whole tree** (`onSearch`/`onReset` return a ' +
+      'fresh book) and the reader seamlessly resolves down to the first page — ' +
+      'fetching lazy branches along the way. The panel on the right shows every ' +
+      'fetch live. Toggle a fully custom search box (`renderSearch`).',
+  },
+  {
     id: 'styling',
-    label: '3 · Styling & location',
+    label: '4 · Styling & location',
     blurb:
       'A large (virtualized) book across all three styling tiers, with a controlled ' +
       '`location`: the readout follows scrolling, and “Jump” drives the reader.',
   },
   {
     id: 'responsive',
-    label: '4 · Responsive tree',
+    label: '5 · Responsive tree',
     blurb:
       'Reading width wins: when the reader is too narrow to fit the tree *and* the ' +
       'content floor (`contentMinWidth`), the tree collapses to a toggle that opens ' +
@@ -412,7 +546,7 @@ const EXAMPLES: { id: ExampleId; label: string; blurb: string }[] = [
   },
   {
     id: 'object',
-    label: '5 · Object content',
+    label: '6 · Object content',
     blurb:
       '`fetchContent` returns a *structured object* (a typed `RichSection`), not an ' +
       'HTML string. A consumer-owned `renderContent(node, section)` renders it — ' +
@@ -421,7 +555,7 @@ const EXAMPLES: { id: ExampleId; label: string; blurb: string }[] = [
   },
   {
     id: 'render-hooks',
-    label: '6 · Render hooks',
+    label: '7 · Render hooks',
     blurb:
       '`renderExpandCollapse` swaps the disclosure caret for a +/− control ' +
       '(library keeps row a11y + keyboard nav); `renderContentNode` owns the ' +
@@ -431,7 +565,7 @@ const EXAMPLES: { id: ExampleId; label: string; blurb: string }[] = [
   },
   {
     id: 'selection',
-    label: '7 · Text selection',
+    label: '8 · Text selection',
     blurb:
       '`renderContentNode` lets the user select text anywhere and **Stage** it ' +
       'onto a standalone channel — the reader has no idea anyone is listening. ' +
@@ -470,6 +604,7 @@ function App(): JSX.Element {
   const [location, setLocation] = useState<BookLocation | undefined>(undefined);
   const [frameWidth, setFrameWidth] = useState(640);
   const [respMode, setRespMode] = useState<RespMode>('default');
+  const [searchMode, setSearchMode] = useState<'default' | 'custom'>('default');
 
   // Example 7: the staged set (durable) + the transient right-click context menu,
   // both read off `selectionBus`. `revealed` is the outside button proving the
@@ -518,6 +653,23 @@ function App(): JSX.Element {
             fetchContent={fetchBranch}
             treeWidth={300}
             onLocationChange={setLocation}
+          />
+        );
+      case 'lazy':
+        return (
+          <BookReader
+            tree={lazyBook}
+            fetchContent={fetchLazyContent}
+            fetchChildren={fetchLazyChildren}
+            showSearch
+            onSearch={lazySearch}
+            onReset={lazyReset}
+            searchPlaceholder="Search the atlas…"
+            treeWidth={300}
+            onLocationChange={setLocation}
+            {...(searchMode === 'custom'
+              ? { renderSearch: renderCustomSearch }
+              : {})}
           />
         );
       case 'styling':
@@ -585,7 +737,7 @@ function App(): JSX.Element {
           />
         );
     }
-  }, [example, skin, location, respMode]);
+  }, [example, skin, location, respMode, searchMode]);
 
   return (
     <main className="demo-page">
@@ -612,6 +764,23 @@ function App(): JSX.Element {
       </div>
 
       <p className="demo-blurb">{active.blurb}</p>
+
+      {example === 'lazy' && (
+        <div className="example-controls">
+          <span className="skin-toggle" role="group" aria-label="Search box">
+            {(['default', 'custom'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                aria-pressed={m === searchMode}
+                onClick={() => setSearchMode(m)}
+              >
+                {m === 'default' ? 'Default search box' : 'Custom renderSearch'}
+              </button>
+            ))}
+          </span>
+        </div>
+      )}
 
       {example === 'styling' && (
         <div className="example-controls">
@@ -809,14 +978,23 @@ function App(): JSX.Element {
         </code>
       </p>
 
-      <div
-        className="reader-frame"
-        style={
-          example === 'responsive' ? { maxWidth: `${frameWidth}px` } : undefined
-        }
-      >
-        {reader}
-      </div>
+      {example === 'lazy' ? (
+        <div className="lazy-stage">
+          <div className="reader-frame">{reader}</div>
+          <FetchInspector />
+        </div>
+      ) : (
+        <div
+          className="reader-frame"
+          style={
+            example === 'responsive'
+              ? { maxWidth: `${frameWidth}px` }
+              : undefined
+          }
+        >
+          {reader}
+        </div>
+      )}
     </main>
   );
 }

@@ -15,8 +15,10 @@ import type {
   SanitizeOption,
 } from '../types';
 import { ContentNode } from './ContentNode';
+import { LazyContentPlaceholder } from './LazyContentPlaceholder';
 import { prefetchNodeContent } from './prefetchNodeContent';
 import { useVirtualList } from './useVirtualList';
+import { useStoreVersion } from '../useStoreVersion';
 
 export interface ScrollRequest {
   id: string;
@@ -35,6 +37,8 @@ export interface ContentPaneProps<Meta = unknown, Content = string> {
   getNextNode?: GetNextNode<Meta> | undefined;
   getPrevNode?: GetPrevNode<Meta> | undefined;
   onActiveChange?: ((id: string, offset: number) => void) | undefined;
+  /** Ensure a lazy node's children load when it enters the reading window. */
+  ensureLazy?: ((id: string) => void) | undefined;
   scrollRequest?: ScrollRequest | undefined;
   renderContent?: RenderContent<Meta, Content> | undefined;
   renderContentNode?: RenderContentNode<Meta, Content> | undefined;
@@ -60,8 +64,12 @@ export function ContentPane<Meta = unknown, Content = string>(
     getNextNode,
     getPrevNode,
     onActiveChange,
+    ensureLazy,
     scrollRequest,
   } = props;
+
+  // Recompute the reading order when lazy children load / the tree is replaced.
+  const version = useStoreVersion(store);
 
   const fullSeq = useMemo(() => {
     const order = withReadingOverrides(store, createReadingOrder(store), {
@@ -69,11 +77,24 @@ export function ContentPane<Meta = unknown, Content = string>(
       getPrevNode,
     });
     return order.getSequence();
-  }, [store, getNextNode, getPrevNode]);
+  }, [store, getNextNode, getPrevNode, version]);
+
+  const isLazyPending = useCallback(
+    (id: string): boolean =>
+      store.isLazy(id) && store.getLazyStatus(id) !== 'loaded',
+    [store],
+  );
 
   const ids = useMemo(
-    () => fullSeq.filter((id) => store.getNode(id)?.hasContent !== false),
-    [fullSeq, store],
+    () =>
+      fullSeq.filter(
+        (id) =>
+          // An unresolved lazy branch renders a placeholder in reading order so
+          // (a) the reader sees it loading and (b) scrolling to it triggers the
+          // fetch; once loaded a pure-branch (hasContent:false) drops out again.
+          isLazyPending(id) || store.getNode(id)?.hasContent !== false,
+      ),
+    [fullSeq, store, version, isLazyPending],
   );
 
   const contentIds = useMemo(() => new Set(ids), [ids]);
@@ -130,6 +151,18 @@ export function ContentPane<Meta = unknown, Content = string>(
     if (activeId !== undefined) onActiveChange?.(activeId, activeOffset);
   }, [activeId, activeOffset, onActiveChange]);
 
+  // Scroll-trigger: when an unresolved lazy branch is in (or near) the window,
+  // fetch its children. `ensureLazy` is idempotent / dedup'd, so re-running on
+  // every window change is safe.
+  useEffect(() => {
+    if (ensureLazy === undefined) return;
+    for (const { id } of items) {
+      if (store.isLazy(id) && store.getLazyStatus(id) === 'unloaded') {
+        ensureLazy(id);
+      }
+    }
+  }, [items, store, ensureLazy, version]);
+
   const lastScrollToken = useRef<number | undefined>(undefined);
   useEffect(() => {
     if (scrollRequest === undefined) return;
@@ -163,6 +196,18 @@ export function ContentPane<Meta = unknown, Content = string>(
       {items.map(({ id }) => {
         const node = store.getNode(id);
         if (!node) return null;
+        if (isLazyPending(id)) {
+          const status = store.getLazyStatus(id);
+          return (
+            <LazyContentPlaceholder
+              key={id}
+              measureRef={measureRef(id)}
+              status={status === 'error' ? 'error' : 'loading'}
+              error={store.getLazyError(id)}
+              onRetry={ensureLazy ? () => ensureLazy(id) : undefined}
+            />
+          );
+        }
         return (
           <ContentNode
             key={id}

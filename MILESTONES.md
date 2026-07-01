@@ -8,13 +8,48 @@
 ---
 
 ## ▶ STATUS — keep this block current (update at end of every session)
-- **Current milestone:** M9 — feature batch built + **test-covered** (155 unit + 16
-  e2e green). Only the **accessibility pass** remains. M8 hardening/docs done.
+- **Current milestone:** M10 — **lazy tree + tree search BUILT + TEST-COVERED
+  (2026-07-01).** Tests written at the user's request; ⚠️ Experimental markers can
+  drop for the covered features. M9 done. M8 hardening/docs done.
 - **Overall progress:** 7 / 9 milestones complete (M0, M2–M7 done; M1 core types done)
-- **Next action:** the **accessibility pass** — the only remaining M9 item. Tree
-  keyboard nav + ARIA roles already ship; harden roles/labels/focus across the whole
-  reader, then add a11y tests. Everything else is built, documented (Stable), and
-  test-covered.
+- **🆕 Tested 2026-07-01 — M10 lazy tree + search + selection/staging.** New coverage:
+  `tests/core/treeStore.lazy.test.ts` (mutation/subscription/lazy status),
+  `tests/useLazyChildren.test.tsx` (dedup, missing fetcher, error+retry, abort→reset),
+  `tests/tree/flatten.lazy.test.ts` (lazy status rows),
+  `tests/BookReader.lazy.test.tsx` (loading→children, retry, no-fetcher),
+  `tests/BookReader.search.test.tsx` (replace + first-page descent, reset, custom
+  renderSearch, in-flight coalescing) + e2e `e2e/lazy-search.spec.ts` (5: expand +
+  scroll triggers, search descend, reset, custom box) and `e2e/selection.spec.ts`
+  (6: stage/highlight, survives virtualization remount, unstage, deselect, show-all
+  channel, locked-section guard). Also fixed the 4 stale `flatten.test.ts` assertions
+  (`kind:'node'` shape). **186 unit + 23 e2e green** (was 160 unit incl. 4 red + 12 e2e;
+  +26 unit, +11 e2e).
+- **🐞 Real bug found + fixed by the new e2e (2026-07-01):** the reading-surface
+  **lazy scroll-trigger was broken under React StrictMode** — `useLazyChildren` aborted
+  the in-flight fetch on the StrictMode double-mount and left the node stuck `'loading'`
+  with no in-flight promise, and the ContentPane scroll trigger only re-fires for
+  `'unloaded'`, so lazy children never loaded on scroll (expand still worked — it calls
+  `ensureLazy` directly). Fix: an aborted fetch now resets the node to `'unloaded'`
+  (unless a newer fetch took over) so the trigger can pick it up again. Guarded by the
+  `abort→unloaded` unit assertion + the `e2e/lazy-search.spec.ts` scroll-trigger test.
+- **Next action:** the **accessibility pass** (unchanged) is the only remaining M8/M10
+  item; drop any lingering ⚠️ Experimental markers in the README for the now-tested
+  lazy/search features.
+- **🆕 Built 2026-06-30 — lazy tree + search (⚠️ Experimental):**
+  - **Lazy tree:** `BookNode.lazy` + `fetchChildren` prop. The `treeStore` is now
+    **mutable + subscribable** (`useSyncExternalStore` via `src/useStoreVersion.ts`):
+    `setChildren`/`replaceTree`/`setLazyStatus` + version/notify. Orchestrated by
+    `src/useLazyChildren.ts` (dedup, abort-on-unmount, retry, awaitable `ensureAsync`).
+    **Two triggers:** tree expand (`useTreeState.onExpand`) and reading-surface scroll
+    (`ContentPane` effect over window items). Placeholders: tree status rows
+    (`flatten.ts` `kind:'lazy'`) + `content/LazyContentPlaceholder.tsx` in reading order.
+  - **Search = tree replacement:** `showSearch`/`onSearch`/`onReset`/`searchPlaceholder`/
+    `renderSearch` (+ `classNames.search`). `tree/TreeSearch.tsx` box; `BookReader`
+    `runReplace` swaps the tree and `gotoFirstShowable` descends leftmost (fetching
+    lazies) to the first content-bearing node. Clear-immediately loading UX.
+  - **Demo:** new example 3 "Lazy & search" with a live `<FetchInspector>` sidecar
+    (`demo/fetchBus.ts`) showing every fetchContent/fetchChildren/search/reset call,
+    plus a default↔custom `renderSearch` toggle. build + lint + typecheck green.
 - **✅ Shipped + tested (2026-06-28):** the whole M9 feature batch **plus its tests**.
   Features: configurable expand/collapse control (`renderExpandCollapse`/
   `ExpandCollapseApi`), inter-node spacing split (`--reader-content-padding-block`/
@@ -45,8 +80,9 @@
   (reader root `height:100%`). **README written** (`README.md` — consumer usage
   guide). See the latest session-log entry. **Publishing is out of scope** — the
   user packages manually (no version bump / publish from here).
-- **Blocked on:** nothing. Package name = `book-reader`. pnpm is the package manager.
-- **Last updated:** 2026-06-28
+- **Blocked on:** user verification of the Lazy & search demo (gates the tests).
+  Package name = `book-reader`. pnpm is the package manager.
+- **Last updated:** 2026-06-30
 
 ---
 
@@ -743,23 +779,45 @@ tree; the audit is to harden roles/labels/focus across the whole reader, then ad
 
 ---
 
-## ⏸ PENDING TESTS — demo example 7 (text selection / staging) — added 2026-06-28
-> Demo-only feature (no library API change — `renderContentNode` already receives
-> the full `BookNode`, incl. `meta`). Already covered: **`tests/content/renderContentNode.test.tsx`**
-> proves `node.meta`/`node.title` reach the renderer end-to-end through `<BookReader>`;
-> **`tests/demo/highlight.test.ts`** proves the pure offset/wrap helpers + the
-> remount-restore case (re-painting a stored char range onto a fresh identical DOM).
+## ✅ LANDED — text selection / staging e2e (2026-07-01) — was PENDING (2026-06-28)
+> Landed in **`e2e/selection.spec.ts`** (6 real-browser tests): stage via right-click →
+> persistent `<mark>` + staged chip; **survives virtualization** (staged section scrolled
+> out until it unmounts, then back → highlight re-painted from the stored char range);
+> right-click a staged highlight → **Unstage** only (removes it live); **Deselect** on a
+> fresh selection stages nothing; the outside **“Show all staged content”** button dumps
+> each selection's text + `nodeId`/`meta.category` (proves the decoupled channel crossed
+> the `<BookReader>` boundary); a `🔒 user-select:none` locked section yields no menu.
+> Selections are created programmatically (DOM Range + dispatched `contextmenu`) for
+> determinism; everything downstream is the unmocked demo. Pure helpers already covered
+> by `tests/demo/highlight.test.ts` + `tests/content/renderContentNode.test.tsx`.
+
+---
+
+## ✅ LANDED — M10 lazy tree + tree search tests (2026-07-01) — was PENDING (2026-06-30)
+> Split across a fast RTL/jsdom layer (store + orchestration + search wiring, since
+> jsdom has no layout and mounts every node) and real-browser e2e (the trigger paths).
+> Where each owed item landed:
+> - **Store unit** → `tests/core/treeStore.lazy.test.ts`: `setChildren`/`setLazyStatus`/
+>   `replaceTree` bump version + notify (+ unsubscribe); `isExpandable`/`getLazyStatus`
+>   for unresolved/pre-resolved/non-lazy nodes; unknown-id no-ops.
+> - **`useLazyChildren`** → `tests/useLazyChildren.test.tsx`: dedup concurrent triggers,
+>   loading→loaded + insert, missing-`fetchChildren` error, rejection→error→retry, and
+>   **abort-on-unmount resets to `'unloaded'`** (see the StrictMode fix below).
+> - **Lazy status rows** → `tests/tree/flatten.lazy.test.ts` (loading/error rows, walk
+>   once resolved, none while collapsed).
+> - **Expand-trigger + error/retry + no-fetcher** → `tests/BookReader.lazy.test.tsx`
+>   (loading row → children, single fetch, Retry succeeds, no-`fetchChildren` error) and
+>   e2e `e2e/lazy-search.spec.ts` "expand trigger" (fetch + render, re-expand is cached).
+> - **Scroll-trigger** → e2e `e2e/lazy-search.spec.ts` "scroll trigger": scrolling
+>   resolves lazy branches down to real leaf sections that load (the case the StrictMode
+>   bug broke — now guarded here).
+> - **Search replace + first-page descent + reset + custom box + coalescing** →
+>   `tests/BookReader.search.test.tsx` (RTL) + e2e `e2e/lazy-search.spec.ts` (real
+>   collapsed-overlay flow; asserts descent via the reading-position readout).
+> - **Note on the demo layout:** the Lazy & search example renders the tree **collapsed**
+>   (narrow frame beside the inspector), so the e2e drives tree/search via the floated
+>   overlay — representative of the real collapsed UX.
 >
-> Owed — the **essential real-browser e2e flow** (Playwright; jsdom can't exercise
-> real virtualization unmount/remount nor a native right-click menu):
-> - In demo example 7: select text in a section, **right-click → Stage**; scroll that
->   section far out of view (it unmounts) then back, and assert the **yellow highlight
->   is restored** (the requirement-1 guarantee). Stage from a second section too.
-> - Right-click a staged (yellow) highlight → menu shows **Unstage** only; click it and
->   assert the in-content highlight disappears live. Right-click a fresh selection →
->   menu shows **Stage + Deselect**; **Deselect** clears the selection without staging.
->   (Staged text offers no Deselect — must Unstage first.)
-> - Click the outside **“Show all staged content”** button and assert every staged
->   selection's text + tracked `nodeId`/title/`meta.category` is dumped (proves the
->   decoupled channel carried it across the <BookReader> boundary).
-> - Confirm a `🔒 user-select:none` section yields no selection/menu.
+> **🐞 The e2e caught a real bug (fixed):** lazy scroll-trigger was dead under
+> StrictMode — an aborted double-mount fetch left the node stuck `'loading'`; fix resets
+> aborted fetches to `'unloaded'` so the trigger re-fires (`src/useLazyChildren.ts`).

@@ -95,6 +95,7 @@ interface BookNode<Meta = unknown> {
   title: string;         // shown in the section tree
   children?: BookNode[]; // present + non-empty ⇒ an expandable branch
   hasContent?: boolean;  // default true; false ⇒ pure organizational branch
+  lazy?: boolean;        // children fetched on demand via fetchChildren
   meta?: Meta;           // arbitrary, typed data you attach to a node
 }
 ```
@@ -188,6 +189,76 @@ Notes:
 - The string path is **unchanged** (back-compat): omit the `Content` type and
   everything behaves exactly as documented above.
 - Objects are cached like strings; scroll-back stays a synchronous cache hit.
+
+---
+
+## Lazy tree (`lazy` + `fetchChildren`)
+
+For very large books you don't have to ship the whole tree up front. Mark any
+branch `lazy: true` and provide its children **on demand** via `fetchChildren`.
+A lazy node renders as expandable even with no `children`; the library fetches
+once, shows loading/error+retry around your callback, and never refetches.
+
+```tsx
+<BookReader
+  tree={{
+    id: 'root',
+    title: 'My Book',
+    children: [
+      { id: 'p1', title: 'Part I', lazy: true, hasContent: false }, // children deferred
+    ],
+  }}
+  fetchContent={loadBody}
+  fetchChildren={async (node, { signal }) => {
+    const res = await fetch(`/api/children/${node.id}`, { signal });
+    return res.json(); // BookNode[] — may themselves be `lazy`
+  }}
+/>
+```
+
+- **Two triggers.** Children load when the reader **expands** the node in the
+  tree, *or* when the **reading surface scrolls** to it. Either way the fetch
+  runs once (concurrent triggers coalesce).
+- **One level per call.** Return a node's immediate children; returned children
+  may be `lazy` too, so the tree stays lazy to any depth.
+- **States.** While loading, a placeholder row appears in the branch (and in the
+  reading surface if scroll-triggered); on failure, an error row with **Retry**.
+  Loaded children are retained when you collapse the branch.
+- `fetchChildren` is only required if your tree contains `lazy` nodes. A lazy
+  node opened with no `fetchChildren` configured shows an error.
+
+---
+
+## Search — replace the tree (`showSearch` / `onSearch` / `onReset`)
+
+The optional tree search box is **not** a suggestion list — submitting it
+**replaces the entire book** with a tree your `onSearch` returns (same shape as
+`tree`, lazy nodes allowed), and the reader jumps to the **first page** of the
+result, resolving lazy branches along the way. `onReset` restores a tree (usually
+the original book) the same way.
+
+```tsx
+<BookReader
+  tree={book}
+  fetchContent={loadBody}
+  fetchChildren={loadChildren}
+  showSearch
+  onSearch={async (query, { signal }) => {
+    const res = await fetch(`/api/search?q=${query}`, { signal });
+    return res.json(); // a whole BookNode tree — replaces the current book
+  }}
+  onReset={() => book}            // restore the original; hides the Reset button if omitted
+  searchPlaceholder="Search…"
+/>
+```
+
+- **Enter / the Search button** runs `onSearch`; the old tree vanishes and a
+  loading state shows until the new tree (and its first page) resolve.
+- **First-page resolution.** After the swap the reader descends the leftmost
+  path — fetching lazy branches as needed — to the first content-bearing node.
+- **Custom UI.** `renderSearch(api)` replaces the entire search control (input +
+  Search/Reset buttons). The library still owns tree-replacement and first-page
+  resolution; there are no result lists to render.
 
 ---
 
@@ -422,6 +493,12 @@ element — **including its `ref`, which the height map depends on** — and ren
 | --- | --- | --- | --- |
 | `tree` | `BookNode \| BookNode[]` | — | One root or a forest; the full tree up front. |
 | `fetchContent` | `FetchContent` | **required** | Resolves a node's HTML body (sync or async). |
+| `fetchChildren` | `FetchChildren` | — | Resolves a `lazy` node's children on demand. |
+| `showSearch` | `boolean` | `false` | Show the tree search box. |
+| `onSearch` | `SearchFn` | — | Returns a new tree that replaces the book on submit. |
+| `onReset` | `ResetFn` | — | Returns the tree to restore; hides Reset if omitted. |
+| `searchPlaceholder` | `string` | `'Search…'` | Default search input placeholder. |
+| `renderSearch` | `RenderSearch` | default box | Replace the search control UI. |
 | `getNextNode` / `getPrevNode` | `GetNextNode` / `GetPrevNode` | DFS order | Override reading order. |
 | `location` | `BookLocation` | — | Controlled reading position. |
 | `defaultLocation` | `BookLocation` | — | Initial position when uncontrolled. |
@@ -465,14 +542,18 @@ virtualizer. See `src/index.ts` for the full surface.
 
 ## Feature stability
 
-**Every shipped feature is Stable** — documented and covered by tests (jsdom/RTL
+Most shipped features are **Stable** — documented and covered by tests (jsdom/RTL
 integration for the wiring + real-browser Playwright e2e for the layout/scroll
 behaviour). That includes the collapsible tree, custom (object) content payloads,
 and the render hooks (`renderExpandCollapse` / `renderContentNode`) alongside the
 core tree, content fetching, caching, virtualization, reading position, and
 styling.
 
-The one area still in progress is a dedicated **accessibility** pass (keyboard nav
+The **lazy tree** (`lazy` + `fetchChildren`) and **search** (`showSearch` /
+`onSearch` / `onReset` / `renderSearch`) are now **Stable** — covered by unit +
+real-browser tests (including the scroll-trigger under StrictMode).
+
+The remaining area in progress is a dedicated **accessibility** pass (keyboard nav
 and ARIA roles already ship on the tree; the audit is to harden them across the
 whole reader).
 

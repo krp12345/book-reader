@@ -27,26 +27,28 @@ const sampleTree: BookNode = {
 describe('flattenVisible', () => {
   it('lists only roots (depth 0) when nothing is expanded', () => {
     const store = createTreeStore({ tree: sampleTree });
-    expect(flattenVisible(store, new Set())).toEqual([{ id: 'root', depth: 0 }]);
+    expect(flattenVisible(store, new Set())).toEqual([
+      { kind: 'node', id: 'root', depth: 0 },
+    ]);
   });
 
   it('reveals the children of expanded nodes at increasing depth', () => {
     const store = createTreeStore({ tree: sampleTree });
     expect(flattenVisible(store, new Set(['root']))).toEqual([
-      { id: 'root', depth: 0 },
-      { id: 'ch1', depth: 1 },
-      { id: 'ch2', depth: 1 },
+      { kind: 'node', id: 'root', depth: 0 },
+      { kind: 'node', id: 'ch1', depth: 1 },
+      { kind: 'node', id: 'ch2', depth: 1 },
     ]);
   });
 
   it('descends recursively through nested expanded nodes', () => {
     const store = createTreeStore({ tree: sampleTree });
     expect(flattenVisible(store, new Set(['root', 'ch1']))).toEqual([
-      { id: 'root', depth: 0 },
-      { id: 'ch1', depth: 1 },
-      { id: 'ch1a', depth: 2 },
-      { id: 'ch1b', depth: 2 },
-      { id: 'ch2', depth: 1 },
+      { kind: 'node', id: 'root', depth: 0 },
+      { kind: 'node', id: 'ch1', depth: 1 },
+      { kind: 'node', id: 'ch1a', depth: 2 },
+      { kind: 'node', id: 'ch1b', depth: 2 },
+      { kind: 'node', id: 'ch2', depth: 1 },
     ]);
   });
 
@@ -56,7 +58,7 @@ describe('flattenVisible', () => {
     });
     // "root" is in the expanded set, but it has no children to reveal.
     expect(flattenVisible(store, new Set(['root']))).toEqual([
-      { id: 'root', depth: 0 },
+      { kind: 'node', id: 'root', depth: 0 },
     ]);
   });
 
