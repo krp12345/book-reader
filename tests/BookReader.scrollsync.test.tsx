@@ -92,6 +92,45 @@ describe('BookReader — scroll → tree sync', () => {
   });
 });
 
+describe('BookReader — controlled location echo-guard', () => {
+  it('an echoed location never re-scrolls; a genuinely new one does', async () => {
+    const onLocationChange = vi.fn();
+    const props = {
+      tree: flatBook,
+      fetchContent,
+      estimateHeight: NODE_HEIGHT,
+      onLocationChange,
+    };
+    const { container, rerender } = render(
+      <BookReader {...props} location={{ nodeId: 'root' }} />,
+    );
+    const el = scroller(container);
+
+    // The user scrolls to Chapter 3 (offset 400) — the reader emits it…
+    el.scrollTop = 400;
+    fireEvent.scroll(el);
+    await waitFor(() =>
+      expect(onLocationChange).toHaveBeenCalledWith({ nodeId: 'c3', offset: 0 }),
+    );
+
+    // …then keeps scrolling a bit further before the parent state lands.
+    el.scrollTop = 420;
+    fireEvent.scroll(el);
+    await waitFor(() => expect(el.scrollTop).toBe(420));
+
+    // The parent echoes the *earlier* emit back as the controlled location.
+    // The echo-guard must swallow it — without the guard this would snap the
+    // surface back to 400 and oscillate against the user's live scroll.
+    rerender(<BookReader {...props} location={{ nodeId: 'c3', offset: 0 }} />);
+    await waitFor(() => expect(el.scrollTop).toBe(420));
+
+    // A location the reader never emitted is a real navigation and does scroll.
+    // (Heights are 100 and the root renders too, so c1 starts at 200.)
+    rerender(<BookReader {...props} location={{ nodeId: 'c1', offset: 0 }} />);
+    await waitFor(() => expect(el.scrollTop).toBe(200));
+  });
+});
+
 describe('BookReader — tree click → scroll content', () => {
   it('scrolls the reading surface to a clicked node', async () => {
     const user = userEvent.setup();

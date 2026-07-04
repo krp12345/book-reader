@@ -12,6 +12,7 @@ import type {
   RenderEmpty,
   RenderError,
   RenderLoading,
+  RenderNoData,
   SanitizeOption,
 } from '../types';
 import { ContentNode } from './ContentNode';
@@ -45,6 +46,8 @@ export interface ContentPaneProps<Meta = unknown, Content = string> {
   renderLoading?: RenderLoading<Meta> | undefined;
   renderError?: RenderError<Meta> | undefined;
   renderEmpty?: RenderEmpty<Meta> | undefined;
+  /** Book-level "no data / no results" panel (whole tree has nothing to show). */
+  renderNoData?: RenderNoData | undefined;
   className?: string | undefined;
   contentNodeClassName?: string | undefined;
   'aria-label'?: string | undefined;
@@ -172,6 +175,12 @@ export function ContentPane<Meta = unknown, Content = string>(
     if (targetId !== undefined) scrollToId(targetId, scrollRequest.offset);
   }, [scrollRequest, scrollToId, resolveContentId]);
 
+  // Book-level empty state: the whole (possibly search-replaced) tree has no
+  // showable content node at all — an empty book, or a zero-result search. The
+  // per-*section* empty state (`renderEmpty`) is unrelated: that is one node
+  // whose fetched content came back empty.
+  const noData = ids.length === 0;
+
   return (
     <div
       ref={scrollRef}
@@ -185,8 +194,20 @@ export function ContentPane<Meta = unknown, Content = string>(
         height: '100%',
         position: 'relative',
         overflowAnchor: 'none',
+        // Structural only: centre the no-data panel in the empty surface.
+        ...(noData
+          ? { display: 'flex', alignItems: 'center', justifyContent: 'center' }
+          : {}),
       }}
     >
+      {noData &&
+        (props.renderNoData !== undefined ? (
+          props.renderNoData()
+        ) : (
+          <p className="br-content-nodata" data-part="content-nodata">
+            Nothing to show here.
+          </p>
+        ))}
       {}
       <div
         data-part="content-spacer-top"

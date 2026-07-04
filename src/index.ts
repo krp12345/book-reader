@@ -12,8 +12,8 @@ export type { ContentNodeProps } from './content/ContentNode';
 
 export { createTreeStore } from './core/treeStore';
 export type { TreeStore, CreateTreeStoreOptions } from './core/treeStore';
-export { createReadingOrder } from './core/traversal';
-export type { ReadingOrder } from './core/traversal';
+export { createReadingOrder, resolveToNode } from './core/traversal';
+export type { ReadingOrder, ResolveDeps } from './core/traversal';
 export { createContentCache } from './core/cache';
 export type { ContentCache } from './core/cache';
 export {
@@ -60,6 +60,7 @@ export type {
   FetchContext,
   FetchContent,
   FetchChildren,
+  FetchPath,
   LazyStatus,
   SearchContext,
   SearchFn,
@@ -75,6 +76,7 @@ export type {
   RenderContentNode,
   RenderLoading,
   RenderEmpty,
+  RenderNoData,
   RenderError,
   CacheConfig,
   ResolvedCacheConfig,

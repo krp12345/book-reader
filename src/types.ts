@@ -36,6 +36,15 @@ export type GetPrevNode<Meta = unknown> = (
 export interface BookLocation {
   nodeId: string;
   offset?: number | undefined;
+  /**
+   * Ancestor ids from **root → direct parent** (excluding `nodeId` itself) used
+   * to deep-link into **unfetched** `lazy` branches: the reader resolves each
+   * lazy ancestor in turn so the target node comes into existence, then scrolls
+   * to it. Optional — when omitted the reader falls back to the `fetchPath` prop;
+   * with neither, a location pointing inside an unresolved branch can't be
+   * reached and is a no-op. Ignored when `nodeId` is already in the tree.
+   */
+  path?: string[] | undefined;
 }
 
 export interface TreeNodeState {
@@ -114,6 +123,21 @@ export type FetchChildren<Meta = unknown> = (
 
 /** The status of a `lazy` node's child fetch. */
 export type LazyStatus = 'unloaded' | 'loading' | 'loaded' | 'error';
+
+/**
+ * Resolves the **ancestor path** (root → direct parent, excluding the target
+ * itself) of a node that may live inside an **unfetched** `lazy` branch. Lets a
+ * `location`/`defaultLocation` deep-link to a section not yet present in the
+ * tree: the reader walks the returned path, resolving each lazy ancestor, until
+ * the target exists, then scrolls to it. Return `undefined` when the target's
+ * ancestry can't be determined. May be async; receives an abort `signal` that
+ * fires if the navigation is superseded. Only consulted when `BookLocation.path`
+ * is not supplied and the target isn't already in the tree.
+ */
+export type FetchPath = (
+  nodeId: string,
+  signal: AbortSignal,
+) => string[] | undefined | Promise<string[] | undefined>;
 
 /** Context passed to `onSearch` / `onReset`. Carries an abort signal. */
 export interface SearchContext {
@@ -223,6 +247,15 @@ export type RenderEmpty<Meta = unknown> = (
   node: BookNode<Meta>,
 ) => import('react').ReactNode;
 
+/**
+ * Replaces the **book-level** "no data / no results" template — shown when the
+ * whole (possibly search-replaced) tree has no showable content nodes at all
+ * (an empty book, or a search that matched nothing). Distinct from the
+ * per-*section* `renderEmpty`, which handles one node whose fetched content is
+ * empty.
+ */
+export type RenderNoData = () => import('react').ReactNode;
+
 export type RenderError<Meta = unknown> = (
   node: BookNode<Meta>,
   error: unknown,
@@ -317,6 +350,15 @@ export interface BookReaderProps<Meta = unknown, Content = string> {
    * `fetchChildren` configured shows an error state.
    */
   fetchChildren?: FetchChildren<Meta> | undefined;
+
+  /**
+   * Resolves the ancestor path of a deep-link target that lives inside an
+   * unfetched `lazy` branch (see {@link FetchPath}). Enables `location` /
+   * `defaultLocation` to point at sections not yet loaded into the tree. Only
+   * needed alongside `lazy` nodes; a per-location `BookLocation.path` takes
+   * precedence over this prop.
+   */
+  fetchPath?: FetchPath | undefined;
 
   /** Show the tree search box (top of the tree pane). Default `false`. */
   showSearch?: boolean | undefined;
@@ -415,6 +457,12 @@ export interface BookReaderProps<Meta = unknown, Content = string> {
   renderLoading?: RenderLoading<Meta> | undefined;
   renderError?: RenderError<Meta> | undefined;
   renderEmpty?: RenderEmpty<Meta> | undefined;
+  /**
+   * Replaces the built-in book-level "no data / no results" panel (see
+   * {@link RenderNoData}). The default is a simple styled message
+   * ("Nothing to show here.") with `data-part="content-nodata"` skin hooks.
+   */
+  renderNoData?: RenderNoData | undefined;
 
   'aria-label'?: string | undefined;
 }

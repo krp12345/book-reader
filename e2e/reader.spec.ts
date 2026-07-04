@@ -315,6 +315,93 @@ test.describe('tree click navigates the reading surface', () => {
     // The clicked section's title sits at the top (~0), never scrolled above it.
     expect(Math.abs(lastTop)).toBeLessThan(8);
   });
+
+  // Cross-branch reading order: after clicking a section deep inside one Part,
+  // scrolling must reveal the *effective* neighbour — the adjacent section in
+  // depth-first order — even when that neighbour lives in a different Part. The
+  // organisational Parts/Chapters between them are skipped in the content flow.
+  // Rows are located by their deterministic structural title prefix ("Part 2.",
+  // "2.1 " for a Chapter, "§2.1.1 " for a Section) — not the faker heading.
+  const treeRow = (page: Page, name: RegExp): Locator =>
+    page.getByRole('treeitem', { name });
+  const caretOf = (r: Locator): Locator =>
+    r.locator('[data-part="tree-node-caret"]');
+
+  test('clicking a Part’s first section, then scrolling up, crosses into the previous Part’s last section', async ({
+    page,
+  }) => {
+    await expandRoot(page);
+
+    // Expand Part 2 → Chapter 2.1, then click its FIRST section §2.1.1 (l.p1.c0.s0).
+    await caretOf(treeRow(page, /^Part 2\./)).click();
+    await caretOf(treeRow(page, /^2\.1 /)).click();
+    await treeRow(page, /^§2\.1\.1 /).click();
+    await expect
+      .poll(async () => topNodeId(page), { timeout: 10000 })
+      .toBe('l.p1.c0.s0');
+
+    // Deflake: let the surface fully settle (every mounted body loaded) before
+    // scrolling — under full-suite load the async bodies around the jump target
+    // land late, and scrolling into that relayout burned most of the poll budget.
+    await expect
+      .poll(
+        async () =>
+          nodes(page).evaluateAll(
+            (els) =>
+              els.length > 0 &&
+              els.every((el) => el.getAttribute('data-status') === 'loaded'),
+          ),
+        { timeout: 15000 },
+      )
+      .toBe(true);
+
+    // Scroll up: the section immediately before §2.1.1 in reading order is the LAST
+    // section of Part 1 (l.p0.c7.s15) — a different Part. It must load and sit
+    // directly above the clicked section. Read both rects atomically (one poll) so
+    // an async body-load relayout can't momentarily unmount one between reads.
+    await content(page).evaluate((el) => el.scrollBy(0, -300));
+    await expect
+      .poll(
+        async () => {
+          const m = await rectsById(page);
+          const prev = m['l.p0.c7.s15'];
+          const cur = m['l.p1.c0.s0'];
+          return prev !== undefined && cur !== undefined && prev.top < cur.top;
+        },
+        { timeout: 15000 },
+      )
+      .toBe(true);
+  });
+
+  test('clicking a Part’s last section, then scrolling down, crosses into the next Part’s first section', async ({
+    page,
+  }) => {
+    await expandRoot(page);
+
+    // Expand Part 2 → Chapter 2.8, then click its LAST section §2.8.16 (l.p1.c7.s15).
+    await caretOf(treeRow(page, /^Part 2\./)).click();
+    await caretOf(treeRow(page, /^2\.8 /)).click();
+    await treeRow(page, /^§2\.8\.16 /).click();
+    await expect
+      .poll(async () => topNodeId(page), { timeout: 10000 })
+      .toBe('l.p1.c7.s15');
+
+    // Scroll down: the section after §2.8.16 is the FIRST section of Part 3
+    // (l.p2.c0.s0) — a different Part. It must load, below the clicked section.
+    // Atomic read of both rects (one poll) to tolerate async relayout.
+    await content(page).evaluate((el) => el.scrollBy(0, 300));
+    await expect
+      .poll(
+        async () => {
+          const m = await rectsById(page);
+          const cur = m['l.p1.c7.s15'];
+          const next = m['l.p2.c0.s0'];
+          return cur !== undefined && next !== undefined && next.top > cur.top;
+        },
+        { timeout: 10000 },
+      )
+      .toBe(true);
+  });
 });
 
 test.describe('responsive tree-collapse (reading width wins)', () => {

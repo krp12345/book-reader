@@ -169,3 +169,91 @@ describe('createReadingOrder — edges', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Cross-branch reading order (the "click a deep node, then scroll" scenario).
+//
+// A deep, multi-branch book — 3 Parts × 3 Chapters × 4 Sections. Parts and
+// Chapters are organisational (`hasContent:false`); only Sections carry content.
+// The reader shows *content* nodes, so the effective neighbour of a section is
+// the previous/next *section* in depth-first order — even across Part/Chapter
+// boundaries. This is what makes "click §2.1.1, scroll up ⇒ §1.3.4" (last
+// section of the previous Part) and "click §2.3.4, scroll down ⇒ §3.1.1" (first
+// section of the next Part) behave correctly. This mirrors ContentPane's `ids`.
+// ---------------------------------------------------------------------------
+const PARTS = 3;
+const CH = 3;
+const SEC = 4;
+const sec = (p: number, c: number, s: number): string =>
+  `d.p${p}.c${c}.s${s}`;
+
+function deepBook(): BookNode {
+  return {
+    id: 'd',
+    title: 'Deep Book',
+    hasContent: false, // organisational root
+    children: Array.from({ length: PARTS }, (_, p) => ({
+      id: `d.p${p}`,
+      title: `Part ${p + 1}`,
+      hasContent: false,
+      children: Array.from({ length: CH }, (_, c) => ({
+        id: `d.p${p}.c${c}`,
+        title: `Chapter ${p + 1}.${c + 1}`,
+        hasContent: false,
+        children: Array.from({ length: SEC }, (_, s) => ({
+          id: sec(p, c, s),
+          title: `§${p + 1}.${c + 1}.${s + 1}`,
+        })),
+      })),
+    })),
+  };
+}
+
+/** The reader's content order: DFS sequence filtered to content-bearing nodes. */
+function contentSequence(store: ReturnType<typeof createTreeStore>): string[] {
+  const order = createReadingOrder(store);
+  return order
+    .getSequence()
+    .filter((id) => store.getNode(id)?.hasContent !== false);
+}
+
+describe('createReadingOrder — cross-branch content navigation', () => {
+  const store = createTreeStore({ tree: deepBook() });
+  const seq = contentSequence(store);
+  const prevOf = (id: string): string | undefined => seq[seq.indexOf(id) - 1];
+  const nextOf = (id: string): string | undefined => seq[seq.indexOf(id) + 1];
+
+  it('content order is exactly the sections in depth-first Part→Chapter→Section order', () => {
+    const expected: string[] = [];
+    for (let p = 0; p < PARTS; p++)
+      for (let c = 0; c < CH; c++)
+        for (let s = 0; s < SEC; s++) expected.push(sec(p, c, s));
+    expect(seq).toEqual(expected);
+  });
+
+  it('scrolling up from a Part’s first section lands on the previous Part’s LAST section', () => {
+    // §2.1.1 ← previous ← §1.3.4 (last section of Part 1). The organisational
+    // Part/Chapter nodes in between are skipped.
+    expect(prevOf(sec(1, 0, 0))).toBe(sec(0, CH - 1, SEC - 1));
+    // …and Part 3’s first section reaches back to Part 2’s last section.
+    expect(prevOf(sec(2, 0, 0))).toBe(sec(1, CH - 1, SEC - 1));
+  });
+
+  it('scrolling down from a Part’s last section lands on the next Part’s FIRST section', () => {
+    // §2.3.4 → next → §3.1.1 (first section of Part 3).
+    expect(nextOf(sec(1, CH - 1, SEC - 1))).toBe(sec(2, 0, 0));
+    // …and Part 1’s last section advances into Part 2’s first section.
+    expect(nextOf(sec(0, CH - 1, SEC - 1))).toBe(sec(1, 0, 0));
+  });
+
+  it('crosses Chapter boundaries within a Part too', () => {
+    // First section of Chapter 2.2 ← previous ← last section of Chapter 2.1.
+    expect(prevOf(sec(1, 1, 0))).toBe(sec(1, 0, SEC - 1));
+    expect(nextOf(sec(1, 0, SEC - 1))).toBe(sec(1, 1, 0));
+  });
+
+  it('the very first/last sections have no previous/next (start/end of book)', () => {
+    expect(prevOf(sec(0, 0, 0))).toBeUndefined();
+    expect(nextOf(sec(PARTS - 1, CH - 1, SEC - 1))).toBeUndefined();
+  });
+});
+

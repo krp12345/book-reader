@@ -1,5 +1,62 @@
 import type { TreeStore } from './treeStore';
 
+/**
+ * Dependencies for {@link resolveToNode}: how to fetch a lazy branch's children
+ * (`ensureAsync`, idempotent/dedup'd), an optional ancestry resolver, and the
+ * abort signal + optional pre-supplied path for one navigation.
+ */
+export interface ResolveDeps {
+  ensureAsync: (id: string) => Promise<void>;
+  fetchPath?:
+    | ((id: string, signal: AbortSignal) => string[] | undefined | Promise<string[] | undefined>)
+    | undefined;
+  path?: string[] | undefined;
+  signal: AbortSignal;
+}
+
+/**
+ * Makes `target` exist in the store, resolving `lazy` ancestors as needed, so a
+ * deep-link into an unfetched branch can be scrolled to. Returns `true` once the
+ * node is present (or already was), `false` if it can't be reached (no ancestry
+ * available, an ancestor fetch failed, or the navigation was aborted).
+ *
+ * The path is `root → direct parent` (excluding `target`, matching
+ * `store.getPath`). Ancestors are resolved **in order** — resolving a lazy
+ * ancestor surfaces the next one — so a whole chain of nested lazy branches
+ * comes into existence one fetch per level.
+ */
+export async function resolveToNode<Meta = unknown>(
+  store: TreeStore<Meta>,
+  target: string,
+  deps: ResolveDeps,
+): Promise<boolean> {
+  if (store.getNode(target) !== undefined) return true;
+
+  let path = deps.path;
+  if (path === undefined && deps.fetchPath !== undefined) {
+    path = await deps.fetchPath(target, deps.signal);
+  }
+  if (deps.signal.aborted) return false;
+  if (path === undefined) return false;
+
+  for (const ancestor of path) {
+    if (deps.signal.aborted) return false;
+    // An unknown ancestor means the path is inconsistent with the tree (or a
+    // parent above it never resolved) — we can't fetch what we can't address.
+    if (store.getNode(ancestor) === undefined) return false;
+    if (store.isLazy(ancestor) && store.getLazyStatus(ancestor) !== 'loaded') {
+      try {
+        await deps.ensureAsync(ancestor);
+      } catch {
+        return false;
+      }
+      if (deps.signal.aborted) return false;
+    }
+  }
+
+  return store.getNode(target) !== undefined;
+}
+
 export interface ReadingOrder {
   getNext(id: string): string | undefined;
   getPrev(id: string): string | undefined;

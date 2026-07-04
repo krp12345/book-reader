@@ -152,6 +152,132 @@ describe('BookReader — search (tree replacement)', () => {
     expect(onSearch).toHaveBeenCalledWith('hi', expect.anything());
   });
 
+  it('a no-match search renders the book-level empty state (M11 default template)', async () => {
+    const noResults: BookNode = {
+      id: 'qq',
+      title: 'No Matches',
+      hasContent: false,
+      children: [],
+    };
+    const onSearch: SearchFn = vi.fn(async () => noResults);
+    const { container } = render(
+      <BookReader
+        tree={originalBook}
+        fetchContent={fc}
+        showSearch
+        onSearch={onSearch}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+
+    // The default book-level template shows; no content node is mounted.
+    expect(await screen.findByText('Nothing to show here.')).toBeInTheDocument();
+    expect(
+      container.querySelector('[data-part="content-nodata"]'),
+    ).not.toBeNull();
+    expect(container.querySelector('[data-part="content-node"]')).toBeNull();
+  });
+
+  it('renderNoData replaces the default book-level template (empty book)', () => {
+    const emptyBook: BookNode = {
+      id: 'e',
+      title: 'Empty',
+      hasContent: false,
+      children: [],
+    };
+    const { container } = render(
+      <BookReader
+        tree={emptyBook}
+        fetchContent={fc}
+        renderNoData={() => <div data-testid="custom-nodata">nothing here</div>}
+      />,
+    );
+
+    expect(screen.getByTestId('custom-nodata')).toBeInTheDocument();
+    expect(screen.queryByText('Nothing to show here.')).toBeNull();
+    expect(container.querySelector('[data-part="content-nodata"]')).toBeNull();
+  });
+
+  it('a re-search replaces the previous results cleanly', async () => {
+    const secondResults: BookNode = {
+      id: 'q2',
+      title: 'Second Results',
+      hasContent: false,
+      children: [{ id: 'q2.s0', title: 'Second Match' }],
+    };
+    let call = 0;
+    const onSearch: SearchFn = vi.fn(async () =>
+      ++call === 1 ? resultsBook : secondResults,
+    );
+    render(
+      <BookReader tree={originalBook} fetchContent={fc} showSearch onSearch={onSearch} />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    await screen.findByText('Search Results');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(await screen.findByText('Second Results')).toBeInTheDocument();
+    // The first results tree is fully gone — no stale rows or content nodes.
+    expect(screen.queryByText('Search Results')).toBeNull();
+    expect(screen.queryByText('First Match Section')).toBeNull();
+    expect(
+      await screen.findByRole('treeitem', { name: /Second Match/ }),
+    ).toBeInTheDocument();
+  });
+
+  it('reset during an in-flight search aborts it and leaves no stuck state', async () => {
+    let gate: ((t: BookNode) => void) | undefined;
+    const onSearch: SearchFn = vi.fn(
+      () => new Promise<BookNode>((resolve) => (gate = resolve)),
+    );
+    const onReset: ResetFn = vi.fn(async () => originalBook);
+    // A custom box whose controls are never disabled, so Reset can fire while
+    // the search is still pending.
+    const renderSearch: RenderSearch = ({ submit, reset }) => (
+      <div>
+        <button type="button" onClick={submit}>
+          Go
+        </button>
+        <button type="button" onClick={reset}>
+          Wipe
+        </button>
+      </div>
+    );
+    render(
+      <BookReader
+        tree={originalBook}
+        fetchContent={fc}
+        showSearch
+        onSearch={onSearch}
+        onReset={onReset}
+        renderSearch={renderSearch}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go' })); // search hangs
+    await waitFor(() => expect(gate).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: 'Wipe' })); // reset mid-load
+
+    // The reset lands: the original book is back and nothing is stuck loading.
+    expect(
+      await screen.findByRole('treeitem', { name: /Original Book/ }),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryAllByText('Loading…')).toHaveLength(0),
+    );
+
+    // The aborted search resolving late must be discarded, not applied.
+    gate!(resultsBook);
+    await waitFor(() => {
+      expect(screen.queryByText('Search Results')).toBeNull();
+      expect(
+        screen.getByRole('treeitem', { name: /Original Book/ }),
+      ).toBeInTheDocument();
+    });
+  });
+
   it('aborts an earlier in-flight search so only the latest result applies', async () => {
     // Two distinct results, resolved on demand, to prove which one wins.
     const gates: Array<(t: BookNode) => void> = [];

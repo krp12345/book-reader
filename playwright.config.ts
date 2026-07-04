@@ -14,6 +14,10 @@ const PORT = 5179;
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
+  // One worker: the suite includes CPU-heavy fuzz walks and timing-sensitive
+  // lazy-cascade tests; two Chromiums + Vite on a small machine starve rAF in
+  // the sibling page (clicks never see a "stable" element, cascades stall).
+  workers: 1,
   forbidOnly: !!process.env.CI,
   retries: 0,
   reporter: [['list']],

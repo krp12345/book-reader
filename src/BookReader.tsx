@@ -8,6 +8,7 @@ import {
 } from 'react';
 import { createContentCache, type ContentCache } from './core/cache';
 import { createTreeStore } from './core/treeStore';
+import { resolveToNode } from './core/traversal';
 import { TreePaneView } from './tree/TreePane';
 import { TreeSearch } from './tree/TreeSearch';
 import { TreeOverlay } from './tree/TreeOverlay';
@@ -30,6 +31,7 @@ export function BookReader<Meta = unknown, Content = string>(
     tree,
     fetchContent,
     fetchChildren,
+    fetchPath,
     showSearch = false,
     onSearch,
     onReset,
@@ -63,6 +65,7 @@ export function BookReader<Meta = unknown, Content = string>(
     renderLoading,
     renderError,
     renderEmpty,
+    renderNoData,
   } = props;
 
   const store = useMemo(
@@ -114,6 +117,37 @@ export function BookReader<Meta = unknown, Content = string>(
     setScrollRequest({ id, offset, token: tokenRef.current });
   }, []);
 
+  // Abortable navigation: scroll to a node, first resolving any unfetched `lazy`
+  // branch that hides it (deep-link support). A node already in the tree — e.g. a
+  // tree click, or plain in-book navigation — scrolls synchronously; only a real
+  // deep-link into an unresolved branch goes async, walking `path`/`fetchPath`
+  // ancestry via `resolveToNode`. A superseding navigation aborts the in-flight
+  // resolve so a stale target can't yank the view after the user moved on.
+  const navAbortRef = useRef<AbortController | null>(null);
+  useEffect(() => () => navAbortRef.current?.abort(), []);
+  const requestScrollResolved = useCallback(
+    (id: string, offset?: number, path?: string[]) => {
+      navAbortRef.current?.abort();
+      if (store.getNode(id) !== undefined) {
+        requestScroll(id, offset);
+        return;
+      }
+      const controller = new AbortController();
+      navAbortRef.current = controller;
+      void (async () => {
+        const ok = await resolveToNode(store, id, {
+          ensureAsync,
+          fetchPath,
+          path,
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted) return;
+        if (ok) requestScroll(id, offset);
+      })();
+    },
+    [store, ensureAsync, fetchPath, requestScroll],
+  );
+
   // Responsive collapse: when the reader is too narrow to fit the tree *and*
   // the reading-surface floor, the tree collapses to a toggle that opens a
   // floated overlay (reading width wins). The overlay reuses the shared tree
@@ -155,7 +189,7 @@ export function BookReader<Meta = unknown, Content = string>(
     (id: string): void => {
       if (!controlled) setInternalLocation({ nodeId: id });
       emit({ nodeId: id });
-      requestScroll(id);
+      requestScrollResolved(id);
       // Navigating *onto* a branch opens its own children, so selecting a Part
       // reveals its sections. This is driven by explicit navigation (a tree
       // click), not the scroll-derived active node — so the top of the book is
@@ -164,7 +198,7 @@ export function BookReader<Meta = unknown, Content = string>(
       // Selecting a section from the floated tree navigates and dismisses it.
       if (overlayOpen) setOverlayOpen(false);
     },
-    [controlled, emit, requestScroll, store, overlayOpen, setOverlayOpen],
+    [controlled, emit, requestScrollResolved, store, overlayOpen, setOverlayOpen],
   );
 
   const treeState = useTreeState<Meta>({
@@ -203,14 +237,18 @@ export function BookReader<Meta = unknown, Content = string>(
         (e.offset ?? 0) === (location.offset ?? 0),
     );
     if (isEcho) return;
-    requestScroll(location.nodeId, location.offset);
-  }, [location, requestScroll]);
+    requestScrollResolved(location.nodeId, location.offset, location.path);
+  }, [location, requestScrollResolved]);
 
   const startedAt = useRef(defaultLocation);
   useEffect(() => {
     if (controlled || startedAt.current === undefined) return;
-    requestScroll(startedAt.current.nodeId, startedAt.current.offset);
-  }, [controlled, requestScroll]);
+    requestScrollResolved(
+      startedAt.current.nodeId,
+      startedAt.current.offset,
+      startedAt.current.path,
+    );
+  }, [controlled, requestScrollResolved]);
 
   // After a search/reset replaces the tree, take the reader to "the first page":
   // descend the leftmost path (resolving lazy branches along the way) until the
@@ -466,6 +504,7 @@ export function BookReader<Meta = unknown, Content = string>(
             renderLoading={renderLoading}
             renderError={renderError}
             renderEmpty={renderEmpty}
+            renderNoData={renderNoData}
             contentNodeClassName={classNames?.contentNode}
           />
         )}

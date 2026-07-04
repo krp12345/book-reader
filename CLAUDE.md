@@ -7,9 +7,14 @@
 ## What this is
 A React 18 **library** exposing `<BookReader>`: a two-pane book reader (section
 tree on the left, continuous virtualized reading surface on the right). Scales
-from tiny inline books to huge ones — the section **tree** is provided up front;
-only section **content** loads lazily (fetch + cache + virtualize). (Lazy
-tree-structure loading was removed 2026-06-28; `tree` is the sole tree source.)
+from tiny inline books to huge ones — the section **tree** is provided up front,
+and section **content** loads lazily (fetch + cache + virtualize). Tree
+**structure** can also load lazily: a `BookNode.lazy` branch resolves its
+children on demand via `fetchChildren` (removed 2026-06-28, **re-added in M10**
+2026-07-01, commit fd85830). Two resolve triggers: tree expand and reading-surface
+scroll (the top-of-window lazy placeholder self-resolves, cascading to the first
+content node); search/reset additionally eager-drills the leftmost path via
+`gotoFirstShowable`.
 
 ## Read these first (in order), then act
 1. `REQUIREMENTS.md` — frozen spec. The source of truth for behavior & API.
@@ -31,7 +36,9 @@ src/
   BookReader.tsx      # top-level component, composes the panes
   types.ts            # Node, BookReaderProps, FetchContext, CacheConfig, ...
   core/
-    treeStore.ts      # normalized id-indexed tree (provided up front via `tree`)
+    treeStore.ts      # normalized id-indexed tree; mutable + subscribable
+                      #   (setChildren/replaceTree/setLazyStatus + version/notify)
+                      #   so lazy branches & search can swap subtrees at runtime
     traversal.ts      # depth-first next/prev reading order
     cache.ts          # bounded LRU content cache (maxChars), pinning, dedup;
                       #   `load(id, factory(signal))` = refcounted, abortable load
@@ -101,8 +108,32 @@ e2e/                  # Playwright tests (reader.spec.ts) vs the real demo — n
   those pass and the user has approved the behavior.
 
 ## Current status
-**M9 feature batch BUILT + TEST-COVERED 2026-06-28. Only the accessibility pass
-remains.** Shipped + tested: `renderExpandCollapse`/`ExpandCollapseApi` (caret-only
+**✅ 2026-07-04: the ⏸ PENDING TESTS backlog is CLEARED** (the authorized test
+session worked all of it; the bottom-of-`MILESTONES.md` section records where each
+item landed — new owed tests go there again). **M11 shipped + Stable**: book/tree-
+level "no data / no results" state — `data-part="content-nodata"` default panel in
+`ContentPane` when the tree has no showable content node, `renderNoData` render-prop
+override, `--reader-content-nodata-padding` token (covered by E5 e2e + U2 RTL + E6).
+**The P1 LZ-UP e2e caught a real design bug (fixed, `content/useVirtualList.ts`):
+anchor correction pinned the fold line, which sits *inside* the materialising
+region during an upward lazy cascade — the view ratcheted up the resolving branch
+and the cascade stalled.** Fix = direction-aware anchoring (last *user* scroll
+direction tracked): scrolling **up**, anchor the first **settled** node at/below
+the fold (settledness read from mounted `data-status`) and correct in full for
+everything above it, in BOTH the ResizeObserver path and a new sequence-swap
+layout effect (id swaps never fire an RO; it reconciles height-map vs DOM truth,
+then pins the anchor). Scrolling down keeps the legacy fold rule. Full detail in
+the MILESTONES session entry. **Suites: 205 unit + 48 e2e green; `playwright.
+config.ts` runs 1 worker** (2 Chromiums + Vite on 4 cores starved rAF → flaky
+"element not stable" clicks). Demo = **12-example switcher** (new: "11 · Lazy
+depths" asymmetric-depth lazy book, "12 · Edge cases" empty/single/custom-order).
+**M9 feature batch BUILT + TEST-COVERED 2026-06-28. Accessibility pass DROPPED
+2026-07-02 (user has no plan to implement a11y — do not write a11y/keyboard/focus
+tests or propose an a11y pass).** Test-coverage expansion landed 2026-07-02 (see
+`TEST_PLAN.md` + session log): real-browser e2e for error/retry, a seeded
+interaction **fuzzer** with an invariant oracle, controlled-`location`, remount
+teardown, and LRU-eviction; new demo tabs "9 · States & errors" + "10 · Tiny cache".
+Shipped + tested: `renderExpandCollapse`/`ExpandCollapseApi` (caret-only
 tree customization, library keeps row a11y/keyboard nav), inter-node spacing split
 (`--reader-content-padding-block`/`-inline`), `renderContentNode` wrapper render prop
 (`ContentNodeApi`/`ContentNodeWrapperProps`; spread `wrapperProps` incl. `ref` or
@@ -117,7 +148,7 @@ from a toggle outside `<BookReader>`); custom-but-inside hooks `renderTreeToggle
 `renderTreeOverlay` and `classNames.treeToggle`/`.treeOverlay` remain.
 **Tests: small set of essential integration + real-browser
 flows; only `ResizeObserver`/`scrollIntoView` are stubbed. All features are Stable
-in the README** (no ⚠️ Experimental left). Demo = **6-example switcher**. Generic (object)
+in the README** (no ⚠️ Experimental left). Generic (object)
 content payload shipped earlier in the batch too.
 
 M0–M7 done. **M7 (styling system)**: `src/styles/book-reader.css` is the importable
@@ -172,7 +203,8 @@ the corrected scrollTop into state in the same batch (`syncMetrics()` after
 correction) + computing starts from the height map (`offsetAt`) not the rendered
 window. Guarded by `content/ContentPane.anchor.test.tsx` (jsdom logic) + a
 real-browser `e2e/reader.spec.ts` "reading line stays put" test (the StrictMode leak
-only reproduces in a real browser). Remaining M8: a11y pass (README done).
+only reproduces in a real browser). Remaining M8: none (a11y pass DROPPED 2026-07-02
+at user request; README done).
 
 ### M6 reference (scroll ⟷ tree sync)
 Pure mapping in

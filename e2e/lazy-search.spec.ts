@@ -19,7 +19,10 @@
  *  - search: submitting replaces the whole tree and the reader descends (through
  *    lazy result branches) to the first real section;
  *  - reset: restores the original book;
- *  - custom renderSearch drives the same replacement.
+ *  - custom renderSearch drives the same replacement;
+ *  - deep-link: a `defaultLocation` targeting a section buried in unfetched lazy
+ *    branches resolves its `fetchPath` ancestry and scrolls there (the exact gap
+ *    where such a location used to be a silent no-op).
  */
 import { test, expect, type Page, type Locator } from '@playwright/test';
 
@@ -139,6 +142,33 @@ test.describe('tree search — replace + descend + reset', () => {
   });
 });
 
+test.describe('tree search — zero results (M11 book-level empty state)', () => {
+  test('a no-match search shows the default no-data template; reset restores the book', async ({
+    page,
+  }) => {
+    await openTree(page);
+    const input = page.locator('[data-part="tree-search-input"]');
+    // Queries starting with "zz" deterministically match nothing (demo search).
+    await input.fill('zzarcana');
+    await input.press('Enter');
+
+    // The whole tree was replaced by a zero-result book: the reading surface
+    // shows the built-in book-level "no data" template — not a blank pane, and
+    // not the per-section "No content." state.
+    const empty = page.locator('[data-part="content-nodata"]');
+    await expect(empty).toBeVisible({ timeout: 10000 });
+    await expect(empty).toHaveText(/Nothing to show here\./);
+    await expect(nodes(page)).toHaveCount(0);
+
+    // Reset restores the original book and its first page.
+    await openTree(page);
+    await page.locator('[data-part="tree-search-reset"]').click();
+    await expect.poll(async () => readout(page), { timeout: 10000 }).toMatch(/^lz/);
+    await expect(nodes(page).first()).toBeVisible();
+    await expect(empty).toHaveCount(0);
+  });
+});
+
 test.describe('tree search — custom renderSearch', () => {
   test('the custom box replaces the default and drives the same replacement', async ({
     page,
@@ -155,5 +185,28 @@ test.describe('tree search — custom renderSearch', () => {
     await custom.press('Enter');
 
     await expect.poll(async () => readout(page), { timeout: 10000 }).toMatch(/^q\//);
+  });
+});
+
+test.describe('deep-link into an unfetched lazy branch (fetchPath)', () => {
+  test('opens the book at a section buried three lazy parts deep', async ({
+    page,
+  }) => {
+    const buried = page.locator('[data-node-id="lz/3/2/1"]');
+
+    // Nothing under Part 4 is fetched yet — the target isn't in the tree at all.
+    await expect(buried).toHaveCount(0);
+
+    // Remounts the reader with defaultLocation={{ nodeId: 'lz/3/2/1' }} + fetchPath.
+    await page.getByTestId('deep-link').click();
+
+    // The reader resolves the ancestry (lz/3 → lz/3/2) and scrolls the buried
+    // leaf into the reading surface — the case that used to be a silent no-op.
+    await expect(buried).toBeVisible({ timeout: 15000 });
+
+    // …and it lands as the active reading position within that resolved branch.
+    await expect
+      .poll(async () => readout(page), { timeout: 15000 })
+      .toMatch(/^lz\/3\/2\//);
   });
 });

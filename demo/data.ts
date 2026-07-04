@@ -16,6 +16,7 @@ import type {
   BookNode,
   FetchChildren,
   FetchContent,
+  FetchPath,
   ResetFn,
   SearchFn,
 } from '../src/index';
@@ -219,6 +220,20 @@ export function makeLazyBook(): BookNode {
   };
 }
 
+/**
+ * Ancestry resolver for the lazy atlas: ids are '/'-encoded paths (`lz/3/2/1`),
+ * so a node's ancestors are just its prefixes (`lz`, `lz/3`, `lz/3/2`). Lets a
+ * `defaultLocation` deep-link into a section buried in unfetched lazy parts — the
+ * reader resolves each prefix in turn until the target exists, then scrolls to it.
+ */
+export function makeLazyFetchPath(): FetchPath {
+  return (nodeId) => {
+    const parts = nodeId.split('/');
+    if (parts.length <= 1) return [];
+    return parts.slice(0, -1).map((_, i) => parts.slice(0, i + 1).join('/'));
+  };
+}
+
 export function makeLazyFetchChildren(delayMs = 350): FetchChildren {
   return async (node, ctx) => {
     const started = fetchBus.start('children', node.id);
@@ -252,6 +267,10 @@ export function makeLazyFetchContent(delayMs = 250): FetchContent {
  * themselves lazy branches (ids under "q/…"), so after the swap the reader
  * recursively resolves down to the first real section — exactly the "jump to the
  * first page" flow. Resolved by the same `fetchChildren` generator.
+ *
+ * Queries starting with `zz` deterministically match **nothing** and return a
+ * results book with no showable content — exercising the book-level "no results"
+ * empty state (M11).
  */
 export function makeLazySearch(delayMs = 400): SearchFn {
   return async (query, ctx) => {
@@ -260,6 +279,15 @@ export function makeLazySearch(delayMs = 400): SearchFn {
     if (ctx.signal.aborted) {
       fetchBus.abort('search', query, started);
       return [];
+    }
+    if (query.trim().toLowerCase().startsWith('zz')) {
+      fetchBus.ok('search', query, started, '0 groups');
+      return {
+        id: 'q',
+        title: `No matches for “${query}”`,
+        hasContent: false,
+        children: [],
+      };
     }
     faker.seed(seedFrom(`q:${query}`));
     const tree: BookNode = {
@@ -275,6 +303,162 @@ export function makeLazySearch(delayMs = 400): SearchFn {
     };
     fetchBus.ok('search', query || '(empty)', started, '3 groups');
     return tree;
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Asymmetric-depth lazy book (the "4.9.9.9.9" effective-neighbour case)
+// ---------------------------------------------------------------------------
+//
+// Neighbouring lazy branches of **different** depths, so the effective prev/next
+// resolution is proven depth-independent: scrolling up from the shallow Part's
+// first section must recursively resolve the deep Part above down to its
+// deepest-LAST leaf; scrolling down past the shallow Part's last section must
+// resolve the next Part down to its leftmost-deep leaf. Ids are '/'-paths
+// (`az/0/2/2/2`) so `makeLazyFetchPath` works for deep-links here too.
+
+/** Leaf depth (total id segments) per part index: az/0 → 5, az/1 → 3, az/2 → 4. */
+const AZ_LEAF_DEPTH: Record<string, number> = { '0': 5, '1': 3, '2': 4 };
+const AZ_FANOUT = 3;
+
+function azTitle(id: string): string {
+  faker.seed(seedFrom(id));
+  const label = id.split('/').slice(1).join('.');
+  return `${label} — ${heading()}`;
+}
+
+/**
+ * Root + 3 lazy Parts of asymmetric depth: Part 1 (`az/0`) is 5 levels deep,
+ * Part 2 (`az/1`) is 3 levels (its children are leaves), Part 3 (`az/2`) is 4.
+ * So the DFS-previous of `az/1/0` is `az/0/2/2/2` (the deep Part's deepest-last
+ * leaf) and the DFS-next of `az/1/2` is `az/2/0/0` (the next Part's
+ * leftmost-deep leaf) — the user's core effective-neighbour vision case.
+ */
+export function makeAsymmetricBook(): BookNode {
+  faker.seed(321);
+  return {
+    id: 'az',
+    title: `${heading()} — Asymmetric Depths`,
+    hasContent: false,
+    children: Array.from({ length: AZ_FANOUT }, (_, i) => {
+      const id = `az/${i}`;
+      return { id, title: `Part ${i + 1} (${AZ_LEAF_DEPTH[String(i)]}-level). ${azTitle(id)}`, lazy: true, hasContent: false };
+    }),
+  };
+}
+
+/** Deterministic children for an asymmetric branch id (see {@link makeAsymmetricBook}). */
+export function makeAsymmetricFetchChildren(delayMs = 250): FetchChildren {
+  return async (node, ctx) => {
+    if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
+    if (ctx.signal.aborted) return [];
+    const segments = node.id.split('/');
+    const leafDepth = AZ_LEAF_DEPTH[segments[1] ?? ''] ?? 3;
+    const childDepth = segments.length + 1;
+    const leaf = childDepth >= leafDepth;
+    return Array.from({ length: AZ_FANOUT }, (_, i) => {
+      const cid = `${node.id}/${i}`;
+      const child: BookNode = { id: cid, title: azTitle(cid) };
+      return leaf ? child : { ...child, lazy: true, hasContent: false };
+    });
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Edge-case books (empty / single-section / custom reading order)
+// ---------------------------------------------------------------------------
+
+/** A book with no showable content at all — exercises the book-level empty state. */
+export function makeEmptyBook(): BookNode {
+  return { id: 'e', title: 'An Empty Book', hasContent: false, children: [] };
+}
+
+/** A book with exactly one content-bearing section (virtualizer mount-all path). */
+export function makeSingleBook(): BookNode {
+  faker.seed(11);
+  return {
+    id: 'one',
+    title: 'A One-Section Book',
+    hasContent: false,
+    children: [{ id: 'one.s0', title: `The Only Section. ${heading()}` }],
+  };
+}
+
+/**
+ * A flat 6-chapter book for the custom reading-order example: the demo's
+ * `getNextNode`/`getPrevNode` overrides walk only the even chapters
+ * ("abridged"), so odd chapters never enter the reading surface.
+ */
+export function makeOrderBook(): BookNode {
+  faker.seed(17);
+  return {
+    id: 'o',
+    title: 'An Abridged Reading Order',
+    hasContent: false,
+    children: Array.from({ length: 6 }, (_, i) => ({
+      id: `o.c${i}`,
+      title: `Chapter ${i + 1}${i % 2 === 0 ? '' : ' (skipped in abridged order)'}. ${heading()}`,
+    })),
+  };
+}
+
+/**
+ * A `fetchChildren` that **throws on the first attempt** for the given ids (and
+ * succeeds on retry), so the lazy-branch error + retry path can be exercised.
+ * Otherwise identical to {@link makeLazyFetchChildren} but over a small, local
+ * id space (children are content-bearing leaves).
+ */
+export function makeFailingFetchChildren(
+  failFirstFor: Set<string>,
+  delayMs = 200,
+): FetchChildren {
+  const attempts = new Map<string, number>();
+  return async (node, ctx) => {
+    const started = fetchBus.start('children', node.id);
+    if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
+    if (ctx.signal.aborted) {
+      fetchBus.abort('children', node.id, started);
+      return [];
+    }
+    if (failFirstFor.has(node.id)) {
+      const n = (attempts.get(node.id) ?? 0) + 1;
+      attempts.set(node.id, n);
+      if (n === 1) {
+        fetchBus.abort('children', node.id, started);
+        throw new Error('simulated children fetch failure');
+      }
+    }
+    const children = Array.from({ length: 3 }, (_, i) => ({
+      id: `${node.id}/${i}`,
+      title: `Recovered section ${i + 1}. ${heading()}`,
+    })) satisfies BookNode[];
+    fetchBus.ok('children', node.id, started, `${children.length} children`);
+    return children;
+  };
+}
+
+/**
+ * A tiny book that stages every content lifecycle state for the "States &
+ * errors" example: a section whose fetch **fails then recovers on retry**, an
+ * **empty** section, a normal one, and a **lazy branch whose child fetch fails
+ * first**. Ids are stable so tests can target each state directly.
+ */
+export function makeStatesBook(): BookNode {
+  return {
+    id: 'st',
+    title: 'States & Errors',
+    hasContent: false,
+    children: [
+      { id: 'st.err', title: 'A section whose fetch fails (then retries)' },
+      { id: 'st.empty', title: 'A section with no content' },
+      { id: 'st.ok', title: 'A normal section' },
+      {
+        id: 'st.lazy',
+        title: 'A lazy branch whose children fail to load (then retry)',
+        lazy: true,
+        hasContent: false,
+      },
+    ],
   };
 }
 

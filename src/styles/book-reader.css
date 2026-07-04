@@ -71,6 +71,7 @@
   --reader-content-code-padding: 0.1em 0.3em;
   --reader-content-state-gap: 0.75rem;
   --reader-content-retry-padding: 0.25rem 0.75rem;
+  --reader-content-nodata-padding: 2rem;
   --reader-radius: 6px;
   --reader-focus-ring: 2px solid var(--reader-color-accent);
 
@@ -282,6 +283,16 @@
 [data-part='book-reader'] [data-part='content-retry']:hover {
   background: var(--reader-color-error);
   color: var(--reader-color-accent-fg);
+}
+
+/* Book-level "no data / no results" panel — the whole tree has no showable
+   content node (empty book, or a search that matched nothing). Distinct from
+   the per-section `content-empty` state. */
+[data-part='book-reader'] [data-part='content-nodata'] {
+  padding: var(--reader-content-nodata-padding);
+  color: var(--reader-color-muted);
+  font-style: italic;
+  text-align: center;
 }
 
 /* Lazy content placeholder (a branch reached by scrolling, still loading). */

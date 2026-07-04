@@ -14,6 +14,12 @@
  *   8. Selection   — `renderContentNode` captures the user's text selection and
  *                    sends it out over a decoupled channel; an outside button
  *                    reads it back (some sections are deliberately unselectable).
+ *   9. States      — every content lifecycle state (fail→retry, empty, lazy error).
+ *  10. Tiny cache  — a tiny `cache.maxChars` so real scroll evicts + refetches.
+ *  11. Lazy depths — asymmetric-depth lazy branches; scrolling resolves the
+ *                    effective prev/next neighbour recursively at any depth.
+ *  12. Edge cases  — empty book (book-level no-data state + `renderNoData`),
+ *                    single-section book, custom reading order (abridged).
  *
  * Book data is generated with faker (see `data.ts`) — realistic prose, but
  * deterministic. Section *bodies* still load lazily via `fetchContent`.
@@ -36,28 +42,39 @@ import type {
   BookReaderProps,
   ContentNodeWrapperProps,
   ContentStatus,
+  GetNextNode,
+  GetPrevNode,
   RenderContent,
   RenderContentNode,
   RenderEmpty,
   RenderError,
   RenderExpandCollapse,
   RenderLoading,
+  RenderNoData,
   RenderSearch,
   RenderTreeNode,
   RenderTreeOverlay,
   RenderTreeToggle,
 } from '../src/index';
 import {
+  makeAsymmetricBook,
+  makeAsymmetricFetchChildren,
   makeBranchContentBook,
+  makeEmptyBook,
+  makeFailingFetchChildren,
   makeFetchContent,
   makeLargeBook,
   makeLazyBook,
   makeLazyFetchChildren,
+  makeLazyFetchPath,
   makeLazyFetchContent,
   makeLazyReset,
   makeLazySearch,
   makeObjectFetchContent,
+  makeOrderBook,
   makeSelectionBook,
+  makeSingleBook,
+  makeStatesBook,
   makeSyncBook,
   type RichSection,
   type SelectionMeta,
@@ -80,10 +97,15 @@ const largeBook = makeLargeBook();
 const branchBook = makeBranchContentBook();
 const selectionBook = makeSelectionBook();
 const lazyBook = makeLazyBook();
+const statesBook = makeStatesBook();
 
 // Lazy example: content + children fetchers, and search/reset tree producers.
 const fetchLazyContent = makeLazyFetchContent();
 const fetchLazyChildren = makeLazyFetchChildren();
+const lazyFetchPath = makeLazyFetchPath();
+// A leaf section buried three lazy parts deep — used by the deep-link button to
+// exercise resolving `fetchPath` ancestry into unfetched branches on load.
+const DEEP_LINK_TARGET = 'lz/3/2/1';
 const lazySearch = makeLazySearch();
 const lazyReset = makeLazyReset();
 const fetchSelection = makeFetchContent<SelectionMeta>({ delayMs: 120 });
@@ -93,6 +115,43 @@ const fetchSync = makeFetchContent();
 const fetchBranch = makeFetchContent({ delayMs: 200 });
 const fetchStyling = makeFetchContent({ delayMs: 150 });
 const fetchObject = makeObjectFetchContent(200);
+// States & errors example: one node fails-then-recovers, one is empty; a lazy
+// branch's children fail on first fetch, then recover on retry.
+const fetchStates = makeFetchContent({
+  delayMs: 120,
+  failFirstFor: new Set(['st.err']),
+  emptyFor: new Set(['st.empty']),
+});
+const statesFailingChildren = makeFailingFetchChildren(new Set(['st.lazy']));
+
+// Lazy depths (asymmetric): the effective-neighbour vision case. Deep-link
+// targets sit in the *shallow* Part so scrolling out of it must recursively
+// resolve the deeper neighbours (up: az/0 → … → az/0/2/2/2; down: az/2 → az/2/0/0).
+const azBook = makeAsymmetricBook();
+const azFetchChildren = makeAsymmetricFetchChildren();
+const fetchAz = makeFetchContent({ delayMs: 150 });
+const AZ_UP_START = 'az/1/0'; // shallow Part's FIRST leaf — scroll UP from here
+const AZ_DOWN_START = 'az/1/2'; // shallow Part's LAST leaf — scroll DOWN from here
+
+// Edge cases: empty book / single-section book / custom reading order.
+const emptyBook = makeEmptyBook();
+const singleBook = makeSingleBook();
+const orderBook = makeOrderBook();
+// "Abridged" order: only the even chapters are part of the reading flow — the
+// overrides drive the *real* content sequence, so odd chapters never mount.
+const abridgedNext: GetNextNode = (node) => {
+  if (node.id === 'o') return orderBook.children?.[0] ?? null;
+  const i = Number(node.id.split('.c')[1]);
+  return Number.isNaN(i) ? null : (orderBook.children?.[i + 2] ?? null);
+};
+const abridgedPrev: GetPrevNode = (node) => {
+  const i = Number(node.id.split('.c')[1]);
+  return Number.isNaN(i) || i < 2 ? null : (orderBook.children?.[i - 2] ?? null);
+};
+// M11 override: a consumer-supplied book-level empty component.
+const renderEdgeEmpty: RenderNoData = () => (
+  <div className="edge-empty">📭 Custom empty component — this book has nothing to read.</div>
+);
 
 // --- Tier 2 + 3: a fully bespoke skin that owns its markup -------------------
 const customClassNames: BookReaderClassNames = {
@@ -501,7 +560,11 @@ type ExampleId =
   | 'responsive'
   | 'object'
   | 'render-hooks'
-  | 'selection';
+  | 'selection'
+  | 'states'
+  | 'tiny-cache'
+  | 'lazy-depths'
+  | 'edge';
 const EXAMPLES: { id: ExampleId; label: string; blurb: string }[] = [
   {
     id: 'quickstart',
@@ -577,6 +640,46 @@ const EXAMPLES: { id: ExampleId; label: string; blurb: string }[] = [
       'highlighted). The button below lives *outside* <BookReader> and dumps every ' +
       'staged selection.',
   },
+  {
+    id: 'states',
+    label: '9 · States & errors',
+    blurb:
+      'Every content lifecycle state in one book: a section whose `fetchContent` ' +
+      '**fails then recovers on Retry**, an **empty** section, a normal one, and a ' +
+      '**lazy branch whose child fetch fails first** (Retry recovers it). Proves ' +
+      'the error/empty/retry paths for both content and lazy-tree loading.',
+  },
+  {
+    id: 'tiny-cache',
+    label: '10 · Tiny cache',
+    blurb:
+      'The large book with a deliberately tiny content cache (`cache.maxChars`), so ' +
+      'scrolling **evicts** already-read sections and scrolling back **refetches** ' +
+      'them. Proves eviction under real scroll never leaves a blank/stuck section ' +
+      'and the no-flicker anchor correction still holds across a refetch.',
+  },
+  {
+    id: 'lazy-depths',
+    label: '11 · Lazy depths',
+    blurb:
+      'Lazy branches of **asymmetric depth** (a 5-level Part beside a 3-level one). ' +
+      'From any section, scrolling up/down finds the *logical* previous/next node by ' +
+      'tree traversal, resolving lazy branches **recursively to any depth**: up from ' +
+      '`az/1/0` materialises the deep Part’s deepest-LAST leaf (`az/0/2/2/2`) ' +
+      'directly above — the reading line staying put while whole subtrees insert ' +
+      'above the viewport; down from `az/1/2` lands the next Part’s leftmost-deep ' +
+      'leaf (`az/2/0/0`) directly below.',
+  },
+  {
+    id: 'edge',
+    label: '12 · Edge cases',
+    blurb:
+      'Three edge books: an **empty** book (the book-level “no data” state, with a ' +
+      'consumer `renderNoData` override to try), a **single-section** book, and a ' +
+      'custom **reading order** (`getNextNode`/`getPrevNode`): the “abridged” flow ' +
+      'reads only the even chapters — odd chapters exist in the tree but never ' +
+      'enter the reading surface.',
+  },
 ];
 
 type Skin = 'default' | 'themed' | 'custom';
@@ -605,6 +708,15 @@ function App(): JSX.Element {
   const [frameWidth, setFrameWidth] = useState(640);
   const [respMode, setRespMode] = useState<RespMode>('default');
   const [searchMode, setSearchMode] = useState<'default' | 'custom'>('default');
+  // When set, the lazy reader remounts with this as `defaultLocation` — a
+  // deep-link into an unfetched branch, resolved via `fetchPath`.
+  const [deepTarget, setDeepTarget] = useState<string | null>(null);
+  // Same, for the asymmetric "Lazy depths" example (its two start positions).
+  const [azTarget, setAzTarget] = useState<string | null>(null);
+  // Edge-cases example: which edge book, and whether the empty book uses the
+  // built-in no-data template or the consumer `renderNoData` override.
+  const [edgeMode, setEdgeMode] = useState<'empty' | 'single' | 'order'>('empty');
+  const [edgeEmpty, setEdgeEmpty] = useState<'default' | 'custom'>('default');
 
   // Example 7: the staged set (durable) + the transient right-click context menu,
   // both read off `selectionBus`. `revealed` is the outside button proving the
@@ -658,15 +770,20 @@ function App(): JSX.Element {
       case 'lazy':
         return (
           <BookReader
+            // Remount when a deep-link is requested so it re-initialises at the
+            // buried target via `defaultLocation` + `fetchPath`.
+            key={deepTarget ?? 'lazy'}
             tree={lazyBook}
             fetchContent={fetchLazyContent}
             fetchChildren={fetchLazyChildren}
+            fetchPath={lazyFetchPath}
             showSearch
             onSearch={lazySearch}
             onReset={lazyReset}
             searchPlaceholder="Search the atlas…"
             treeWidth={300}
             onLocationChange={setLocation}
+            {...(deepTarget ? { defaultLocation: { nodeId: deepTarget } } : {})}
             {...(searchMode === 'custom'
               ? { renderSearch: renderCustomSearch }
               : {})}
@@ -736,8 +853,83 @@ function App(): JSX.Element {
             onLocationChange={setLocation}
           />
         );
+      case 'states':
+        return (
+          <BookReader
+            tree={statesBook}
+            fetchContent={fetchStates}
+            fetchChildren={statesFailingChildren}
+            treeWidth={300}
+            onLocationChange={setLocation}
+          />
+        );
+      case 'tiny-cache':
+        return (
+          <BookReader
+            tree={largeBook}
+            fetchContent={fetchStyling}
+            treeWidth={300}
+            // Tiny budget: only a couple of sections fit, so scrolling evicts the
+            // rest and scroll-back must refetch (exercises LRU eviction for real).
+            cache={{ maxChars: 3000 }}
+            onLocationChange={setLocation}
+          />
+        );
+      case 'lazy-depths':
+        return (
+          <BookReader
+            // Remount on a new start position so it re-initialises there via
+            // `defaultLocation` + `fetchPath` (ids are '/'-paths here too).
+            key={azTarget ?? 'az'}
+            tree={azBook}
+            fetchContent={fetchAz}
+            fetchChildren={azFetchChildren}
+            fetchPath={lazyFetchPath}
+            treeWidth={300}
+            onLocationChange={setLocation}
+            {...(azTarget ? { defaultLocation: { nodeId: azTarget } } : {})}
+          />
+        );
+      case 'edge':
+        switch (edgeMode) {
+          case 'empty':
+            return (
+              <BookReader
+                key={`empty-${edgeEmpty}`}
+                tree={emptyBook}
+                fetchContent={fetchSync}
+                treeWidth={300}
+                onLocationChange={setLocation}
+                {...(edgeEmpty === 'custom'
+                  ? { renderNoData: renderEdgeEmpty }
+                  : {})}
+              />
+            );
+          case 'single':
+            return (
+              <BookReader
+                key="single"
+                tree={singleBook}
+                fetchContent={fetchSync}
+                treeWidth={300}
+                onLocationChange={setLocation}
+              />
+            );
+          case 'order':
+            return (
+              <BookReader
+                key="order"
+                tree={orderBook}
+                fetchContent={fetchSync}
+                getNextNode={abridgedNext}
+                getPrevNode={abridgedPrev}
+                treeWidth={300}
+                onLocationChange={setLocation}
+              />
+            );
+        }
     }
-  }, [example, skin, location, respMode, searchMode]);
+  }, [example, skin, location, respMode, searchMode, deepTarget, azTarget, edgeMode, edgeEmpty]);
 
   return (
     <main className="demo-page">
@@ -779,6 +971,77 @@ function App(): JSX.Element {
               </button>
             ))}
           </span>
+          <button
+            type="button"
+            className="jump-btn"
+            data-testid="deep-link"
+            onClick={() => setDeepTarget(DEEP_LINK_TARGET)}
+          >
+            Deep-link to a buried section
+          </button>
+        </div>
+      )}
+
+      {example === 'lazy-depths' && (
+        <div className="example-controls">
+          <button
+            type="button"
+            className="jump-btn"
+            data-testid="az-up"
+            onClick={() => setAzTarget(AZ_UP_START)}
+          >
+            Start at the shallow Part’s FIRST section ({AZ_UP_START}) — then scroll up
+          </button>
+          <button
+            type="button"
+            className="jump-btn"
+            data-testid="az-down"
+            onClick={() => setAzTarget(AZ_DOWN_START)}
+          >
+            Start at the shallow Part’s LAST section ({AZ_DOWN_START}) — then scroll down
+          </button>
+        </div>
+      )}
+
+      {example === 'edge' && (
+        <div className="example-controls">
+          <span className="skin-toggle" role="group" aria-label="Edge book">
+            {(
+              [
+                ['empty', 'Empty book'],
+                ['single', 'Single section'],
+                ['order', 'Custom order'],
+              ] as const
+            ).map(([m, label]) => (
+              <button
+                key={m}
+                type="button"
+                aria-pressed={m === edgeMode}
+                onClick={() => setEdgeMode(m)}
+              >
+                {label}
+              </button>
+            ))}
+          </span>
+          {edgeMode === 'empty' && (
+            <span className="skin-toggle" role="group" aria-label="Empty state">
+              {(
+                [
+                  ['default', 'Default empty state'],
+                  ['custom', 'Custom renderNoData'],
+                ] as const
+              ).map(([m, label]) => (
+                <button
+                  key={m}
+                  type="button"
+                  aria-pressed={m === edgeEmpty}
+                  onClick={() => setEdgeEmpty(m)}
+                >
+                  {label}
+                </button>
+              ))}
+            </span>
+          )}
         </div>
       )}
 

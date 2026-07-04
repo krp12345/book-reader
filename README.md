@@ -154,6 +154,22 @@ defaults ship; override any of them with render props:
 `retry` re-runs the failed fetch. `renderContent` receives the already-sanitized
 HTML.
 
+### Book-level "no data / no results" state
+
+Distinct from the per-*section* `renderEmpty` above: when the **whole book** has
+no showable content node — an empty `tree`, or a search that matched nothing —
+the reading surface shows a built-in "Nothing to show here." panel
+(`data-part="content-nodata"`, tunable via `--reader-content-nodata-padding` and
+the muted color token). Replace it entirely with the `renderNoData` render prop:
+
+```tsx
+<BookReader
+  tree={tree}
+  fetchContent={fetchContent}
+  renderNoData={() => <MyEmptyState onClear={clearSearch} />}
+/>
+```
+
 ---
 
 ## Custom content payloads
@@ -292,8 +308,39 @@ const [loc, setLoc] = useState<BookLocation | undefined>(undefined);
 interface BookLocation {
   nodeId: string;        // active node
   offset?: number;       // px scrolled past its top (omit ⇒ align to top)
+  path?: string[];       // root→parent ancestry, for deep-linking into lazy branches
 }
 ```
+
+### Deep-linking into `lazy` branches
+
+A `location` / `defaultLocation` can point at a node that isn't in the tree yet
+because it lives inside an **unfetched `lazy` branch**. On its own the reader
+can't reach it — it doesn't know which branch hides the target — so you supply
+the ancestry one of two ways, and the reader resolves each lazy ancestor in turn
+until the node exists, then scrolls to it:
+
+```tsx
+// (a) Per-location: include the ancestor path (root → direct parent, excluding the target)
+setLoc({ nodeId: 'sec-42', path: ['partB', 'ch7'] });
+
+// (b) A resolver prop the reader calls when a target isn't loaded yet:
+<BookReader
+  fetchChildren={loadChildren}
+  fetchPath={async (nodeId, signal) => {
+    const res = await fetch(`/api/path/${nodeId}`, { signal });
+    return res.json(); // string[] ancestry, or undefined if unknown
+  }}
+  defaultLocation={{ nodeId: 'sec-42' }}
+/>
+```
+
+- A `BookLocation.path` takes precedence over `fetchPath`. With **neither**, a
+  location into an unresolved branch is a **no-op** (the reader stays put) rather
+  than silently guessing.
+- Navigation is abortable: a newer location supersedes an in-flight resolve.
+- Targets already in the tree (tree clicks, in-book scrolling) resolve
+  synchronously — this path only engages for genuine deep-links.
 
 ### Custom reading order
 
@@ -494,6 +541,7 @@ element — **including its `ref`, which the height map depends on** — and ren
 | `tree` | `BookNode \| BookNode[]` | — | One root or a forest; the full tree up front. |
 | `fetchContent` | `FetchContent` | **required** | Resolves a node's HTML body (sync or async). |
 | `fetchChildren` | `FetchChildren` | — | Resolves a `lazy` node's children on demand. |
+| `fetchPath` | `FetchPath` | — | Resolves a deep-link target's ancestry so `location` can reach unfetched `lazy` branches. |
 | `showSearch` | `boolean` | `false` | Show the tree search box. |
 | `onSearch` | `SearchFn` | — | Returns a new tree that replaces the book on submit. |
 | `onReset` | `ResetFn` | — | Returns the tree to restore; hides Reset if omitted. |
@@ -519,6 +567,7 @@ element — **including its `ref`, which the height map depends on** — and ren
 | `estimateHeight` | `number` | `200` | Assumed px for unmeasured nodes. |
 | `className` / `classNames` | `string` / `BookReaderClassNames` | — | Styling hooks (tier 2). |
 | `renderTreeNode` / `renderContent` / `renderLoading` / `renderError` / `renderEmpty` | render props | defaults ship | Markup overrides (tier 3). |
+| `renderNoData` | `RenderNoData` | built-in panel | Book-level "no data / no results" state (whole tree has nothing to show). |
 | `renderExpandCollapse` | `RenderExpandCollapse` | default caret | Replace the tree row disclosure control. |
 | `renderContentNode` | `RenderContentNode` | default `<article>` | Own the per-section wrapper element. |
 | `aria-label` | `string` | — | Accessible label for the reader. |
@@ -551,11 +600,14 @@ styling.
 
 The **lazy tree** (`lazy` + `fetchChildren`) and **search** (`showSearch` /
 `onSearch` / `onReset` / `renderSearch`) are now **Stable** — covered by unit +
-real-browser tests (including the scroll-trigger under StrictMode).
+real-browser tests, including the scroll-trigger under StrictMode and the
+effective-neighbour contract (scrolling up/down resolves lazy branches
+recursively to the logical previous/next leaf at any depth). The book-level
+**no-data state** (`renderNoData`) is **Stable** — covered by RTL + real-browser
+tests (zero-result search, empty book).
 
-The remaining area in progress is a dedicated **accessibility** pass (keyboard nav
-and ARIA roles already ship on the tree; the audit is to harden them across the
-whole reader).
+There is no accessibility pass planned. Keyboard nav and ARIA roles ship on the
+tree as-is.
 
 ---
 

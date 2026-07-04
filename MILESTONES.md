@@ -9,8 +9,9 @@
 
 ## ▶ STATUS — keep this block current (update at end of every session)
 - **Current milestone:** M10 — **lazy tree + tree search BUILT + TEST-COVERED
-  (2026-07-01).** Tests written at the user's request; ⚠️ Experimental markers can
-  drop for the covered features. M9 done. M8 hardening/docs done.
+  (2026-07-01).** M9 done. M8 hardening/docs done. Test-coverage expansion landed
+  2026-07-02 (errors/fuzz/location/cache-eviction e2e — see `TEST_PLAN.md` §7).
+  **Suite: 200 unit + 42 e2e green** as of 2026-07-02.
 - **Overall progress:** 7 / 9 milestones complete (M0, M2–M7 done; M1 core types done)
 - **🆕 Tested 2026-07-01 — M10 lazy tree + search + selection/staging.** New coverage:
   `tests/core/treeStore.lazy.test.ts` (mutation/subscription/lazy status),
@@ -32,9 +33,20 @@
   `ensureLazy` directly). Fix: an aborted fetch now resets the node to `'unloaded'`
   (unless a newer fetch took over) so the trigger can pick it up again. Guarded by the
   `abort→unloaded` unit assertion + the `e2e/lazy-search.spec.ts` scroll-trigger test.
-- **Next action:** the **accessibility pass** (unchanged) is the only remaining M8/M10
-  item; drop any lingering ⚠️ Experimental markers in the README for the now-tested
-  lazy/search features.
+- **Next action (USER-DIRECTED 2026-07-04 — next session's plan, in order):**
+  1. **Work the ⏸ PENDING TESTS backlog** (very bottom of this file — canonical).
+     The user explicitly authorized this on 2026-07-04 ("make note of them all and
+     we will work in next session"), so the no-tests HARD RULE gate is **open** for
+     that session. Start with 🔴 P1: the lazy **effective-neighbour** e2e (LZ-UP /
+     LZ-DOWN) + the **asymmetric-depth** lazy fixture (user confirmed: neighbouring
+     branches of *different* depths, proving depth-independent recursion).
+  2. **M11 — tree/book-level empty state** (new feature, decided 2026-07-04; see
+     the M11 section): a simple default "no results / no data" template + a
+     consumer-overridable render prop. **Code-first** (feature → README ⚠️
+     Experimental → then its E5 test in the same session, since tests are
+     authorized).
+  (The accessibility pass was **DROPPED 2026-07-02** at user request — do not
+  resurrect it.)
 - **🆕 Built 2026-06-30 — lazy tree + search (⚠️ Experimental):**
   - **Lazy tree:** `BookNode.lazy` + `fetchChildren` prop. The `treeStore` is now
     **mutable + subscribable** (`useSyncExternalStore` via `src/useStoreVersion.ts`):
@@ -80,9 +92,9 @@
   (reader root `height:100%`). **README written** (`README.md` — consumer usage
   guide). See the latest session-log entry. **Publishing is out of scope** — the
   user packages manually (no version bump / publish from here).
-- **Blocked on:** user verification of the Lazy & search demo (gates the tests).
-  Package name = `book-reader`. pnpm is the package manager.
-- **Last updated:** 2026-06-30
+- **Blocked on:** nothing. (The Lazy & search demo was verified and its tests
+  landed 2026-07-01.) Package name = `book-reader`. pnpm is the package manager.
+- **Last updated:** 2026-07-04
 
 ---
 
@@ -227,7 +239,9 @@ manually; do not run `npm pack`/`publish` or bump the version.)
       guide: install, quickstart + sized-container note, core concepts, lazy trees,
       states, controlled/uncontrolled `location`, reading-order overrides, 3-tier
       styling, full prop table, advanced exports).
-- [ ] Accessibility pass (tree roles, focus, aria, keyboard).
+- ~~Accessibility pass (tree roles, focus, aria, keyboard)~~ — **DROPPED
+      2026-07-02 at user request** (no plan to implement a11y; do not write
+      a11y/keyboard/focus tests or propose an a11y pass).
 - [x] Core coverage reviewed — traversal (18) / cache (20) / treeStore (8) /
       virtualizer (22) / scrollSync (15) all well-covered; no holes found.
 - [~] Bundle-size / tree-shake re-confirmed: 31.9 kB JS (9.09 kB gzip), 7.45 kB
@@ -338,6 +352,52 @@ the default caret + a11y/keyboard nav unchanged when no override is supplied.
 ---
 
 ## Session log (append newest on top)
+- 2026-07-04 — **Test-bookkeeping audit (no tests written or run).** Rebuilt the
+  mandatory **⏸ PENDING TESTS backlog at the bottom of this file** — it had been
+  cleared 2026-07-01 (when the M10 tests landed) while real gaps remained, violating
+  the continuous-bookkeeping HARD RULE. Audited all 42 e2e + 200 unit tests first.
+  **Headline gap (user-flagged): the lazy effective-neighbour case** — scroll-up
+  from a node like `5.1.1` must recursively resolve the lazy branch above (`4.9`)
+  until its deepest-last leaf (`4.9.9.9.9`) sits directly above; this behaviour was
+  fixed on request but has **no regression coverage at any layer** (the cross-branch
+  neighbour e2e uses the eager Styling book; the lazy scroll e2e only proves
+  downward resolution with no neighbour-identity assertion). Backlog now holds:
+  P1 lazy-neighbour e2e (LZ-UP/LZ-DOWN + asymmetric-depth fixture), P2 carry-overs
+  (E5/E6/E8/U2/U3), P3 health (cross-branch flake, 3 unimplemented fuzzer-oracle
+  checks). **Staleness purged:** STATUS no longer names the dropped a11y pass as
+  next action; "Blocked on: user verification" cleared (landed 2026-07-01); the M8
+  a11y checklist item + the "Remaining (only): a11y" block struck through;
+  `TEST_PLAN.md` §7 corrected — **U1 is DONE** (`tests/core/resolveToNode.test.ts`,
+  9 tests) — and now defers to this backlog as canonical. **User decisions (same
+  day, via Q&A):** (1) E5's open question resolved — the library WILL ship a
+  **book/tree-level** default "no results / no data" template + a consumer override
+  render prop (→ new **M11** section; per-section `renderEmpty` already exists,
+  this is the missing level); (2) the P1 lazy fixture must use **asymmetric
+  depths** (different-depth neighbouring branches); (3) **next session is
+  authorized to work the whole PENDING TESTS backlog** (P1 first) and to code M11
+  before its E5 test — workspace prepped accordingly (STATUS → Next action).
+- 2026-07-02 — **Test-coverage expansion (autonomous, per reviewed `TEST_PLAN.md`).**
+  Added real-browser e2e for the failure/recovery + interaction-fuzz gaps the
+  happy-path suite left. New specs (all green): **`e2e/errors.spec.ts`** (content
+  error→retry→loaded; empty≠error; rapid-nav no cache poisoning; lazy child-fetch
+  error placeholder→retry) · **`e2e/fuzz.spec.ts`** (seeded random click/scroll/
+  expand walk with an invariant oracle — no blank, no "No content.", nothing stuck
+  loading/error, bounded scrollTop, no pageerror — over quickstart/styling/lazy/
+  tiny-cache × seeds 1,7; seed+action-log printed on failure) · **`e2e/location.spec.ts`**
+  (controlled `location` drive+echo doesn't lock the view; remount-across-tabs
+  teardown holds no-flicker, guarding the StrictMode observer-leak class) ·
+  **`e2e/cache-eviction.spec.ts`** (tiny `cache.maxChars` → evict→scroll-back→refetch
+  stays loaded/correct; per-slot `classNames` threading). Demo scaffolding: new
+  `makeStatesBook`/`makeFailingFetchChildren` + tabs **"9 · States & errors"** and
+  **"10 · Tiny cache"** in `demo/main.tsx`. Key fixes found while writing: fuzzer
+  needs `actionTimeout` so a non-actionable click fails fast (else it hangs the whole
+  test budget); several fold/text assertions must wait for `loaded`/settle before
+  measuring. **Accessibility tests (E4) REMOVED at user request — no plan to
+  implement a11y; treat the historical "accessibility pass" milestone as dropped.**
+  Deferred to next slice (in `TEST_PLAN.md`): E5 zero-result search (open product
+  question re: empty state), E6 empty/single book, E8 custom getNextNode/getPrevNode,
+  unit U1–U3. Note: `reader.spec.ts` cross-branch scroll test is a **pre-existing**
+  flake under full-suite load (passes in isolation).
 - 2026-06-28 — **Lazy tree-structure loading removed entirely (at the user's
   request — "keep things simple").** Scope: only the **tree structure**; lazy
   **content** (`fetchContent` + cache + virtualization) is untouched and remains
@@ -774,8 +834,9 @@ Where each owed item landed:
   `onTreeOpenChange` and their tests + the e2e `headless tree` spec deleted).
 - **ResizeObserver / scrollIntoView infra** → global stubs in `vitest.setup.ts`.
 
-**Remaining (only): the accessibility pass.** Keyboard nav + ARIA roles already ship on the
-tree; the audit is to harden roles/labels/focus across the whole reader, then add a11y tests.
+**Remaining: nothing.** ~~The accessibility pass~~ was **DROPPED 2026-07-02 at user
+request** (no a11y plan — do not add a11y/keyboard/focus tests). Open coverage gaps
+live in the ⏸ PENDING TESTS backlog at the bottom of this file.
 
 ---
 
@@ -821,3 +882,198 @@ tree; the audit is to harden roles/labels/focus across the whole reader, then ad
 > **🐞 The e2e caught a real bug (fixed):** lazy scroll-trigger was dead under
 > StrictMode — an aborted double-mount fetch left the node stuck `'loading'`; fix resets
 > aborted fetches to `'unloaded'` so the trigger re-fires (`src/useLazyChildren.ts`).
+
+---
+
+## ✅ LANDED — deep-link into unfetched lazy branches (`fetchPath` / `BookLocation.path`) — coded + tested 2026-07-01
+> **Feature:** a `location`/`defaultLocation` can target a node that isn't in the tree yet
+> because it sits inside an unfetched `lazy` branch. `core/traversal.ts › resolveToNode`
+> walks the ancestry (`BookLocation.path`, else the `fetchPath` prop), resolving each lazy
+> ancestor via `ensureAsync` in order until the target exists, then scrolls. Wired in
+> `BookReader` as an abortable `requestScrollResolved` (fast-path for already-known nodes;
+> per-nav `AbortController`). Fixes the gap where such a location was a **silent no-op**.
+> **Stable** in the README.
+>
+> Where the coverage landed (essential-flow, not exhaustive — the pure logic in unit, the
+> real on-screen flow in e2e, since jsdom mounts every node and resolves lazy branches
+> incidentally via the viewport trigger):
+> - **unit `tests/core/resolveToNode.test.ts` (9 tests)** — already-known ⇒ true (no fetch);
+>   chained lazy ancestors resolved **in order**; `fetchPath` fallback when no `path`;
+>   no-ancestry ⇒ `false` no-op; `fetchPath`→undefined ⇒ false; unknown ancestor ⇒ false;
+>   ancestor fetch rejection ⇒ false; pre-aborted signal short-circuits (no fetch); abort
+>   **mid-walk** stops before the next ancestor (the superseding-nav contract).
+> - **e2e `e2e/lazy-search.spec.ts` "deep-link into an unfetched lazy branch"** — the demo's
+>   Lazy & search example gained a "Deep-link to a buried section" button (`fetchPath` +
+>   a `defaultLocation` remount to `lz/3/2/1`, three lazy parts deep). Asserts the buried
+>   leaf is absent, then after the click resolves its ancestry and mounts/actives it — the
+>   bug's exact case, in a real browser where virtualization keeps off-screen branches
+>   unfetched. **195 unit + 24 e2e green.**
+
+---
+
+## ✅ LANDED — cross-branch reading-order navigation (tree click → scroll to the effective neighbour) — tested 2026-07-02
+> **What it proves:** clicking any node navigates correctly, and the reading surface's
+> effective previous/next node is the adjacent **content** section in depth-first order —
+> even across Part/Chapter boundaries (organisational `hasContent:false` nodes are skipped).
+> So "click §2.1.1, scroll up ⇒ §1.8.16 (previous Part's last section)" and "click §2.8.16,
+> scroll down ⇒ §3.1.1 (next Part's first section)". No library change — this is behaviour
+> already provided by DFS traversal (`core/traversal.ts`) + ContentPane's content filter +
+> virtualization; these tests were the missing coverage.
+> - **unit `tests/core/traversal.test.ts` › "cross-branch content navigation" (5 tests)** —
+>   a deep 3×3×4 book (Parts/Chapters organisational, Sections are content leaves); asserts
+>   the content sequence is the sections in DFS order, and that previous/next cross Part
+>   **and** Chapter boundaries correctly, with start/end-of-book yielding `undefined`. This
+>   mirrors ContentPane's `ids` (DFS filtered to content nodes).
+> - **e2e `e2e/reader.spec.ts` › "tree click navigates the reading surface" (2 tests)** —
+>   the Styling example's deep `makeLargeBook` (8×8×16). Expands Part 2 → a Chapter via
+>   carets (rows located by deterministic title prefix, not faker headings), clicks a deep
+>   Section, asserts it lands at the top, then scrolls up/down and asserts the neighbouring
+>   Part's boundary section (`l.p0.c7.s15` / `l.p2.c0.s0`) mounts on the correct side.
+>   Ordering + mount checked in a **single atomic poll** (tolerates async body-load relayout);
+>   navigation-settle polls use the repo's 10 s timeout (stable under parallel workers).
+> - **⚠️ Regression caught mid-work:** an earlier attempt added `data-node-id` to tree rows
+>   for test targeting — this collided with the bare `[data-node-id]` selector in
+>   `selection.spec` (which assumed only *content* nodes carry it), breaking its unmount
+>   assertion. Reverted; rows are targeted via `role=treeitem` + title prefix instead. No
+>   public DOM change. **200 unit + 26 e2e green.**
+
+---
+
+## ✅ LANDED — backlog test session + upward-cascade anchor fix (2026-07-04)
+> The user-authorized test session (see NEXT_SESSION 2026-07-04): worked the entire
+> ⏸ PENDING TESTS backlog (P1 first) and coded+tested M11, batching all code first,
+> then all tests, then one verification pass. **205 unit + 48 e2e green** (was
+> 200 + 42). Item-by-item placement is recorded in the backlog section at the
+> bottom (kept as a landed record).
+>
+> **🐞 The P1 LZ-UP e2e caught a real design bug, exactly as the backlog caveat
+> predicted** — the "no flicker" anchor policy was wrong for upward scrolls.
+> Anchor correction pinned the **fold line** (node straddling the viewport top);
+> during an upward lazy cascade the fold sits *inside the materialising region*,
+> so every placeholder→children swap re-anchored on churn: the view ratcheted up
+> the resolving branch (readout drifting `az/0/1/2/2` → `az/0/2/0/0`…), the
+> section the reader came from was pushed ~800 px below the viewport, and the
+> cascade then **stalled** with the remaining placeholders outside the window.
+> Diagnosed with temporary in-page correction logging (per-swap/per-RO-delta
+> event log + 20 s position snapshots).
+> **Fix (`content/useVirtualList.ts`), three parts:**
+> 1. **Track the last *user* scroll direction** (`scrollDirRef`; programmatic
+>    corrections excluded via `expectedTopRef`).
+> 2. **Direction-aware anchor policy** in BOTH correction paths (the new
+>    sequence-swap layout effect and the ResizeObserver callback): scrolling
+>    **down**, keep the legacy fold rule (children unfold in place below the
+>    line being read). Scrolling **up**, anchor on the first **settled** node
+>    at/below the fold — settledness read off the mounted elements'
+>    `data-status` (`loaded`/`empty`; placeholders and fetching sections report
+>    `loading`) — and correct **in full** for everything materialising above it,
+>    including nodes straddling or below the fold line but above the anchor.
+> 3. **Sequence-swap anchor correction** (new layout effect): id-sequence changes
+>    (placeholder→children swaps) never fire a ResizeObserver, so swaps above the
+>    fold used to shift the view. The effect reconciles the height map with DOM
+>    truth (Step A — freshly-mounted items are already at real height; deltas
+>    above the anchor accumulate a sync correction so the adjustment is never
+>    silently absorbed), then pins the anchor across the swap in the reconciled
+>    coordinates (Step B). Skips when a navigation anchor is active (nav re-pins
+>    its own target).
+> With the fix, the LZ-UP cascade converges: `az/0/2/2/2` materialises directly
+> above `az/1/0`, the view holds for 20 s+ with no runaway, and the whole demo
+> book stays scrollable backwards through arbitrary-depth lazy resolution.
+> **Also fixed:** full-suite e2e flakes were CPU contention (2 workers + Vite on
+> 4 cores starved rAF: tab clicks never "stable", cascades stalled) —
+> `playwright.config.ts` now sets `workers: 1`.
+
+---
+
+## ✅ LANDED — M11 tree/book-level empty state (decided with the user 2026-07-04; coded + tested 2026-07-04)
+**Goal:** a defined "no data / no results" experience at the **book/tree level** —
+the level that had none. (Per-**section** empty already exists: `renderEmpty`
++ the "No content." default in `ContentNode`. Do not confuse the two.)
+- [x] **Default template:** when the (possibly search-replaced) tree has no showable
+      content nodes, `ContentPane` renders a centred "Nothing to show here." panel —
+      `data-part="content-nodata"`, styled by the skin via the
+      `--reader-content-nodata-padding` token; presentation overridable like
+      everything else.
+- [x] **Consumer override:** `renderNoData?: RenderNoData` render prop on
+      `BookReaderProps` (parallel to `renderLoading`/`renderError`/`renderEmpty`),
+      exported type in `src/index.ts`.
+- [x] Empty-book case (`tree` with no content nodes) renders the same state.
+- [x] README documented; **Stable** (its tests landed the same session: [E5] e2e in
+      `lazy-search.spec.ts`, [U2] RTL in `BookReader.search.test.tsx`, [E6] e2e in
+      `edge.spec.ts`).
+
+---
+
+## ⏸ PENDING TESTS — durable backlog (canonical; keep at the very bottom)
+
+> **This section is the single source of truth for owed/missing tests** (per the
+> HARD RULE in `CLAUDE.md`/`CONVENTIONS.md`; `TEST_PLAN.md` §7 defers here).
+> **✅ CLEARED 2026-07-04** — the user-authorized test session worked the whole
+> backlog. Every item below landed (kept for the record of *where*); the backlog
+> is currently **empty**. New untested behaviour must be logged here immediately,
+> framed as essential e2e flows, per the HARD RULE.
+
+### ✅ Landed 2026-07-04 (was 🔴 P1 — lazy effective-neighbour navigation)
+
+**The core promise:** from any reading position, scrolling up/down must land on the
+**logical previous/next content node by tree traversal**, resolving lazy branches
+**recursively** when the neighbour lives inside one (`prev of 5.1.1 = 4.9.9.9.9`).
+The backlog's caveat — "if LZ-UP goes red, suspect a **real remaining bug**" —
+**proved right**: LZ-UP exposed that the anchor-correction *policy* was wrong for
+upward scrolls (see the session entry above for the three-part
+`useVirtualList.ts` fix).
+
+1. **[LZ-UP]** → `e2e/lazy-neighbor.spec.ts`: deep-link to `az/1/0`, scroll up;
+   one atomic poll asserts the 5-level Part above recursively resolves so its
+   deepest-LAST leaf `az/0/2/2/2` mounts **directly above** (adjacency < 4 px,
+   `data-status=loaded`), the reading line staying in-viewport, plus a 10-step
+   scroll-up stability loop over the resolved region.
+2. **[LZ-DOWN]** → same spec: from `az/1/2`, scroll down; the 4-level next Part
+   resolves its leftmost chain and `az/2/0/0` lands **directly below** (identity +
+   adjacency + loaded).
+3. **[LZ-FIXTURE]** → `demo/data.ts › makeAsymmetricBook()/makeAsymmetricFetchChildren()`:
+   deterministic asymmetric-depth lazy book (Parts of depth 5 / 3 / 4) behind the
+   "11 · Lazy depths" demo tab with `az-up`/`az-down` deep-link buttons.
+4. **[LZ-ORDER]** — skipped deliberately: the e2e identity assertions prove the
+   recomputed order end-to-end; a jsdom integration test would add no signal
+   (jsdom mounts everything, so the placeholder→leaf switch is incidental there).
+
+### ✅ Landed 2026-07-04 (was 🟡 P2)
+
+5. **[E5]** → `e2e/lazy-search.spec.ts` "tree search — zero results": a `zz…` query
+   swaps in the zero-result book, the M11 `content-nodata` default shows, reset
+   restores the original book. (Custom-override + re-search/reset-mid-load edges
+   covered at the RTL layer in [U2] — cheaper and just as conclusive.)
+6. **[E6]** → `e2e/edge.spec.ts`: empty book renders the no-data state (default
+   text + zero content nodes + no page errors) and `renderNoData` override renders
+   instead; single-section book mounts its one loaded section, no spurious scroll.
+   Fixtures: `makeEmptyBook()`/`makeSingleBook()` in `demo/data.ts` ("12 · Edge
+   cases" tab).
+7. **[E8]** → `e2e/edge.spec.ts`: custom `getNextNode`/`getPrevNode` (even-chapters
+   chain over `makeOrderBook()`) drive the **real** scroll sequence — odd chapters
+   never mount while scrolling the full book, in either direction.
+8. **[U2]** → `tests/BookReader.search.test.tsx` (+4): no-match search renders the
+   M11 default (and no content nodes); `renderNoData` override wins; re-search
+   replaces cleanly (call-counted); reset-mid-load discards the late result.
+9. **[U3]** → `tests/BookReader.scrollsync.test.tsx` (+1): an echoed controlled
+   `location` does not oscillate the scroll position; a genuinely new location
+   still navigates.
+
+### ✅ Landed 2026-07-04 (was 🟢 P3)
+
+10. **[FLAKE]** → `e2e/reader.spec.ts` "crosses into the previous Part's last
+    section": now settles (all mounted nodes loaded, 15 s poll) before the upward
+    scroll, final poll 15 s. Additionally `playwright.config.ts` now runs
+    **1 worker** — two Chromiums + Vite on a small machine starved rAF in the
+    sibling page (tab clicks never saw a "stable" element; cascades stalled).
+11. **[FUZZ-ORACLE]** → `e2e/fuzz.spec.ts`: (a) fold section moves ≤ the scroll
+    delta on every random scroll step; (b) the reported reading position (readout
+    id or a descendant) is visible in the viewport after settling; (c) post-walk
+    scroll-away/scroll-back probe is a synchronous `loaded` cache hit (skipped on
+    tiny-cache, where eviction is expected).
+
+### Deliberately NOT owed (do not add)
+- **Accessibility/keyboard/focus tests** — dropped 2026-07-02 at user request.
+- **`BookLocation.path`-supplied deep-link e2e** — the pure walk is unit-covered
+  (`resolveToNode.test.ts`) and the `fetchPath` e2e covers the essential user flow.
+- **More cache/virtualizer/traversal/scrollSync unit depth** — already thorough;
+  against the essential-flows coverage philosophy.
