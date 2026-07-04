@@ -17,7 +17,7 @@
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render } from '@testing-library/react';
-import { createTreeStore } from '../../src/core/treeStore';
+import { createTreeStore } from '../../src/core/tree/treeStore';
 import { ContentPane } from '../../src/components/content/ContentPane';
 import type { BookNode, FetchContent } from '../../src/types';
 

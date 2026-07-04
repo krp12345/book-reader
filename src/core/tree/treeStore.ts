@@ -1,12 +1,12 @@
-import type { BookNode, LazyStatus } from '../types';
+import type { BookNode, LazyStatus } from '../../types';
 import type {
   CreateTreeStoreOptions,
   LazyRecord,
   NodeRecord,
   TreeStore,
-} from '../types/core';
+} from '../../types/core';
 
-export type { CreateTreeStoreOptions, TreeStore } from '../types/core';
+export type { CreateTreeStoreOptions, TreeStore } from '../../types/core';
 
 export function createTreeStore<Meta = unknown>(
   options: CreateTreeStoreOptions<Meta> = {},

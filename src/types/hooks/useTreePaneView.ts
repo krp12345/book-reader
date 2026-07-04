@@ -1,5 +1,5 @@
 import type { KeyboardEvent } from 'react';
-import type { VisibleRow } from '../../core/flatten';
+import type { VisibleRow } from '../../core/tree/flatten';
 import type { TreeStore } from '../core/treeStore';
 import type { TreeState } from './useTreeState';
 

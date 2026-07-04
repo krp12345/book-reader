@@ -1,9 +1,9 @@
 import { resolveContentSanitizer } from './sanitize';
-import { isThenable } from './thenable';
-import type { FetchContext } from '../types';
-import type { PrefetchOptions } from '../types/hooks';
+import { isThenable } from '../common/thenable';
+import type { FetchContext } from '../../types';
+import type { PrefetchOptions } from '../../types/hooks';
 
-export type { PrefetchOptions } from '../types/hooks';
+export type { PrefetchOptions } from '../../types/hooks';
 
 export function prefetchNodeContent<Meta = unknown, Content = string>(
   options: PrefetchOptions<Meta, Content>,

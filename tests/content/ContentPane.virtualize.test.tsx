@@ -8,8 +8,8 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
-import { createTreeStore } from '../../src/core/treeStore';
-import { createContentCache } from '../../src/core/cache';
+import { createTreeStore } from '../../src/core/tree/treeStore';
+import { createContentCache } from '../../src/core/content/cache';
 import { ContentPane } from '../../src/components/content/ContentPane';
 import type { BookNode, FetchContent } from '../../src/types';
 

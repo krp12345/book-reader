@@ -1,7 +1,7 @@
 import type { TreeStore } from './treeStore';
-import type { ReadingOrder, ResolveDeps } from '../types/core';
+import type { ReadingOrder, ResolveDeps } from '../../types/core';
 
-export type { ReadingOrder, ResolveDeps } from '../types/core';
+export type { ReadingOrder, ResolveDeps } from '../../types/core';
 
 /**
  * Makes `target` exist in the store, resolving `lazy` ancestors as needed, so a

@@ -10,14 +10,14 @@ import {
   createVirtualizer,
   pinnedIds,
   prefetchIds,
-} from '../core/virtualizer';
-import { activeNodeByCoverage, isNearBottom } from '../core/scrollSync';
+} from '../core/content/virtualizer';
+import { activeNodeByCoverage, isNearBottom } from '../core/content/scrollSync';
 import {
   applyHeightMeasurements,
   reconcileSequenceSwap,
   type HeightMeasurement,
   type ScrollDirection,
-} from '../core/anchoring';
+} from '../core/content/anchoring';
 import type {
   Metrics,
   UseVirtualListOptions,

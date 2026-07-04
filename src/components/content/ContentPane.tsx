@@ -1,6 +1,6 @@
 import type { JSX } from 'react';
 import { useContentPane } from '../../hooks/useContentPane';
-import { cx } from '../../utils/cx';
+import { cx } from '../../utils/common/cx';
 import { ContentNode } from './ContentNode';
 import { LazyContentPlaceholder } from './LazyContentPlaceholder';
 import type { ContentPaneProps } from '../../types/components';

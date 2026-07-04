@@ -1,7 +1,7 @@
 import type { JSX } from 'react';
 import type { ContentNodeWrapperProps, ContentState } from '../../types';
 import { useNodeContent } from '../../hooks/useNodeContent';
-import { cx } from '../../utils/cx';
+import { cx } from '../../utils/common/cx';
 import type { ContentNodeProps } from '../../types/components';
 
 export type { ContentNodeProps } from '../../types/components';

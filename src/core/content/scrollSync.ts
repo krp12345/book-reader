@@ -1,9 +1,9 @@
-import type { TreeStore } from './treeStore';
-import type { ReadingOrder } from './traversal';
-import type { GetNextNode, GetPrevNode } from '../types';
-import type { NodeSpan, ReadingOverrides } from '../types/core';
+import type { TreeStore } from '../tree/treeStore';
+import type { ReadingOrder } from '../tree/traversal';
+import type { GetNextNode, GetPrevNode } from '../../types';
+import type { NodeSpan, ReadingOverrides } from '../../types/core';
 
-export type { NodeSpan, ReadingOverrides } from '../types/core';
+export type { NodeSpan, ReadingOverrides } from '../../types/core';
 
 export function activeNodeAt(
   spans: NodeSpan[],

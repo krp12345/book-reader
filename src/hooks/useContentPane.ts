@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { createReadingOrder, resolveToShowable } from '../core/traversal';
-import { withReadingOverrides } from '../core/scrollSync';
-import { prefetchNodeContent } from '../utils/prefetchNodeContent';
+import { createReadingOrder, resolveToShowable } from '../core/tree/traversal';
+import { withReadingOverrides } from '../core/content/scrollSync';
+import { prefetchNodeContent } from '../utils/content/prefetchNodeContent';
 import { useVirtualList } from './useVirtualList';
 import { useStoreVersion } from './useStoreVersion';
 import type {

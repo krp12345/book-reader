@@ -6,7 +6,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { createTreeStore, type TreeStore } from '../src/core/treeStore';
+import { createTreeStore, type TreeStore } from '../src/core/tree/treeStore';
 import { useLazyChildren } from '../src/hooks/useLazyChildren';
 import type { BookNode, FetchChildren } from '../src/types';
 

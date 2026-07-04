@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createContentCache, type ContentCache } from '../core/cache';
-import { createTreeStore } from '../core/treeStore';
-import { findFirstShowable, resolveToNode } from '../core/traversal';
+import { createContentCache, type ContentCache } from '../core/content/cache';
+import { createTreeStore } from '../core/tree/treeStore';
+import { findFirstShowable, resolveToNode } from '../core/tree/traversal';
 import { useTreeState } from './useTreeState';
 import { useLazyChildren } from './useLazyChildren';
 import { useElementWidth } from './useElementWidth';
-import { toCssLength } from '../utils/length';
-import { shouldCollapseTree } from '../utils/collapse';
+import { toCssLength } from '../utils/common/length';
+import { shouldCollapseTree } from '../utils/tree/collapse';
 import type {
   BookLocation,
   BookNode,

@@ -5,9 +5,9 @@ import type {
   NodeContent,
   UseNodeContentOptions,
 } from '../types/hooks';
-import { resolveContentSanitizer } from '../utils/sanitize';
-import { isThenable } from '../utils/thenable';
-import { isEmptyContent } from '../utils/content';
+import { resolveContentSanitizer } from '../utils/content/sanitize';
+import { isThenable } from '../utils/common/thenable';
+import { isEmptyContent } from '../utils/content/content';
 
 export type { NodeContent, UseNodeContentOptions } from '../types/hooks';
 

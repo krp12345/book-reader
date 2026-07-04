@@ -4,14 +4,14 @@ import type {
   HeightMeasurement,
   IsSettled,
   ScrollDirection,
-} from '../types/core';
+} from '../../types/core';
 
 export type {
   AnchoredCorrection,
   HeightMeasurement,
   IsSettled,
   ScrollDirection,
-} from '../types/core';
+} from '../../types/core';
 
 /**
  * Anchor correction for **height changes** (the ResizeObserver path). Records

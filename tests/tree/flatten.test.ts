@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { createTreeStore } from '../../src/core/treeStore';
-import { flattenVisible } from '../../src/core/flatten';
+import { createTreeStore } from '../../src/core/tree/treeStore';
+import { flattenVisible } from '../../src/core/tree/flatten';
 import type { BookNode } from '../../src/types';
 
 //   root

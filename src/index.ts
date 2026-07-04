@@ -16,33 +16,33 @@ export { TreeOverlay } from './components/tree/TreeOverlay';
 export type { TreeOverlayProps } from './components/tree/TreeOverlay';
 export { defaultTreeNode } from './components/tree/defaultTreeNode';
 
-export { createTreeStore } from './core/treeStore';
-export type { TreeStore, CreateTreeStoreOptions } from './core/treeStore';
-export { createReadingOrder, resolveToNode } from './core/traversal';
-export type { ReadingOrder, ResolveDeps } from './core/traversal';
-export { createContentCache } from './core/cache';
-export type { ContentCache } from './core/cache';
+export { createTreeStore } from './core/tree/treeStore';
+export type { TreeStore, CreateTreeStoreOptions } from './core/tree/treeStore';
+export { createReadingOrder, resolveToNode } from './core/tree/traversal';
+export type { ReadingOrder, ResolveDeps } from './core/tree/traversal';
+export { createContentCache } from './core/content/cache';
+export type { ContentCache } from './core/content/cache';
 export {
   createVirtualizer,
   correctScrollTop,
   pinnedIds,
   prefetchIds,
-} from './core/virtualizer';
+} from './core/content/virtualizer';
 export type {
   Virtualizer,
   VirtualizerConfig,
   VirtualItem,
   VirtualWindow,
   WindowInput,
-} from './core/virtualizer';
+} from './core/content/virtualizer';
 export {
   activeNodeAt,
   isNearBottom,
   withReadingOverrides,
-} from './core/scrollSync';
-export type { NodeSpan, ReadingOverrides } from './core/scrollSync';
+} from './core/content/scrollSync';
+export type { NodeSpan, ReadingOverrides } from './core/content/scrollSync';
 
-export { sanitizeHtml } from './utils/sanitize';
+export { sanitizeHtml } from './utils/content/sanitize';
 
 export type {
   BookNode,

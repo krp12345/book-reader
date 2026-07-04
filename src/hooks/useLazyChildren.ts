@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import type { TreeStore } from '../core/treeStore';
+import type { TreeStore } from '../core/tree/treeStore';
 import type { FetchChildren, FetchContext } from '../types';
 import type { UseLazyChildren } from '../types/hooks';
 

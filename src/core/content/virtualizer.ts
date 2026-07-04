@@ -3,7 +3,7 @@ import type {
   VirtualWindow,
   Virtualizer,
   VirtualizerConfig,
-} from '../types/core';
+} from '../../types/core';
 
 export type {
   VirtualItem,
@@ -11,7 +11,7 @@ export type {
   Virtualizer,
   VirtualizerConfig,
   WindowInput,
-} from '../types/core';
+} from '../../types/core';
 
 const DEFAULT_ESTIMATE = 200;
 

@@ -129,7 +129,7 @@ function unwrap(el: Element): void {
 }
 
 export function resolveSanitizer(
-  option: import('../types').SanitizeOption | undefined,
+  option: import('../../types').SanitizeOption | undefined,
 ): (html: string) => string {
   if (option === false) return (html) => html;
   if (typeof option === 'function') return option;
@@ -142,7 +142,7 @@ export function resolveSanitizer(
  * object payloads pass through untouched.
  */
 export function resolveContentSanitizer(
-  option: import('../types').SanitizeOption | undefined,
+  option: import('../../types').SanitizeOption | undefined,
 ): <Content>(content: Content) => Content {
   const applyHtml = resolveSanitizer(option);
   return <Content>(content: Content): Content =>

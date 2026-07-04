@@ -6,7 +6,7 @@ import type {
 } from '../../types/components';
 import { useTreeState } from '../../hooks/useTreeState';
 import { useTreePaneView } from '../../hooks/useTreePaneView';
-import { cx } from '../../utils/cx';
+import { cx } from '../../utils/common/cx';
 import { defaultTreeNode } from './defaultTreeNode';
 
 export type {

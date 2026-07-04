@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { flattenVisible } from '../core/flatten';
+import { flattenVisible } from '../core/tree/flatten';
 import { useStoreVersion } from './useStoreVersion';
 import type {
   TreePaneViewState,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createTreeStore } from '../../src/core/treeStore';
+import { createTreeStore } from '../../src/core/tree/treeStore';
 import type { BookNode } from '../../src/types';
 
 // A small fixed book used across the sync tests.

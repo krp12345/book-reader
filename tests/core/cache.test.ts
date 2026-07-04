@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createContentCache } from '../../src/core/cache';
+import { createContentCache } from '../../src/core/content/cache';
 import type { EvictionInput } from '../../src/types';
 
 describe('createContentCache — basic store + recency', () => {

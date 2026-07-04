@@ -1,4 +1,4 @@
-import { lengthToPx } from './length';
+import { lengthToPx } from '../common/length';
 
 /**
  * The responsive-collapse decision: the tree pane collapses to a toggle +

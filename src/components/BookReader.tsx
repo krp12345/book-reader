@@ -1,6 +1,6 @@
 import type { JSX } from 'react';
 import { useBookReader } from '../hooks/useBookReader';
-import { cx } from '../utils/cx';
+import { cx } from '../utils/common/cx';
 import { TreePaneView } from './tree/TreePane';
 import { TreeSearch } from './tree/TreeSearch';
 import { TreeOverlay } from './tree/TreeOverlay';

@@ -6,7 +6,7 @@
  * caret shows before the children exist.
  */
 import { describe, it, expect, vi } from 'vitest';
-import { createTreeStore } from '../../src/core/treeStore';
+import { createTreeStore } from '../../src/core/tree/treeStore';
 import type { BookNode } from '../../src/types';
 
 const lazyBook: BookNode = {

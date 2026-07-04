@@ -11,8 +11,8 @@
  * e2e (`e2e/lazy-search.spec.ts`).
  */
 import { describe, it, expect, vi } from 'vitest';
-import { createTreeStore } from '../../src/core/treeStore';
-import { resolveToNode } from '../../src/core/traversal';
+import { createTreeStore } from '../../src/core/tree/treeStore';
+import { resolveToNode } from '../../src/core/tree/traversal';
 import type { BookNode } from '../../src/types';
 
 // root (known) → p0 (lazy) → p0a (lazy) → target (leaf)

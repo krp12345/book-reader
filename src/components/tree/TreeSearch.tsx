@@ -1,6 +1,6 @@
 import type { JSX } from 'react';
 import { useTreeSearch } from '../../hooks/useTreeSearch';
-import { cx } from '../../utils/cx';
+import { cx } from '../../utils/common/cx';
 import type { TreeSearchProps } from '../../types/components';
 
 export type { TreeSearchProps } from '../../types/components';

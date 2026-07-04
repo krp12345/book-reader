@@ -3,15 +3,15 @@ import type {
   CacheEntry,
   EvictionInput,
   ResolvedCacheConfig,
-} from '../types';
+} from '../../types';
 import type {
   ContentCache,
   InFlightLoad,
   LoadHandle,
   StoredEntry,
-} from '../types/core';
+} from '../../types/core';
 
-export type { ContentCache, LoadHandle } from '../types/core';
+export type { ContentCache, LoadHandle } from '../../types/core';
 
 const DEFAULT_MAX_CHARS = 5_000_000;
 
