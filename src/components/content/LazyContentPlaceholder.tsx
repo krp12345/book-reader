@@ -1,11 +1,7 @@
 import type { JSX } from 'react';
+import type { LazyContentPlaceholderProps } from '../../types/components';
 
-export interface LazyContentPlaceholderProps {
-  status: 'loading' | 'error';
-  error?: unknown;
-  onRetry?: (() => void) | undefined;
-  measureRef?: ((el: HTMLElement | null) => void) | undefined;
-}
+export type { LazyContentPlaceholderProps } from '../../types/components';
 
 /**
  * The reading-surface stand-in for an unresolved `lazy` branch reached by

@@ -1,13 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { TreeStore } from '../core/treeStore';
 import type { FetchChildren, FetchContext } from '../types';
+import type { UseLazyChildren } from '../types/hooks';
 
-export interface UseLazyChildren {
-  /** Fire-and-forget: ensure a lazy node's children are loaded (dedup + retry). */
-  ensure: (id: string) => void;
-  /** Awaitable variant — resolves once the node's children are available. */
-  ensureAsync: (id: string) => Promise<void>;
-}
+export type { UseLazyChildren } from '../types/hooks';
 
 const MISSING_FETCHER = new Error(
   '<BookReader>: a node is marked `lazy` but no `fetchChildren` prop was provided.',

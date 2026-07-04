@@ -70,9 +70,20 @@ src/
     virtualizer.ts    # windowing + height map + anchor correction + offsetAt
     scrollSync.ts     # active-node detection, near-bottom, reading-order overrides
     flatten.ts        # expanded-set → visible tree rows (incl. lazy status rows)
-  types/              # public types split by domain: node / reading / fetching /
-                      #   search / tree / content / cache / props + barrel index.ts
-                      #   (imports of `../types` resolve to the barrel)
+  types/              # ALL interface/type declarations live here (2026-07-04
+                      #   consolidation), grouped by layer into subfolders:
+                      #   public/  — the API surface split by domain (node / reading /
+                      #             fetching / search / tree / content / cache / props);
+                      #             its index is the barrel the root `./index.ts`
+                      #             re-exports, so `../types` still resolves ONLY public.
+                      #   core/    — React-free module contracts (treeStore / traversal /
+                      #             scrollSync / cache / virtualizer / anchoring).
+                      #   hooks/   — hook option+state shapes (+ prefetch.ts).
+                      #   components/ — dumb-component prop types.
+                      #   Each impl module IMPORTS its own moved types back for local use
+                      #   and RE-EXPORTS them (`export type { X } from '../types/core'`), so
+                      #   existing `from './core/treeStore'` etc. + `src/index.ts` are
+                      #   unchanged. Internal (unexported) shapes are imported, not re-exported.
   utils/              # sanitize.ts (+resolveContentSanitizer), prefetchNodeContent.ts,
                       #   length.ts (lengthToPx/toCssLength), cx.ts (classname join),
                       #   collapse.ts (shouldCollapseTree), thenable.ts (isThenable),

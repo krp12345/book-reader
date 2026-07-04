@@ -1,53 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import type { ContentCache } from '../core/cache';
-import type { TreeStore } from '../core/treeStore';
 import { createReadingOrder, resolveToShowable } from '../core/traversal';
 import { withReadingOverrides } from '../core/scrollSync';
-import type { VirtualItem } from '../core/virtualizer';
-import type {
-  FetchContent,
-  GetNextNode,
-  GetPrevNode,
-  SanitizeOption,
-  ScrollRequest,
-} from '../types';
 import { prefetchNodeContent } from '../utils/prefetchNodeContent';
 import { useVirtualList } from './useVirtualList';
 import { useStoreVersion } from './useStoreVersion';
+import type {
+  ContentPaneState,
+  UseContentPaneOptions,
+} from '../types/hooks';
 
-export interface UseContentPaneOptions<Meta = unknown, Content = string> {
-  store: TreeStore<Meta>;
-  fetchContent: FetchContent<Meta, Content>;
-  sanitize?: SanitizeOption | undefined;
-  cache?: ContentCache<Content> | undefined;
-  overscan?: number | undefined;
-  prefetchCount?: number | undefined;
-  estimateHeight?: number | undefined;
-  getNextNode?: GetNextNode<Meta> | undefined;
-  getPrevNode?: GetPrevNode<Meta> | undefined;
-  onActiveChange?: ((id: string, offset: number) => void) | undefined;
-  /** Ensure a lazy node's children load when it enters the reading window. */
-  ensureLazy?: ((id: string) => void) | undefined;
-  scrollRequest?: ScrollRequest | undefined;
-}
-
-export interface ContentPaneState {
-  scrollRef: React.RefObject<HTMLDivElement>;
-  items: VirtualItem[];
-  paddingTop: number;
-  paddingBottom: number;
-  totalHeight: number;
-  measureRef: (id: string) => (el: HTMLElement | null) => void;
-  /** Whether `id` is an unresolved lazy branch (renders the placeholder). */
-  isLazyPending: (id: string) => boolean;
-  /**
-   * Book-level empty state: the whole (possibly search-replaced) tree has no
-   * showable content node at all — an empty book, or a zero-result search. The
-   * per-*section* empty state (`renderEmpty`) is unrelated: that is one node
-   * whose fetched content came back empty.
-   */
-  noData: boolean;
-}
+export type {
+  ContentPaneState,
+  UseContentPaneOptions,
+} from '../types/hooks';
 
 /**
  * All of `ContentPane`'s behavior: reading-order sequence (override-aware,

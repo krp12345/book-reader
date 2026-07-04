@@ -1,19 +1,8 @@
 import { useState, type KeyboardEvent } from 'react';
 import type { SearchApi } from '../types';
+import type { TreeSearchState, UseTreeSearchOptions } from '../types/hooks';
 
-export interface UseTreeSearchOptions {
-  onSearch: (query: string) => void;
-  onReset?: (() => void) | undefined;
-  isSearching: boolean;
-  error: unknown;
-}
-
-export interface TreeSearchState {
-  /** The control surface (also handed to a custom `renderSearch`). */
-  api: SearchApi;
-  /** Enter submits the query. */
-  onInputKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
-}
+export type { TreeSearchState, UseTreeSearchOptions } from '../types/hooks';
 
 /**
  * The search box's behavior: query state + the {@link SearchApi} control

@@ -1,20 +1,9 @@
-import type { ContentCache } from '../core/cache';
 import { resolveContentSanitizer } from './sanitize';
 import { isThenable } from './thenable';
-import type {
-  BookNode,
-  FetchContent,
-  FetchContext,
-  SanitizeOption,
-} from '../types';
+import type { FetchContext } from '../types';
+import type { PrefetchOptions } from '../types/hooks';
 
-export interface PrefetchOptions<Meta = unknown, Content = string> {
-  node: BookNode<Meta>;
-  path: string[];
-  fetchContent: FetchContent<Meta, Content>;
-  sanitize?: SanitizeOption | undefined;
-  cache: ContentCache<Content>;
-}
+export type { PrefetchOptions } from '../types/hooks';
 
 export function prefetchNodeContent<Meta = unknown, Content = string>(
   options: PrefetchOptions<Meta, Content>,

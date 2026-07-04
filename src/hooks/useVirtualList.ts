@@ -6,12 +6,10 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { ContentCache } from '../core/cache';
 import {
   createVirtualizer,
   pinnedIds,
   prefetchIds,
-  type VirtualItem,
 } from '../core/virtualizer';
 import { activeNodeByCoverage, isNearBottom } from '../core/scrollSync';
 import {
@@ -20,33 +18,13 @@ import {
   type HeightMeasurement,
   type ScrollDirection,
 } from '../core/anchoring';
+import type {
+  Metrics,
+  UseVirtualListOptions,
+  VirtualList,
+} from '../types/hooks';
 
-export interface UseVirtualListOptions<Content = string> {
-  ids: string[];
-  overscan?: number | undefined;
-  prefetchCount?: number | undefined;
-  estimateHeight?: number | undefined;
-  cache?: ContentCache<Content> | undefined;
-  prefetch?: ((id: string) => void) | undefined;
-}
-
-export interface VirtualList {
-  scrollRef: React.RefObject<HTMLDivElement>;
-  items: VirtualItem[];
-  paddingTop: number;
-  paddingBottom: number;
-  totalHeight: number;
-  measureRef: (id: string) => (el: HTMLElement | null) => void;
-  activeId: string | undefined;
-  activeOffset: number;
-  atBottom: boolean;
-  scrollToId: (id: string, offset?: number) => void;
-}
-
-interface Metrics {
-  scrollTop: number;
-  viewportHeight: number;
-}
+export type { UseVirtualListOptions, VirtualList } from '../types/hooks';
 
 const readHeight = (el: HTMLElement): number =>
   el.getBoundingClientRect().height;

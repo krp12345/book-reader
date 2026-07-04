@@ -1,17 +1,9 @@
 import type { JSX } from 'react';
-import type { RenderSearch } from '../../types';
 import { useTreeSearch } from '../../hooks/useTreeSearch';
 import { cx } from '../../utils/cx';
+import type { TreeSearchProps } from '../../types/components';
 
-export interface TreeSearchProps {
-  onSearch: (query: string) => void;
-  onReset?: (() => void) | undefined;
-  isSearching: boolean;
-  error: unknown;
-  placeholder?: string | undefined;
-  renderSearch?: RenderSearch | undefined;
-  className?: string | undefined;
-}
+export type { TreeSearchProps } from '../../types/components';
 
 /**
  * The tree-pane search box. Submitting (Enter / Search button) re-roots the

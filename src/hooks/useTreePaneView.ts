@@ -1,27 +1,15 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import type { TreeStore } from '../core/treeStore';
-import { flattenVisible, type VisibleRow } from '../core/flatten';
-import type { TreeState } from './useTreeState';
+import { flattenVisible } from '../core/flatten';
 import { useStoreVersion } from './useStoreVersion';
+import type {
+  TreePaneViewState,
+  UseTreePaneViewOptions,
+} from '../types/hooks';
 
-export interface UseTreePaneViewOptions<Meta = unknown> {
-  store: TreeStore<Meta>;
-  state: TreeState;
-}
-
-export interface TreePaneViewState {
-  /** The visible rows (real nodes + synthetic lazy status rows), in order. */
-  rows: VisibleRow[];
-  /** The row carrying `tabIndex=0` (roving focus). */
-  activeId: string | undefined;
-  /** Ref callback registering a row element for keyboard focus moves. */
-  registerRow: (id: string) => (el: HTMLDivElement | null) => void;
-  onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
-  /** Click: focus the row and select it. */
-  onRowClick: (id: string) => void;
-  /** Focus (e.g. tabbing in): track the row as the roving-focus target. */
-  onRowFocus: (id: string) => void;
-}
+export type {
+  TreePaneViewState,
+  UseTreePaneViewOptions,
+} from '../types/hooks';
 
 /**
  * All of `TreePaneView`'s behavior: flattening the visible rows (recomputed

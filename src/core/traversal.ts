@@ -1,18 +1,7 @@
 import type { TreeStore } from './treeStore';
+import type { ReadingOrder, ResolveDeps } from '../types/core';
 
-/**
- * Dependencies for {@link resolveToNode}: how to fetch a lazy branch's children
- * (`ensureAsync`, idempotent/dedup'd), an optional ancestry resolver, and the
- * abort signal + optional pre-supplied path for one navigation.
- */
-export interface ResolveDeps {
-  ensureAsync: (id: string) => Promise<void>;
-  fetchPath?:
-    | ((id: string, signal: AbortSignal) => string[] | undefined | Promise<string[] | undefined>)
-    | undefined;
-  path?: string[] | undefined;
-  signal: AbortSignal;
-}
+export type { ReadingOrder, ResolveDeps } from '../types/core';
 
 /**
  * Makes `target` exist in the store, resolving `lazy` ancestors as needed, so a
@@ -110,14 +99,6 @@ export function resolveToShowable(
     if (candidate !== undefined && showable.has(candidate)) return candidate;
   }
   return undefined;
-}
-
-export interface ReadingOrder {
-  getNext(id: string): string | undefined;
-  getPrev(id: string): string | undefined;
-  getFirst(): string | undefined;
-  getLast(): string | undefined;
-  getSequence(): string[];
 }
 
 export function createReadingOrder<Meta = unknown>(

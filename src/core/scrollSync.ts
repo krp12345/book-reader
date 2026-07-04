@@ -1,12 +1,9 @@
 import type { TreeStore } from './treeStore';
 import type { ReadingOrder } from './traversal';
 import type { GetNextNode, GetPrevNode } from '../types';
+import type { NodeSpan, ReadingOverrides } from '../types/core';
 
-export interface NodeSpan {
-  id: string;
-  start: number;
-  height: number;
-}
+export type { NodeSpan, ReadingOverrides } from '../types/core';
 
 export function activeNodeAt(
   spans: NodeSpan[],
@@ -53,11 +50,6 @@ export function isNearBottom(
   threshold: number,
 ): boolean {
   return totalHeight - (scrollTop + viewportHeight) <= threshold;
-}
-
-export interface ReadingOverrides<Meta = unknown> {
-  getNextNode?: GetNextNode<Meta> | undefined;
-  getPrevNode?: GetPrevNode<Meta> | undefined;
 }
 
 export function withReadingOverrides<Meta = unknown>(

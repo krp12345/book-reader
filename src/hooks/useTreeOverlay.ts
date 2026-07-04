@@ -1,22 +1,7 @@
-import {
-  useEffect,
-  useRef,
-  type KeyboardEvent,
-  type RefObject,
-} from 'react';
+import { useEffect, useRef, type KeyboardEvent } from 'react';
+import type { TreeOverlayState, UseTreeOverlayOptions } from '../types/hooks';
 
-export interface UseTreeOverlayOptions {
-  /** Dismiss the overlay. */
-  onClose: () => void;
-  /** Element to restore focus to on close (the toggle that opened it). */
-  returnFocusTo?: HTMLElement | null | undefined;
-}
-
-export interface TreeOverlayState {
-  panelRef: RefObject<HTMLDivElement>;
-  /** Esc closes. */
-  onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
-}
+export type { TreeOverlayState, UseTreeOverlayOptions } from '../types/hooks';
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';

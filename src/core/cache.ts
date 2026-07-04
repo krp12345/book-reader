@@ -4,33 +4,16 @@ import type {
   EvictionInput,
   ResolvedCacheConfig,
 } from '../types';
+import type {
+  ContentCache,
+  InFlightLoad,
+  LoadHandle,
+  StoredEntry,
+} from '../types/core';
+
+export type { ContentCache, LoadHandle } from '../types/core';
 
 const DEFAULT_MAX_CHARS = 5_000_000;
-
-export interface LoadHandle<Content = string> {
-  value?: Content;
-  error?: unknown;
-  promise: Promise<Content>;
-  release: () => void;
-}
-
-export interface ContentCache<Content = string> {
-  get(id: string): Content | undefined;
-  has(id: string): boolean;
-  set(id: string, content: Content): void;
-  delete(id: string): boolean;
-  clear(): void;
-  setPinned(ids: Iterable<string>): void;
-  getInFlight(id: string): Promise<Content> | undefined;
-  dedupe(id: string, factory: () => Promise<Content>): Promise<Content>;
-  load(
-    id: string,
-    factory: (signal: AbortSignal) => Content | Promise<Content>,
-  ): LoadHandle<Content>;
-  readonly count: number;
-  readonly totalSize: number;
-  ids(): string[];
-}
 
 function resolveConfig<Content>(
   config: CacheConfig<Content> = {},
@@ -43,17 +26,6 @@ function resolveConfig<Content>(
     sizeOf,
     ...(config.evict ? { evict: config.evict } : {}),
   };
-}
-
-interface StoredEntry<Content> {
-  content: Content;
-  size: number;
-}
-
-interface InFlightLoad<Content> {
-  promise: Promise<Content>;
-  controller: AbortController;
-  refs: number;
 }
 
 function isThenable<Content>(

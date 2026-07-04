@@ -1,51 +1,12 @@
 import type { JSX } from 'react';
-import type { ContentCache } from '../../core/cache';
-import type { TreeStore } from '../../core/treeStore';
-import type {
-  FetchContent,
-  GetNextNode,
-  GetPrevNode,
-  RenderContent,
-  RenderContentNode,
-  RenderEmpty,
-  RenderError,
-  RenderLoading,
-  RenderNoData,
-  SanitizeOption,
-  ScrollRequest,
-} from '../../types';
 import { useContentPane } from '../../hooks/useContentPane';
 import { cx } from '../../utils/cx';
 import { ContentNode } from './ContentNode';
 import { LazyContentPlaceholder } from './LazyContentPlaceholder';
+import type { ContentPaneProps } from '../../types/components';
 
 export type { ScrollRequest } from '../../types';
-
-export interface ContentPaneProps<Meta = unknown, Content = string> {
-  store: TreeStore<Meta>;
-  fetchContent: FetchContent<Meta, Content>;
-  sanitize?: SanitizeOption | undefined;
-  cache?: ContentCache<Content> | undefined;
-  overscan?: number | undefined;
-  prefetchCount?: number | undefined;
-  estimateHeight?: number | undefined;
-  getNextNode?: GetNextNode<Meta> | undefined;
-  getPrevNode?: GetPrevNode<Meta> | undefined;
-  onActiveChange?: ((id: string, offset: number) => void) | undefined;
-  /** Ensure a lazy node's children load when it enters the reading window. */
-  ensureLazy?: ((id: string) => void) | undefined;
-  scrollRequest?: ScrollRequest | undefined;
-  renderContent?: RenderContent<Meta, Content> | undefined;
-  renderContentNode?: RenderContentNode<Meta, Content> | undefined;
-  renderLoading?: RenderLoading<Meta> | undefined;
-  renderError?: RenderError<Meta> | undefined;
-  renderEmpty?: RenderEmpty<Meta> | undefined;
-  /** Book-level "no data / no results" panel (whole tree has nothing to show). */
-  renderNoData?: RenderNoData | undefined;
-  className?: string | undefined;
-  contentNodeClassName?: string | undefined;
-  'aria-label'?: string | undefined;
-}
+export type { ContentPaneProps } from '../../types/components';
 
 /**
  * The virtualized reading surface. Purely presentational: sequencing,

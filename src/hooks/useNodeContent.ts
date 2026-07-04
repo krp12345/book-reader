@@ -1,39 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { ContentCache } from '../core/cache';
+import type { FetchContext } from '../types';
 import type {
-  BookNode,
-  ContentStatus,
-  FetchContext,
-  FetchContent,
-  ReadingDirection,
-  SanitizeOption,
-} from '../types';
+  InternalState,
+  NodeContent,
+  UseNodeContentOptions,
+} from '../types/hooks';
 import { resolveContentSanitizer } from '../utils/sanitize';
 import { isThenable } from '../utils/thenable';
 import { isEmptyContent } from '../utils/content';
 
-export interface UseNodeContentOptions<Meta = unknown, Content = string> {
-  node: BookNode<Meta>;
-  path: string[];
-  fetchContent: FetchContent<Meta, Content>;
-  direction?: ReadingDirection | undefined;
-  sanitize?: SanitizeOption | undefined;
-  cache?: ContentCache<Content> | undefined;
-}
-
-export interface NodeContent<Content = string> {
-  status: ContentStatus;
-  /** The resolved payload; `undefined` while loading / empty / errored. */
-  content: Content | undefined;
-  error: unknown;
-  retry: () => void;
-}
-
-interface InternalState<Content> {
-  status: ContentStatus;
-  content: Content | undefined;
-  error: unknown;
-}
+export type { NodeContent, UseNodeContentOptions } from '../types/hooks';
 
 const LOADING: InternalState<never> = {
   status: 'loading',

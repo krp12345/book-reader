@@ -1,38 +1,18 @@
 import type { CSSProperties, JSX } from 'react';
-import type { TreeStore } from '../../core/treeStore';
+import type { ExpandCollapseApi, TreeNodeState } from '../../types';
 import type {
-  ExpandCollapseApi,
-  RenderExpandCollapse,
-  RenderTreeNode,
-  TreeNodeState,
-} from '../../types';
-import { useTreeState, type TreeState } from '../../hooks/useTreeState';
+  TreePaneProps,
+  TreePaneViewProps,
+} from '../../types/components';
+import { useTreeState } from '../../hooks/useTreeState';
 import { useTreePaneView } from '../../hooks/useTreePaneView';
 import { cx } from '../../utils/cx';
 import { defaultTreeNode } from './defaultTreeNode';
 
-export interface TreePaneProps<Meta = unknown> {
-  store: TreeStore<Meta>;
-  selectedId?: string | undefined;
-  onSelect?: ((id: string) => void) | undefined;
-  renderTreeNode?: RenderTreeNode<Meta> | undefined;
-  renderExpandCollapse?: RenderExpandCollapse | undefined;
-  className?: string | undefined;
-  treeNodeClassName?: string | undefined;
-  'aria-label'?: string | undefined;
-}
-
-export interface TreePaneViewProps<Meta = unknown> {
-  store: TreeStore<Meta>;
-  state: TreeState;
-  renderTreeNode?: RenderTreeNode<Meta> | undefined;
-  renderExpandCollapse?: RenderExpandCollapse | undefined;
-  /** Retry a failed lazy child fetch (from the placeholder row's Retry button). */
-  onRetryLazy?: ((id: string) => void) | undefined;
-  className?: string | undefined;
-  treeNodeClassName?: string | undefined;
-  'aria-label'?: string | undefined;
-}
+export type {
+  TreePaneProps,
+  TreePaneViewProps,
+} from '../../types/components';
 
 /** Standalone tree pane: owns its own `useTreeState` and renders the view. */
 export function TreePane<Meta = unknown>(
