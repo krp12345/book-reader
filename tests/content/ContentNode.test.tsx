@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ContentNode } from '../../src/components/content/ContentNode';
+import { ContentNode } from '../../src/components/content/node/ContentNode';
 import { createContentCache } from '../../src/core/content/cache';
 import type { BookNode, FetchContent } from '../../src/types';
 

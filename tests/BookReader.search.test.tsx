@@ -7,7 +7,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { BookReader } from '../src/components/BookReader';
+import { BookReader } from '../src/components/bookReader/BookReader';
 import type {
   BookNode,
   FetchContent,

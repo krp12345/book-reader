@@ -1,20 +1,19 @@
 export const VERSION = '0.0.0';
 
-export { BookReader } from './components/BookReader';
-export { TreePane, TreePaneView } from './components/tree/TreePane';
-export type {
-  TreePaneProps,
-  TreePaneViewProps,
-} from './components/tree/TreePane';
-export { TreeSearch } from './components/tree/TreeSearch';
-export type { TreeSearchProps } from './components/tree/TreeSearch';
+export { BookReader } from './components/bookReader/BookReader';
+export { TreePane } from './components/tree/TreePane';
+export { TreePaneView } from './components/tree/view/TreePaneView';
+export type { TreePaneProps } from './components/tree/TreePane';
+export type { TreePaneViewProps } from './components/tree/view/TreePaneView';
+export { TreeSearch } from './components/tree/search/TreeSearch';
+export type { TreeSearchProps } from './components/tree/search/TreeSearch';
 export { ContentPane } from './components/content/ContentPane';
 export type { ContentPaneProps } from './components/content/ContentPane';
-export { ContentNode } from './components/content/ContentNode';
-export type { ContentNodeProps } from './components/content/ContentNode';
-export { TreeOverlay } from './components/tree/TreeOverlay';
-export type { TreeOverlayProps } from './components/tree/TreeOverlay';
-export { defaultTreeNode } from './components/tree/defaultTreeNode';
+export { ContentNode } from './components/content/node/ContentNode';
+export type { ContentNodeProps } from './components/content/node/ContentNode';
+export { TreeOverlay } from './components/tree/overlay/TreeOverlay';
+export type { TreeOverlayProps } from './components/tree/overlay/TreeOverlay';
+export { defaultTreeNode } from './components/tree/view/defaultTreeNode';
 
 export { createTreeStore } from './core/tree/treeStore';
 export type { TreeStore, CreateTreeStoreOptions } from './core/tree/treeStore';

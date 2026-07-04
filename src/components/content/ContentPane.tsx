@@ -1,8 +1,8 @@
 import type { JSX } from 'react';
 import { useContentPane } from '../../hooks/content/useContentPane';
 import { cx } from '../../utils/common/cx';
-import { ContentNode } from './ContentNode';
-import { LazyContentPlaceholder } from './LazyContentPlaceholder';
+import { ContentNode } from './node/ContentNode';
+import { LazyContentPlaceholder } from './node/LazyContentPlaceholder';
 import type { ContentPaneProps } from '../../types/components';
 
 export type { ScrollRequest } from '../../types';

@@ -1,9 +1,9 @@
 import type { JSX } from 'react';
-import { useTreeSearch } from '../../hooks/tree/useTreeSearch';
-import { cx } from '../../utils/common/cx';
-import type { TreeSearchProps } from '../../types/components';
+import { useTreeSearch } from '../../../hooks/tree/useTreeSearch';
+import { cx } from '../../../utils/common/cx';
+import type { TreeSearchProps } from '../../../types/components';
 
-export type { TreeSearchProps } from '../../types/components';
+export type { TreeSearchProps } from '../../../types/components';
 
 /**
  * The tree-pane search box. Submitting (Enter / Search button) re-roots the

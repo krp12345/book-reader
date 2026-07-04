@@ -1,11 +1,11 @@
 import type { JSX } from 'react';
-import { useBookReader } from '../hooks/common/useBookReader';
-import { cx } from '../utils/common/cx';
-import { TreePaneView } from './tree/TreePane';
-import { TreeSearch } from './tree/TreeSearch';
-import { TreeOverlay } from './tree/TreeOverlay';
-import { ContentPane } from './content/ContentPane';
-import type { BookReaderProps } from '../types';
+import { useBookReader } from '../../hooks/common/useBookReader';
+import { cx } from '../../utils/common/cx';
+import { TreePaneView } from '../tree/view/TreePaneView';
+import { TreeSearch } from '../tree/search/TreeSearch';
+import { ContentPane } from '../content/ContentPane';
+import { TreeToggleBar } from './TreeToggleBar';
+import type { BookReaderProps } from '../../types';
 
 /**
  * The two-pane reader shell. Purely presentational: every behavior (store +
@@ -133,46 +133,21 @@ export function BookReader<Meta = unknown, Content = string>(
           surface (it never overlaps the text), with the tree popover anchored
           beneath it. position:relative makes this bar the popover's anchor. */}
       {collapsed && (
-        <div
-          data-part="tree-toggle-bar"
-          style={{
-            flex: '0 0 auto',
-            position: 'relative',
-            display: 'flex',
-            justifyContent: treeSide === 'right' ? 'flex-end' : 'flex-start',
-          }}
+        <TreeToggleBar
+          treeSide={treeSide}
+          renderTreeToggle={renderTreeToggle}
+          toggleApi={toggleApi}
+          classNames={classNames}
+          overlayOpen={overlayOpen}
+          renderTreeOverlay={renderTreeOverlay}
+          closeOverlay={closeOverlay}
+          returnFocusEl={returnFocusEl}
+          width={width}
+          overlayMinWidth={overlayMinWidth}
+          overlayMinHeight={overlayMinHeight}
         >
-          {renderTreeToggle ? (
-            renderTreeToggle(toggleApi)
-          ) : (
-            <button
-              type="button"
-              data-part="tree-toggle"
-              className={cx('br-tree-toggle', classNames?.treeToggle)}
-              aria-haspopup="dialog"
-              aria-expanded={overlayOpen}
-              onClick={toggleApi.toggle}
-            >
-              {toggleApi.label}
-            </button>
-          )}
-          {overlayOpen &&
-            (renderTreeOverlay ? (
-              renderTreeOverlay({ close: closeOverlay, children: treeView })
-            ) : (
-              <TreeOverlay
-                onClose={closeOverlay}
-                returnFocusTo={returnFocusEl}
-                treeSide={treeSide}
-                width={width}
-                minWidth={overlayMinWidth}
-                minHeight={overlayMinHeight}
-                className={cx('br-tree-overlay', classNames?.treeOverlay)}
-              >
-                {treeView}
-              </TreeOverlay>
-            ))}
-        </div>
+          {treeView}
+        </TreeToggleBar>
       )}
       <div
         className={cx('br-content-pane', classNames?.content)}

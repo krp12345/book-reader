@@ -1,47 +1,13 @@
 import type { JSX } from 'react';
-import type { ContentNodeWrapperProps, ContentState } from '../../types';
-import { useNodeContent } from '../../hooks/content/useNodeContent';
-import { cx } from '../../utils/common/cx';
-import type { ContentNodeProps } from '../../types/components';
+import type { ContentNodeWrapperProps, ContentState } from '../../../types';
+import { useNodeContent } from '../../../hooks/content/useNodeContent';
+import { cx } from '../../../utils/common/cx';
+import type { ContentNodeProps } from '../../../types/components';
+import { ContentLoading } from './ContentLoading';
+import { ContentEmpty } from './ContentEmpty';
+import { ContentError } from './ContentError';
 
-export type { ContentNodeProps } from '../../types/components';
-
-function DefaultLoading(): JSX.Element {
-  return (
-    <p className="br-content__loading" data-part="content-loading">
-      Loading…
-    </p>
-  );
-}
-
-function DefaultEmpty(): JSX.Element {
-  return (
-    <p className="br-content__empty" data-part="content-empty">
-      No content.
-    </p>
-  );
-}
-
-function DefaultError({
-  retry,
-}: {
-  error: unknown;
-  retry: () => void;
-}): JSX.Element {
-  return (
-    <div className="br-content__error" data-part="content-error" role="alert">
-      <span>Couldn’t load this section.</span>
-      <button
-        type="button"
-        className="br-content__retry"
-        data-part="content-retry"
-        onClick={retry}
-      >
-        Retry
-      </button>
-    </div>
-  );
-}
+export type { ContentNodeProps } from '../../../types/components';
 
 export function ContentNode<Meta = unknown, Content = string>(
   props: ContentNodeProps<Meta, Content>,
@@ -74,17 +40,17 @@ export function ContentNode<Meta = unknown, Content = string>(
   let body: import('react').ReactNode;
   switch (status) {
     case 'loading':
-      body = renderLoading ? renderLoading(node) : <DefaultLoading />;
+      body = renderLoading ? renderLoading(node) : <ContentLoading />;
       break;
     case 'error':
       body = renderError ? (
         renderError(node, error, retry)
       ) : (
-        <DefaultError error={error} retry={retry} />
+        <ContentError error={error} retry={retry} />
       );
       break;
     case 'empty':
-      body = renderEmpty ? renderEmpty(node) : <DefaultEmpty />;
+      body = renderEmpty ? renderEmpty(node) : <ContentEmpty />;
       break;
     case 'loaded': {
       const loaded = content as Content;

@@ -1,7 +1,7 @@
 import type { JSX } from 'react';
-import type { LazyContentPlaceholderProps } from '../../types/components';
+import type { LazyContentPlaceholderProps } from '../../../types/components';
 
-export type { LazyContentPlaceholderProps } from '../../types/components';
+export type { LazyContentPlaceholderProps } from '../../../types/components';
 
 /**
  * The reading-surface stand-in for an unresolved `lazy` branch reached by

@@ -1,8 +1,8 @@
 import type { CSSProperties, JSX } from 'react';
-import { useTreeOverlay } from '../../hooks/tree/useTreeOverlay';
-import type { TreeOverlayProps } from '../../types/components';
+import { useTreeOverlay } from '../../../hooks/tree/useTreeOverlay';
+import type { TreeOverlayProps } from '../../../types/components';
 
-export type { TreeOverlayProps } from '../../types/components';
+export type { TreeOverlayProps } from '../../../types/components';
 
 /**
  * Default floated tree container: a popover anchored directly below the toggle
