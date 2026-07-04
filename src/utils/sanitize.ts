@@ -136,6 +136,19 @@ export function resolveSanitizer(
   return sanitizeHtml;
 }
 
+/**
+ * Payload-level sanitizer over {@link resolveSanitizer}: sanitization is a
+ * string-only concern, so string payloads run through the HTML sanitizer and
+ * object payloads pass through untouched.
+ */
+export function resolveContentSanitizer(
+  option: import('../types').SanitizeOption | undefined,
+): <Content>(content: Content) => Content {
+  const applyHtml = resolveSanitizer(option);
+  return <Content>(content: Content): Content =>
+    typeof content === 'string' ? (applyHtml(content) as Content) : content;
+}
+
 export function sanitizeHtml(html: string): string {
   if (html === '') return '';
 

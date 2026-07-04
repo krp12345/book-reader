@@ -8,7 +8,9 @@ import type {
   ReadingDirection,
   SanitizeOption,
 } from '../types';
-import { resolveSanitizer } from '../utils/sanitize';
+import { resolveContentSanitizer } from '../utils/sanitize';
+import { isThenable } from '../utils/thenable';
+import { isEmptyContent } from '../utils/content';
 
 export interface UseNodeContentOptions<Meta = unknown, Content = string> {
   node: BookNode<Meta>;
@@ -39,16 +41,6 @@ const LOADING: InternalState<never> = {
   error: undefined,
 };
 
-const isThenable = <T>(value: T | Promise<T>): value is Promise<T> =>
-  typeof value === 'object' &&
-  value !== null &&
-  typeof (value as { then?: unknown }).then === 'function';
-
-/** A string payload is "empty" when blank; a nullish payload is always empty. */
-const isEmptyContent = (content: unknown): boolean =>
-  content == null ||
-  (typeof content === 'string' && content.trim() === '');
-
 export function useNodeContent<Meta = unknown, Content = string>(
   options: UseNodeContentOptions<Meta, Content>,
 ): NodeContent<Content> {
@@ -61,10 +53,7 @@ export function useNodeContent<Meta = unknown, Content = string>(
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
-    const applyHtml = resolveSanitizer(sanitize);
-    // Sanitization is a string-only concern; object payloads pass through.
-    const sanitizeContent = (content: Content): Content =>
-      typeof content === 'string' ? (applyHtml(content) as Content) : content;
+    const sanitizeContent = resolveContentSanitizer(sanitize);
 
     const settle = (content: Content): void => {
       if (!active) return;

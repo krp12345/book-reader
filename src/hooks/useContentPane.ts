@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ContentCache } from '../core/cache';
 import type { TreeStore } from '../core/treeStore';
-import { createReadingOrder } from '../core/traversal';
+import { createReadingOrder, resolveToShowable } from '../core/traversal';
 import { withReadingOverrides } from '../core/scrollSync';
 import type { VirtualItem } from '../core/virtualizer';
 import type {
@@ -104,17 +104,8 @@ export function useContentPane<Meta = unknown, Content = string>(
 
   const contentIds = useMemo(() => new Set(ids), [ids]);
   const resolveContentId = useCallback(
-    (id: string): string | undefined => {
-      if (contentIds.has(id)) return id;
-      const from = fullSeq.indexOf(id);
-      if (from === -1) return undefined;
-      for (let i = from + 1; i < fullSeq.length; i++) {
-        const candidate = fullSeq[i];
-        if (candidate !== undefined && contentIds.has(candidate))
-          return candidate;
-      }
-      return undefined;
-    },
+    (id: string): string | undefined =>
+      resolveToShowable(fullSeq, contentIds, id),
     [contentIds, fullSeq],
   );
 

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createContentCache, type ContentCache } from '../core/cache';
 import { createTreeStore, type TreeStore } from '../core/treeStore';
-import { resolveToNode } from '../core/traversal';
+import { findFirstShowable, resolveToNode } from '../core/traversal';
 import { useTreeState, type TreeState } from './useTreeState';
 import { useLazyChildren } from './useLazyChildren';
 import { useElementWidth } from './useElementWidth';
-import { lengthToPx, toCssLength } from '../utils/length';
+import { toCssLength } from '../utils/length';
+import { shouldCollapseTree } from '../utils/collapse';
 import type {
   BookLocation,
   BookNode,
@@ -165,15 +166,12 @@ export function useBookReader<Meta = unknown, Content = string>(
   const [overlayOpen, setOverlayOpen] = useState(false);
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
-  const treeWidthPx = lengthToPx(treeWidth);
-  const contentMinWidthPx = lengthToPx(contentMinWidth);
-  const forceCollapsed = collapseTree === true || collapseTree === 'always';
-  const forceExpanded = collapseTree === false || collapseTree === 'never';
-  const collapsed =
-    forceCollapsed ||
-    (!forceExpanded &&
-      rootWidth > 0 &&
-      rootWidth - treeWidthPx < contentMinWidthPx);
+  const collapsed = shouldCollapseTree({
+    collapseTree,
+    rootWidth,
+    treeWidth,
+    contentMinWidth,
+  });
 
   const openOverlay = useCallback(() => {
     returnFocusRef.current = (document.activeElement as HTMLElement) ?? null;
@@ -258,35 +256,13 @@ export function useBookReader<Meta = unknown, Content = string>(
     );
   }, [controlled, requestScrollResolved]);
 
-  // After a search/reset replaces the tree, take the reader to "the first page":
-  // descend the leftmost path (resolving lazy branches along the way) until the
-  // first node that actually carries content, and navigate there.
+  // After a search/reset replaces the tree, take the reader to "the first page"
+  // (the walk itself — leftmost descent with lazy resolution — lives in
+  // `core/traversal.findFirstShowable`).
   const gotoFirstShowable = useCallback(
     async (signal: AbortSignal): Promise<void> => {
-      let id: string | undefined = store.getRootIds()[0];
-      const seen = new Set<string>();
-      while (id !== undefined && !seen.has(id)) {
-        seen.add(id);
-        if (signal.aborted) return;
-        const node = store.getNode(id);
-        if (node === undefined) break;
-        if (node.hasContent !== false) {
-          goTo(id);
-          return;
-        }
-        // A pure organisational branch — descend into it, resolving lazily first.
-        if (store.isLazy(id) && store.getLazyStatus(id) !== 'loaded') {
-          try {
-            await ensureAsync(id);
-          } catch {
-            break;
-          }
-          if (signal.aborted) return;
-        }
-        id = store.getChildren(id)?.[0];
-      }
-      const first = store.getRootIds()[0];
-      if (first !== undefined) goTo(first);
+      const target = await findFirstShowable(store, { ensureAsync, signal });
+      if (!signal.aborted && target !== undefined) goTo(target);
     },
     [store, goTo, ensureAsync],
   );

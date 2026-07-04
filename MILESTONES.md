@@ -13,7 +13,11 @@
   refactor** landed: dumb components + `components/`/`hooks/`/`types/`/`utils/`
   folders, public API unchanged (see session log + `CLAUDE.md` architecture map).
   **Suite: 205 unit + 48 e2e green — re-run by the user after the refactor
-  (2026-07-04), all passing.**
+  (2026-07-04), all passing.** A second refactor pass (2026-07-04, latest)
+  extracted the hooks' pure logic into `core/`/`utils/` (headline: `core/
+  anchoring.ts` — the direction-aware anchor-correction policy out of
+  `useVirtualList`); public API unchanged, build+lint+typecheck green, and the
+  **user authorized a same-session suite run: 205 unit + 48 e2e ALL PASS**.
 - **Overall progress:** M0–M11 complete (M1's types landed incrementally across
   milestones). No milestone in flight.
 - **🆕 Tested 2026-07-01 — M10 lazy tree + search + selection/staging.** New coverage:
@@ -347,6 +351,35 @@ the default caret + a11y/keyboard nav unchanged when no override is supplied.
 ---
 
 ## Session log (append newest on top)
+- 2026-07-04 (latest) — **Pure-logic extraction: hooks → `core/`/`utils/` (no
+  behavior change, user-requested).** Freed the hooks of inline algorithms so
+  they only do React wiring (SOLID/separation-of-concerns pass, follow-up to the
+  dumb-components refactor). New `src/core/anchoring.ts` (React-free): the
+  **direction-aware anchor-correction policy** moved out of `useVirtualList` —
+  `applyHeightMeasurements` (the ResizeObserver height-change path) +
+  `reconcileSequenceSwap` (the id-swap layout-effect path, the LZ-UP fix) +
+  `ScrollDirection`/`IsSettled` types; the hook now only maps observed elements
+  → ids, reads DOM heights, and applies the returned scrollTop/correction.
+  Ports are **line-faithful** (same pre-mutation snapshot order, same anchor
+  selection, same fold rules) — do not "simplify" them without the LZ-UP/fuzz
+  e2e green. `core/traversal.ts` gained `findFirstShowable` (the leftmost
+  lazy-resolving walk from `useBookReader.gotoFirstShowable`; the hook keeps
+  only the `goTo` call) and `resolveToShowable` (from `useContentPane.
+  resolveContentId`). New utils: `collapse.ts` (`shouldCollapseTree` — the
+  responsive-collapse predicate from `useBookReader`), `thenable.ts`
+  (`isThenable`, **deduped** — was copy-pasted in `useNodeContent` +
+  `prefetchNodeContent`), `content.ts` (`isEmptyContent`), and
+  `sanitize.ts › resolveContentSanitizer` (the string-only payload sanitizer,
+  also deduped from those two files). **Public API unchanged** (nothing new
+  exported from `index.ts`). Deliberately NOT extracted: `useTreePaneView`'s
+  keyboard `switch` (event-coupled UI dispatch, and a11y work is dropped —
+  not algorithmic), `useLazyChildren` (pure orchestration), the echo-guard
+  trail in `useBookReader` (5 lines, extraction would obscure it). Build +
+  lint + typecheck green. **UPDATE (same session): the user explicitly
+  authorized running the suites — `pnpm test` 205/205 and `pnpm test:e2e`
+  48/48 ALL PASS** (incl. the LZ-UP/LZ-DOWN lazy-neighbour and no-flicker
+  fuzz guards over the moved anchoring code). No new tests owed (pure moves;
+  existing anchor/e2e suites are the guard).
 - 2026-07-04 (later) — **Structural refactor: dumb components + organized folders
   (no behavior change, user-requested).** All React components are now
   presentation-only; every behavior lives in a hook. New layout:

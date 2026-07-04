@@ -14,6 +14,12 @@ import {
   type VirtualItem,
 } from '../core/virtualizer';
 import { activeNodeByCoverage, isNearBottom } from '../core/scrollSync';
+import {
+  applyHeightMeasurements,
+  reconcileSequenceSwap,
+  type HeightMeasurement,
+  type ScrollDirection,
+} from '../core/anchoring';
 
 export interface UseVirtualListOptions<Content = string> {
   ids: string[];
@@ -102,7 +108,7 @@ export function useVirtualList<Content = string>(
   // Last *user* scroll direction (programmatic sets — nav/corrections — are
   // excluded via expectedTopRef). Disambiguates which side to pin when a lazy
   // placeholder straddling the fold is swapped for its children.
-  const scrollDirRef = useRef<'down' | 'up'>('down');
+  const scrollDirRef = useRef<ScrollDirection>('down');
   const lastTopRef = useRef(0);
 
   const onScroll = useCallback(() => {
@@ -149,18 +155,10 @@ export function useVirtualList<Content = string>(
     return status === 'loaded' || status === 'empty';
   }, []);
 
-  // Anchor correction for **sequence changes** (not height changes): when lazy
-  // children replace their branch placeholder — or the tree otherwise swaps ids —
-  // the height-map offsets of everything after the swap shift by
-  // (sum of new estimates − old placeholder height), and no ResizeObserver ever
-  // fires for an insertion/removal. Without compensation the reading line jumps
-  // whenever a subtree materialises *above* the fold (the recursive scroll-up
-  // resolution case). Scrolling up, pin the first *settled* survivor at/below
-  // the fold — the content the reader scrolled up from — so the whole
-  // materialising region above it extends the scrollback without moving it.
-  // Scrolling down, pin the fold node itself (children unfold in place below
-  // the line being read); if the fold node was removed, pin the nearest
-  // survivor above.
+  // Anchor correction for **sequence changes** (id swaps never fire a
+  // ResizeObserver): the pin/correction policy lives in
+  // `core/anchoring.reconcileSequenceSwap`; this effect only detects the swap,
+  // feeds it DOM truth (mounted heights), and applies the returned scrollTop.
   const prevIdsRef = useRef(ids);
   useLayoutEffect(() => {
     const prev = prevIdsRef.current;
@@ -171,120 +169,26 @@ export function useVirtualList<Content = string>(
     // A pending navigation re-pins its own target in the ResizeObserver path.
     if (navAnchorRef.current !== null) return;
 
-    // Step A — reconcile the height map with DOM truth. Freshly-inserted items
-    // are already mounted at their *real* height (their refs ran before this
-    // effect) while the map still holds estimates, and an item may have grown
-    // just before the swap with its ResizeObserver tick still pending. Sync
-    // every mounted height, applying the same fold-relative correction the
-    // observer path would have (against the *pre-sync* offsets of the old
-    // sequence) — absorbing a delta without its correction would silently lose
-    // that scroll adjustment forever, since the observer will then see delta 0.
+    // Freshly-inserted items are already mounted at their *real* height (their
+    // refs ran before this effect), so the DOM is the source of truth here.
     const scrollTop0 = el.scrollTop;
-    const oldIndex = new Map(prev.map((id, i) => [id, i]));
-    const newIndex = new Map(ids.map((id, i) => [id, i]));
-    const preStarts: number[] = [];
-    {
-      let acc = 0;
-      for (const id of prev) {
-        preStarts.push(acc);
-        acc += virtualizer.getHeight(id);
-      }
-    }
-
-    // Choose the anchor BEFORE reconciling heights. Scrolling up, it is the
-    // first *settled* survivor at/below the fold — the content the reader
-    // scrolled up from. The fold itself sits inside the materialising region,
-    // so anchoring there would make the view follow the churn up the resolving
-    // branch (and push the reader's content out below). Scrolling down the
-    // legacy fold policy is right: content unfolds in place below the line.
-    let anchorIdx = -1;
-    if (scrollDirRef.current === 'up') {
-      for (let i = 0; i < prev.length; i++) {
-        const id = prev[i] as string;
-        if (
-          (preStarts[i] as number) + virtualizer.getHeight(id) > scrollTop0 &&
-          isSettled(id) &&
-          newIndex.has(id)
-        ) {
-          anchorIdx = i;
-          break;
-        }
-      }
-    }
-
-    let syncCorrection = 0;
-    let measured = false;
+    const mountedHeights = new Map<string, number>();
     for (const [id, node] of idToEl.current) {
-      const oldHeight = virtualizer.getHeight(id);
-      const delta = virtualizer.setHeight(id, readHeight(node));
-      if (delta === 0) continue;
-      measured = true;
-      const oi = oldIndex.get(id);
-      if (oi === undefined) continue; // brand-new this commit: nothing to correct
-      const preStart = preStarts[oi] as number;
-      if (anchorIdx !== -1) {
-        if (oi < anchorIdx) syncCorrection += delta;
-      } else if (preStart + oldHeight <= scrollTop0) {
-        syncCorrection += delta;
-      } else if (preStart < scrollTop0 && scrollDirRef.current === 'up') {
-        syncCorrection += delta;
-      }
+      mountedHeights.set(id, readHeight(node));
     }
+
+    const { targetScrollTop, measured } = reconcileSequenceSwap(virtualizer, {
+      prevIds: prev,
+      nextIds: ids,
+      scrollTop: scrollTop0,
+      direction: scrollDirRef.current,
+      isSettled,
+      mountedHeights,
+    });
+
     if (measured) setMeasureVersion((n) => n + 1);
-
-    // Step B — pin the anchor across the sequence swap, in the now-exact
-    // coordinates. Post-sync starts of the old sequence:
-    const scrollTop = scrollTop0 + syncCorrection;
-    let foldIdx = -1;
-    let start = 0;
-    const oldStarts: number[] = [];
-    for (let i = 0; i < prev.length; i++) {
-      oldStarts.push(start);
-      const height = virtualizer.getHeight(prev[i] as string);
-      if (foldIdx === -1 && start + height > scrollTop) foldIdx = i;
-      start += height;
-    }
-
-    // No settled anchor (or scrolling down): legacy fold policy — prefer the
-    // fold node itself; else the nearest survivor on the side the reader came
-    // from (below when scrolling up, above when scrolling down).
-    if (anchorIdx === -1) {
-      if (foldIdx === -1) {
-        if (syncCorrection !== 0) {
-          setScrollTop(scrollTop);
-          syncMetrics();
-        }
-        return;
-      }
-      if (newIndex.has(prev[foldIdx] as string)) {
-        anchorIdx = foldIdx;
-      } else if (scrollDirRef.current === 'up') {
-        for (let i = foldIdx + 1; i < prev.length; i++) {
-          if (newIndex.has(prev[i] as string)) {
-            anchorIdx = i;
-            break;
-          }
-        }
-      } else {
-        for (let i = foldIdx - 1; i >= 0; i--) {
-          if (newIndex.has(prev[i] as string)) {
-            anchorIdx = i;
-            break;
-          }
-        }
-      }
-    }
-    let pinDelta = 0;
-    if (anchorIdx !== -1) {
-      const anchorId = prev[anchorIdx] as string;
-      const ni = newIndex.get(anchorId);
-      if (ni !== undefined)
-        pinDelta = virtualizer.offsetAt(ids, ni) - (oldStarts[anchorIdx] as number);
-    }
-
-    const target = scrollTop + pinDelta;
-    if (target !== scrollTop0) {
-      setScrollTop(target);
+    if (targetScrollTop !== scrollTop0) {
+      setScrollTop(targetScrollTop);
       syncMetrics();
     }
   }, [ids, virtualizer, setScrollTop, syncMetrics, isSettled]);
@@ -322,59 +226,26 @@ export function useVirtualList<Content = string>(
         return;
       }
 
-      const pending: {
-        id: string;
-        start: number;
-        bottom: number;
-        height: number;
-      }[] = [];
+      // The direction-aware correction policy lives in
+      // `core/anchoring.applyHeightMeasurements`; this callback only maps
+      // observed elements back to ids and applies the returned correction.
+      const measurements: HeightMeasurement[] = [];
       for (const entry of entries) {
         const id = elToId.current.get(entry.target);
         if (id === undefined) continue;
-        const index = seq.indexOf(id);
-        if (index === -1) continue;
-        const start = virtualizer.offsetAt(seq, index);
-        pending.push({
+        measurements.push({
           id,
-          start,
-          bottom: start + virtualizer.getHeight(id),
           height: readHeight(entry.target as HTMLElement),
         });
       }
 
-      // Scrolling down, growth below the fold is below the line being read —
-      // no correction (the long-standing rule); only nodes fully above the
-      // fold shift the view. Scrolling up, the reader's true anchor is the
-      // first *settled* node at/below the fold (the content they scrolled up
-      // from): everything materialising above it — including nodes straddling
-      // or below the fold line but above the anchor — must correct in full,
-      // or each load yanks the anchored content down and the viewport
-      // ratchets endlessly up the resolving branch.
-      let anchorStart = scrollTop;
-      if (scrollDirRef.current === 'up') {
-        let acc = 0;
-        for (const id of seq) {
-          const h = virtualizer.getHeight(id);
-          if (acc + h > scrollTop && isSettled(id)) {
-            anchorStart = acc;
-            break;
-          }
-          acc += h;
-        }
-      }
-
-      let correction = 0;
-      let changed = false;
-      for (const { id, start, bottom, height } of pending) {
-        const delta = virtualizer.setHeight(id, height);
-        if (delta === 0) continue;
-        changed = true;
-        if (scrollDirRef.current === 'up') {
-          if (start < anchorStart) correction += delta;
-        } else if (bottom <= scrollTop) {
-          correction += delta;
-        }
-      }
+      const { correction, changed } = applyHeightMeasurements(virtualizer, {
+        seq,
+        scrollTop,
+        direction: scrollDirRef.current,
+        isSettled,
+        measurements,
+      });
 
       if (correction !== 0 && scrollEl !== null) {
         setScrollTop(scrollEl.scrollTop + correction);

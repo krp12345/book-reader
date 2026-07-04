@@ -57,6 +57,61 @@ export async function resolveToNode<Meta = unknown>(
   return store.getNode(target) !== undefined;
 }
 
+/**
+ * "First page" of a (possibly just-replaced) tree: descend the leftmost path
+ * from the first root — resolving `lazy` branches along the way — until the
+ * first node that actually carries content. Returns the id to navigate to
+ * (falling back to the first root when nothing showable is reachable), or
+ * `undefined` when the walk was aborted or the tree is empty.
+ */
+export async function findFirstShowable<Meta = unknown>(
+  store: TreeStore<Meta>,
+  deps: { ensureAsync: (id: string) => Promise<void>; signal: AbortSignal },
+): Promise<string | undefined> {
+  const { ensureAsync, signal } = deps;
+  let id: string | undefined = store.getRootIds()[0];
+  const seen = new Set<string>();
+  while (id !== undefined && !seen.has(id)) {
+    seen.add(id);
+    if (signal.aborted) return undefined;
+    const node = store.getNode(id);
+    if (node === undefined) break;
+    if (node.hasContent !== false) return id;
+    // A pure organisational branch — descend into it, resolving lazily first.
+    if (store.isLazy(id) && store.getLazyStatus(id) !== 'loaded') {
+      try {
+        await ensureAsync(id);
+      } catch {
+        break;
+      }
+      if (signal.aborted) return undefined;
+    }
+    id = store.getChildren(id)?.[0];
+  }
+  return store.getRootIds()[0];
+}
+
+/**
+ * Resolve a scroll target to a node the reading surface actually renders: the
+ * id itself when showable, otherwise the next showable node after it in the
+ * reading sequence (so navigating to a resolved pure-branch lands on its first
+ * content).
+ */
+export function resolveToShowable(
+  seq: string[],
+  showable: ReadonlySet<string>,
+  id: string,
+): string | undefined {
+  if (showable.has(id)) return id;
+  const from = seq.indexOf(id);
+  if (from === -1) return undefined;
+  for (let i = from + 1; i < seq.length; i++) {
+    const candidate = seq[i];
+    if (candidate !== undefined && showable.has(candidate)) return candidate;
+  }
+  return undefined;
+}
+
 export interface ReadingOrder {
   getNext(id: string): string | undefined;
   getPrev(id: string): string | undefined;

@@ -49,7 +49,9 @@ src/
     useTreePaneView.ts#   visible-row flattening + roving-focus keyboard nav
     useTreeSearch.ts  #   query state + SearchApi
     useTreeOverlay.ts #   popover dialog behavior (focus/Esc/outside-click)
-    useVirtualList.ts #   windowing + measurement + anchor correction + pin/prefetch
+    useVirtualList.ts #   windowing + measurement + pin/prefetch; anchor-
+                      #   correction *policy* lives in core/anchoring (hook only
+                      #   feeds it DOM truth + applies the returned scrollTop)
     useNodeContent.ts #   fetch+sanitize+cache pipeline per node
     useTreeState.ts   #   expanded/selected state
     useLazyChildren.ts#   lazy children fetch orchestration (dedupe/abort/status)
@@ -58,7 +60,10 @@ src/
     treeStore.ts      # normalized id-indexed tree; mutable + subscribable
                       #   (setChildren/replaceTree/setLazyStatus + version/notify)
                       #   so lazy branches & search can swap subtrees at runtime
-    traversal.ts      # depth-first next/prev reading order
+    traversal.ts      # depth-first next/prev reading order + resolveToNode /
+                      #   findFirstShowable / resolveToShowable (lazy-aware walks)
+    anchoring.ts      # direction-aware anchor correction (pure): height-change
+                      #   (RO path) + sequence-swap policies — the LZ-UP fix
     cache.ts          # bounded LRU content cache (maxChars), pinning, dedup;
                       #   `load(id, factory(signal))` = refcounted, abortable load
                       #   that owns the signal & never caches an aborted result
@@ -68,8 +73,10 @@ src/
   types/              # public types split by domain: node / reading / fetching /
                       #   search / tree / content / cache / props + barrel index.ts
                       #   (imports of `../types` resolve to the barrel)
-  utils/              # sanitize.ts, prefetchNodeContent.ts, length.ts
-                      #   (lengthToPx/toCssLength), cx.ts (classname join)
+  utils/              # sanitize.ts (+resolveContentSanitizer), prefetchNodeContent.ts,
+                      #   length.ts (lengthToPx/toCssLength), cx.ts (classname join),
+                      #   collapse.ts (shouldCollapseTree), thenable.ts (isThenable),
+                      #   content.ts (isEmptyContent)
   styles/             # book-reader.css: default skin (presentation only) +
                       #   --reader-* tokens; emitted to dist/book-reader.css by a
                       #   Vite plugin, exported as `book-reader/styles.css` (opt-in)

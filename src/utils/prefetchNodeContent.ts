@@ -1,5 +1,6 @@
 import type { ContentCache } from '../core/cache';
-import { resolveSanitizer } from './sanitize';
+import { resolveContentSanitizer } from './sanitize';
+import { isThenable } from './thenable';
 import type {
   BookNode,
   FetchContent,
@@ -15,11 +16,6 @@ export interface PrefetchOptions<Meta = unknown, Content = string> {
   cache: ContentCache<Content>;
 }
 
-const isThenable = <T>(value: T | Promise<T>): value is Promise<T> =>
-  typeof value === 'object' &&
-  value !== null &&
-  typeof (value as { then?: unknown }).then === 'function';
-
 export function prefetchNodeContent<Meta = unknown, Content = string>(
   options: PrefetchOptions<Meta, Content>,
 ): void {
@@ -27,10 +23,7 @@ export function prefetchNodeContent<Meta = unknown, Content = string>(
   if (node.hasContent === false) return;
   if (cache.has(node.id) || cache.getInFlight(node.id) !== undefined) return;
 
-  const applyHtml = resolveSanitizer(sanitize);
-  // Sanitization is a string-only concern; object payloads pass through.
-  const sanitizeContent = (content: Content): Content =>
-    typeof content === 'string' ? (applyHtml(content) as Content) : content;
+  const sanitizeContent = resolveContentSanitizer(sanitize);
 
   const ctx: FetchContext<Meta> = {
     node,
