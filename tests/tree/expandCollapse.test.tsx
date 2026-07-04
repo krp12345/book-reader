@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { BookReader } from '../../src/BookReader';
+import { BookReader } from '../../src/components/BookReader';
 import type { BookNode, FetchContent, RenderExpandCollapse } from '../../src/types';
 
 const book: BookNode = {

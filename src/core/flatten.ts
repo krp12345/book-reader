@@ -1,4 +1,4 @@
-import type { TreeStore } from '../core/treeStore';
+import type { TreeStore } from './treeStore';
 
 export type VisibleRow =
   | { kind: 'node'; id: string; depth: number }

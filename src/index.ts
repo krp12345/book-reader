@@ -1,14 +1,20 @@
 export const VERSION = '0.0.0';
 
-export { BookReader } from './BookReader';
-export { TreePane, TreePaneView } from './tree/TreePane';
-export type { TreePaneProps, TreePaneViewProps } from './tree/TreePane';
-export { TreeSearch } from './tree/TreeSearch';
-export type { TreeSearchProps } from './tree/TreeSearch';
-export { ContentPane } from './content/ContentPane';
-export type { ContentPaneProps, ScrollRequest } from './content/ContentPane';
-export { ContentNode } from './content/ContentNode';
-export type { ContentNodeProps } from './content/ContentNode';
+export { BookReader } from './components/BookReader';
+export { TreePane, TreePaneView } from './components/tree/TreePane';
+export type {
+  TreePaneProps,
+  TreePaneViewProps,
+} from './components/tree/TreePane';
+export { TreeSearch } from './components/tree/TreeSearch';
+export type { TreeSearchProps } from './components/tree/TreeSearch';
+export { ContentPane } from './components/content/ContentPane';
+export type { ContentPaneProps } from './components/content/ContentPane';
+export { ContentNode } from './components/content/ContentNode';
+export type { ContentNodeProps } from './components/content/ContentNode';
+export { TreeOverlay } from './components/tree/TreeOverlay';
+export type { TreeOverlayProps } from './components/tree/TreeOverlay';
+export { defaultTreeNode } from './components/tree/defaultTreeNode';
 
 export { createTreeStore } from './core/treeStore';
 export type { TreeStore, CreateTreeStoreOptions } from './core/treeStore';
@@ -35,10 +41,8 @@ export {
   withReadingOverrides,
 } from './core/scrollSync';
 export type { NodeSpan, ReadingOverrides } from './core/scrollSync';
-export { sanitizeHtml } from './content/sanitize';
-export { defaultTreeNode } from './tree/defaultTreeNode';
-export { TreeOverlay } from './tree/TreeOverlay';
-export type { TreeOverlayProps } from './tree/TreeOverlay';
+
+export { sanitizeHtml } from './utils/sanitize';
 
 export type {
   BookNode,
@@ -78,6 +82,7 @@ export type {
   RenderEmpty,
   RenderNoData,
   RenderError,
+  ScrollRequest,
   CacheConfig,
   ResolvedCacheConfig,
   CacheEntry,

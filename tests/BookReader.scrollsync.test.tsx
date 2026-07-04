@@ -10,7 +10,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { BookReader } from '../src/BookReader';
+import { BookReader } from '../src/components/BookReader';
 import type { BookNode, FetchContent } from '../src/types';
 
 const NODE_HEIGHT = 100;

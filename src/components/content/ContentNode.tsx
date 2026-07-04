@@ -1,5 +1,5 @@
 import type { JSX } from 'react';
-import type { ContentCache } from '../core/cache';
+import type { ContentCache } from '../../core/cache';
 import type {
   BookNode,
   ContentNodeWrapperProps,
@@ -12,8 +12,9 @@ import type {
   RenderError,
   RenderLoading,
   SanitizeOption,
-} from '../types';
-import { useNodeContent } from './useNodeContent';
+} from '../../types';
+import { useNodeContent } from '../../hooks/useNodeContent';
+import { cx } from '../../utils/cx';
 
 export interface ContentNodeProps<Meta = unknown, Content = string> {
   node: BookNode<Meta>;
@@ -135,7 +136,7 @@ export function ContentNode<Meta = unknown, Content = string>(
 
   const wrapperProps: ContentNodeWrapperProps = {
     ref: measureRef ?? (() => {}),
-    className: ['br-content-node', className].filter(Boolean).join(' '),
+    className: cx('br-content-node', className),
     'data-part': 'content-node',
     'data-node-id': node.id,
     'data-status': status,

@@ -1,21 +1,15 @@
-import {
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type KeyboardEvent,
-} from 'react';
-import type { TreeStore } from '../core/treeStore';
+import type { CSSProperties, JSX } from 'react';
+import type { TreeStore } from '../../core/treeStore';
 import type {
   ExpandCollapseApi,
   RenderExpandCollapse,
   RenderTreeNode,
   TreeNodeState,
-} from '../types';
-import { flattenVisible } from './flatten';
-import { useTreeState, type TreeState } from './useTreeState';
+} from '../../types';
+import { useTreeState, type TreeState } from '../../hooks/useTreeState';
+import { useTreePaneView } from '../../hooks/useTreePaneView';
+import { cx } from '../../utils/cx';
 import { defaultTreeNode } from './defaultTreeNode';
-import { useStoreVersion } from '../useStoreVersion';
 
 export interface TreePaneProps<Meta = unknown> {
   store: TreeStore<Meta>;
@@ -40,6 +34,7 @@ export interface TreePaneViewProps<Meta = unknown> {
   'aria-label'?: string | undefined;
 }
 
+/** Standalone tree pane: owns its own `useTreeState` and renders the view. */
 export function TreePane<Meta = unknown>(
   props: TreePaneProps<Meta>,
 ): JSX.Element {
@@ -58,6 +53,11 @@ export function TreePane<Meta = unknown>(
   );
 }
 
+/**
+ * The section tree. Purely presentational: row flattening and keyboard
+ * navigation live in `hooks/useTreePaneView.ts` — this component only renders
+ * the rows.
+ */
 export function TreePaneView<Meta = unknown>(
   props: TreePaneViewProps<Meta>,
 ): JSX.Element {
@@ -71,86 +71,13 @@ export function TreePaneView<Meta = unknown>(
   } = props;
   const renderNode = renderTreeNode ?? defaultTreeNode;
 
-  // Recompute visible rows when lazy children load / the tree is replaced.
-  const version = useStoreVersion(store);
-  const rows = useMemo(
-    () => flattenVisible(store, state.expanded),
-    [store, state.expanded, version],
-  );
-  // Only real nodes are keyboard-navigable (lazy status rows are not focusable).
-  const navRows = useMemo(() => rows.filter((r) => r.kind === 'node'), [rows]);
-
-  const rowRefs = useRef(new Map<string, HTMLDivElement>());
-  const [focusId, setFocusId] = useState<string | undefined>(undefined);
-
-  const activeId = navRows.some((r) => r.id === focusId)
-    ? focusId
-    : navRows[0]?.id;
-
-  function moveTo(index: number): void {
-    const target = navRows[index];
-    if (!target) return;
-    setFocusId(target.id);
-    rowRefs.current.get(target.id)?.focus();
-  }
-
-  function onKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
-    const index = Math.max(
-      0,
-      navRows.findIndex((r) => r.id === activeId),
-    );
-    const current = navRows[index];
-    if (!current) return;
-
-    switch (event.key) {
-      case 'ArrowDown':
-        event.preventDefault();
-        moveTo(index + 1);
-        break;
-      case 'ArrowUp':
-        event.preventDefault();
-        moveTo(index - 1);
-        break;
-      case 'Home':
-        event.preventDefault();
-        moveTo(0);
-        break;
-      case 'End':
-        event.preventDefault();
-        moveTo(navRows.length - 1);
-        break;
-      case 'ArrowRight':
-        event.preventDefault();
-        if (store.isExpandable(current.id)) {
-          if (state.expanded.has(current.id)) moveTo(index + 1);
-          else state.expand(current.id);
-        }
-        break;
-      case 'ArrowLeft':
-        event.preventDefault();
-        if (store.isExpandable(current.id) && state.expanded.has(current.id)) {
-          state.collapse(current.id);
-        } else {
-          const parentId = store.getParentId(current.id);
-          if (parentId !== undefined) {
-            moveTo(navRows.findIndex((r) => r.id === parentId));
-          }
-        }
-        break;
-      case 'Enter':
-      case ' ':
-        event.preventDefault();
-        state.select(current.id);
-        break;
-      default:
-        break;
-    }
-  }
+  const { rows, activeId, registerRow, onKeyDown, onRowClick, onRowFocus } =
+    useTreePaneView({ store, state });
 
   return (
     <div
       role="tree"
-      className={['br-tree', props.className].filter(Boolean).join(' ')}
+      className={cx('br-tree', props.className)}
       data-part="tree"
       aria-label={props['aria-label'] ?? 'Book sections'}
       onKeyDown={onKeyDown}
@@ -209,29 +136,21 @@ export function TreePaneView<Meta = unknown>(
         return (
           <div
             key={row.id}
-            ref={(el) => {
-              if (el) rowRefs.current.set(row.id, el);
-              else rowRefs.current.delete(row.id);
-            }}
+            ref={registerRow(row.id)}
             role="treeitem"
             aria-level={row.depth + 1}
             aria-selected={selected}
             aria-expanded={expandable ? expanded : undefined}
             tabIndex={row.id === activeId ? 0 : -1}
-            className={['br-tree-node', treeNodeClassName]
-              .filter(Boolean)
-              .join(' ')}
+            className={cx('br-tree-node', treeNodeClassName)}
             data-part="tree-node"
             data-depth={row.depth}
             data-selected={selected || undefined}
             // Depth is *data* (the skin turns it into indentation via
             // --reader-tree-indent); the bare component carries no inline indent.
             style={{ '--br-tree-depth': row.depth } as CSSProperties}
-            onClick={() => {
-              setFocusId(row.id);
-              state.select(row.id);
-            }}
-            onFocus={() => setFocusId(row.id)}
+            onClick={() => onRowClick(row.id)}
+            onFocus={() => onRowFocus(row.id)}
           >
             {renderExpandCollapse ? (
               renderExpandCollapse({

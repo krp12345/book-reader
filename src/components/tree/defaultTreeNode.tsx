@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { BookNode, TreeNodeState } from '../types';
+import type { BookNode, TreeNodeState } from '../../types';
 
 export function defaultTreeNode<Meta = unknown>(
   node: BookNode<Meta>,

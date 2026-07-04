@@ -1,5 +1,7 @@
-import { useState, type JSX, type KeyboardEvent } from 'react';
-import type { RenderSearch, SearchApi } from '../types';
+import type { JSX } from 'react';
+import type { RenderSearch } from '../../types';
+import { useTreeSearch } from '../../hooks/useTreeSearch';
+import { cx } from '../../utils/cx';
 
 export interface TreeSearchProps {
   onSearch: (query: string) => void;
@@ -15,78 +17,54 @@ export interface TreeSearchProps {
  * The tree-pane search box. Submitting (Enter / Search button) re-roots the
  * whole book via the consumer's `onSearch`; Reset restores it via `onReset`.
  * There are no result lists — search *replaces* the tree. A `renderSearch` prop
- * can replace this entire UI; it receives the same {@link SearchApi}.
+ * can replace this entire UI; it receives the same {@link SearchApi}. Purely
+ * presentational: the query state lives in `hooks/useTreeSearch.ts`.
  */
 export function TreeSearch(props: TreeSearchProps): JSX.Element {
-  const {
-    onSearch,
-    onReset,
-    isSearching,
-    error,
-    placeholder = 'Search…',
-    renderSearch,
-    className,
-  } = props;
-  const [query, setQuery] = useState('');
-
-  const api: SearchApi = {
-    query,
-    setQuery,
-    submit: () => onSearch(query),
-    reset: () => onReset?.(),
-    isSearching,
-    error,
-    canReset: onReset !== undefined,
-  };
+  const { placeholder = 'Search…', renderSearch, className } = props;
+  const { api, onInputKeyDown } = useTreeSearch(props);
 
   if (renderSearch) return <>{renderSearch(api)}</>;
 
-  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      onSearch(query);
-    }
-  };
-
   return (
     <div
-      className={['br-tree-search', className].filter(Boolean).join(' ')}
+      className={cx('br-tree-search', className)}
       data-part="tree-search"
-      data-searching={isSearching || undefined}
+      data-searching={api.isSearching || undefined}
       role="search"
     >
       <input
         type="search"
         className="br-tree-search__input"
         data-part="tree-search-input"
-        value={query}
+        value={api.query}
         placeholder={placeholder}
         aria-label="Search the book"
-        disabled={isSearching}
-        onChange={(e) => setQuery(e.target.value)}
-        onKeyDown={onKeyDown}
+        disabled={api.isSearching}
+        onChange={(e) => api.setQuery(e.target.value)}
+        onKeyDown={onInputKeyDown}
       />
       <button
         type="button"
         className="br-tree-search__submit"
         data-part="tree-search-submit"
-        disabled={isSearching}
-        onClick={() => onSearch(query)}
+        disabled={api.isSearching}
+        onClick={api.submit}
       >
         Search
       </button>
-      {onReset && (
+      {api.canReset && (
         <button
           type="button"
           className="br-tree-search__reset"
           data-part="tree-search-reset"
-          disabled={isSearching}
-          onClick={() => onReset()}
+          disabled={api.isSearching}
+          onClick={api.reset}
         >
           Reset
         </button>
       )}
-      {error !== undefined && error !== null && (
+      {api.error !== undefined && api.error !== null && (
         <span
           className="br-tree-search__error"
           data-part="tree-search-error"

@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { createTreeStore } from '../../src/core/treeStore';
-import { flattenVisible } from '../../src/tree/flatten';
+import { flattenVisible } from '../../src/core/flatten';
 import type { BookNode } from '../../src/types';
 
 const lazyBook: BookNode = {

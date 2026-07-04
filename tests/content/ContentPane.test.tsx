@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import { createTreeStore } from '../../src/core/treeStore';
-import { ContentPane } from '../../src/content/ContentPane';
+import { ContentPane } from '../../src/components/content/ContentPane';
 import type { BookNode, FetchContent } from '../../src/types';
 
 //   root

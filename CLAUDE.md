@@ -33,9 +33,28 @@ hold it. Trust them; update them when reality changes.
 ```
 src/
   index.ts            # public exports
-  BookReader.tsx      # top-level component, composes the panes
-  types.ts            # Node, BookReaderProps, FetchContext, CacheConfig, ...
-  core/
+  components/         # DUMB components — render-only; every behavior lives in a
+                      #   hook (refactor 2026-07-04). Each names its logic hook.
+    BookReader.tsx    #   shell/layout only → hooks/useBookReader
+    tree/             #   TreePane(+View) → useTreePaneView; TreeSearch →
+                      #   useTreeSearch; TreeOverlay → useTreeOverlay;
+                      #   defaultTreeNode.tsx
+    content/          #   ContentPane → useContentPane; ContentNode →
+                      #   useNodeContent; LazyContentPlaceholder.tsx
+  hooks/              # ALL React logic
+    useBookReader.ts  #   store+cache ownership, location (controlled/echo-guard),
+                      #   deep-link nav, search/reset replace, responsive collapse
+    useContentPane.ts #   reading order, lazy filtering, virtual-list wiring,
+                      #   scroll requests, lazy scroll-trigger, active reporting
+    useTreePaneView.ts#   visible-row flattening + roving-focus keyboard nav
+    useTreeSearch.ts  #   query state + SearchApi
+    useTreeOverlay.ts #   popover dialog behavior (focus/Esc/outside-click)
+    useVirtualList.ts #   windowing + measurement + anchor correction + pin/prefetch
+    useNodeContent.ts #   fetch+sanitize+cache pipeline per node
+    useTreeState.ts   #   expanded/selected state
+    useLazyChildren.ts#   lazy children fetch orchestration (dedupe/abort/status)
+    useStoreVersion.ts / useElementWidth.ts
+  core/               # pure logic, React-free
     treeStore.ts      # normalized id-indexed tree; mutable + subscribable
                       #   (setChildren/replaceTree/setLazyStatus + version/notify)
                       #   so lazy branches & search can swap subtrees at runtime
@@ -45,21 +64,21 @@ src/
                       #   that owns the signal & never caches an aborted result
     virtualizer.ts    # windowing + height map + anchor correction + offsetAt
     scrollSync.ts     # active-node detection, near-bottom, reading-order overrides
-                      #   (pure; React-free)
-  tree/               # left pane: TreePane.tsx, useTreeState.ts, flatten.ts,
-                      #   defaultTreeNode.tsx (+ tests)
-  content/            # right pane: ContentPane (virtualized scroll surface),
-                      #   ContentNode, useNodeContent, useVirtualList (windowing +
-                      #   measurement + anchor correction + pin/prefetch driver),
-                      #   prefetchNodeContent, sanitize
+    flatten.ts        # expanded-set → visible tree rows (incl. lazy status rows)
+  types/              # public types split by domain: node / reading / fetching /
+                      #   search / tree / content / cache / props + barrel index.ts
+                      #   (imports of `../types` resolve to the barrel)
+  utils/              # sanitize.ts, prefetchNodeContent.ts, length.ts
+                      #   (lengthToPx/toCssLength), cx.ts (classname join)
   styles/             # book-reader.css: default skin (presentation only) +
                       #   --reader-* tokens; emitted to dist/book-reader.css by a
                       #   Vite plugin, exported as `book-reader/styles.css` (opt-in)
-demo/                 # Vite dev harness: main.tsx (4-example switcher) + data.ts
+demo/                 # Vite dev harness: main.tsx (12-example switcher) + data.ts
                       #   (faker-generated, deterministic book data) + demo.css
 e2e/                  # Playwright tests (reader.spec.ts) vs the real demo — no
                       #   mocks. `pnpm test:e2e`; playwright.config.ts; not in
                       #   Vitest's src/** include.
+tests/                # Vitest unit/RTL suites (mirrors old src layout by topic)
 ```
 
 ## Key design invariants (do not break)
@@ -102,8 +121,9 @@ e2e/                  # Playwright tests (reader.spec.ts) vs the real demo — n
   Lifecycle: **code → document as Experimental → (user calls for tests) → Stable.**
   Full detail in `CONVENTIONS.md` › "README & feature stability".
 - `core/` must not import React (keeps it pure + unit-testable).
-- Tests (when written, post-approval) use Vitest next to source as `*.test.ts(x)`;
-  browser-only behavior goes in `e2e/` (Playwright), not jsdom.
+- Tests (when written, post-approval) are Vitest/RTL suites in the top-level
+  `tests/` directory (mirroring `src/` by topic); browser-only behavior goes in
+  `e2e/` (Playwright), not jsdom.
 - Keep `pnpm build` + lint + typecheck green as you go; a change is shippable when
   those pass and the user has approved the behavior.
 
@@ -114,7 +134,7 @@ item landed — new owed tests go there again). **M11 shipped + Stable**: book/t
 level "no data / no results" state — `data-part="content-nodata"` default panel in
 `ContentPane` when the tree has no showable content node, `renderNoData` render-prop
 override, `--reader-content-nodata-padding` token (covered by E5 e2e + U2 RTL + E6).
-**The P1 LZ-UP e2e caught a real design bug (fixed, `content/useVirtualList.ts`):
+**The P1 LZ-UP e2e caught a real design bug (fixed, `hooks/useVirtualList.ts`):
 anchor correction pinned the fold line, which sits *inside* the materialising
 region during an upward lazy cascade — the view ratcheted up the resolving branch
 and the cascade stalled.** Fix = direction-aware anchoring (last *user* scroll
@@ -190,7 +210,7 @@ core concepts, states, `location`, styling tiers, prop table).
 
 **✅ Resolved — scroll flicker (2026-06-27).** The view jumped on *some* scrolls — a
 "no flicker / stable view" violation. **Real root cause:** a **StrictMode
-double-`ResizeObserver` leak** in `content/useVirtualList.ts` — the node observer was
+double-`ResizeObserver` leak** in `hooks/useVirtualList.ts` — the node observer was
 created via lazy-init *during render* (impure), so StrictMode's double render +
 remount left two live observers that each applied anchor correction → ~2× scroll
 jump. Fixed by owning the observer in a `useLayoutEffect` (clean lifecycle; observes
@@ -235,7 +255,7 @@ height; `getHeight` estimates unknowns, default 200) + **windowing** (`getWindow
 mounted items with absolute starts + top/bottom spacer paddings + totalHeight;
 `viewportHeight ≤ 0` ⇒ mount all, the un-measured fallback) + **anchor correction**
 (`correctScrollTop`, pure: a node above the viewport top shifts the view, add the
-delta back) + `pinnedIds`/`prefetchIds`. React wiring in `content/useVirtualList.ts`:
+delta back) + `pinnedIds`/`prefetchIds`. React wiring in `hooks/useVirtualList.ts`:
 owns the scroll-container ref + live scrollTop/clientHeight, one `ResizeObserver`
 measures every mounted node (eager lazy-init; per-id **stable** ref callbacks to
 avoid observe churn), applies anchor correction synchronously in the RO callback,

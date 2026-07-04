@@ -3,7 +3,7 @@ import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
 /**
  * Observe an element's content-box width. Sets the initial width before paint
  * (so the responsive collapse decision doesn't flash) and tracks resizes via a
- * ResizeObserver — mirrors the measurement pattern in content/useVirtualList.ts.
+ * ResizeObserver — mirrors the measurement pattern in hooks/useVirtualList.ts.
  */
 export function useElementWidth<T extends HTMLElement>(): [
   RefObject<T>,
@@ -27,27 +27,4 @@ export function useElementWidth<T extends HTMLElement>(): [
   }, []);
 
   return [ref, width];
-}
-
-/**
- * Resolve a CSS length (number = px, or a string like '28rem' / '420px') to a
- * pixel number, for the collapse threshold math. `rem`/`em` are resolved
- * against the root font size; px and unitless are taken as-is. Unknown units
- * fall back to the parsed numeric value.
- */
-export function lengthToPx(value: number | string): number {
-  if (typeof value === 'number') return value;
-  const trimmed = value.trim();
-  const num = parseFloat(trimmed);
-  if (Number.isNaN(num)) return 0;
-  if (trimmed.endsWith('rem') || trimmed.endsWith('em')) {
-    const rootFontSize =
-      typeof window !== 'undefined'
-        ? parseFloat(
-            window.getComputedStyle(document.documentElement).fontSize,
-          ) || 16
-        : 16;
-    return num * rootFontSize;
-  }
-  return num;
 }

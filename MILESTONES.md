@@ -8,11 +8,14 @@
 ---
 
 ## ▶ STATUS — keep this block current (update at end of every session)
-- **Current milestone:** M10 — **lazy tree + tree search BUILT + TEST-COVERED
-  (2026-07-01).** M9 done. M8 hardening/docs done. Test-coverage expansion landed
-  2026-07-02 (errors/fuzz/location/cache-eviction e2e — see `TEST_PLAN.md` §7).
-  **Suite: 200 unit + 42 e2e green** as of 2026-07-02.
-- **Overall progress:** 7 / 9 milestones complete (M0, M2–M7 done; M1 core types done)
+- **Current milestone:** none open — **M11 shipped + Stable and the ⏸ PENDING
+  TESTS backlog cleared (2026-07-04)**; the same day (later) a **structural
+  refactor** landed: dumb components + `components/`/`hooks/`/`types/`/`utils/`
+  folders, public API unchanged (see session log + `CLAUDE.md` architecture map).
+  **Suite: 205 unit + 48 e2e green — re-run by the user after the refactor
+  (2026-07-04), all passing.**
+- **Overall progress:** M0–M11 complete (M1's types landed incrementally across
+  milestones). No milestone in flight.
 - **🆕 Tested 2026-07-01 — M10 lazy tree + search + selection/staging.** New coverage:
   `tests/core/treeStore.lazy.test.ts` (mutation/subscription/lazy status),
   `tests/useLazyChildren.test.tsx` (dedup, missing fetcher, error+retry, abort→reset),
@@ -33,18 +36,10 @@
   `ensureLazy` directly). Fix: an aborted fetch now resets the node to `'unloaded'`
   (unless a newer fetch took over) so the trigger can pick it up again. Guarded by the
   `abort→unloaded` unit assertion + the `e2e/lazy-search.spec.ts` scroll-trigger test.
-- **Next action (USER-DIRECTED 2026-07-04 — next session's plan, in order):**
-  1. **Work the ⏸ PENDING TESTS backlog** (very bottom of this file — canonical).
-     The user explicitly authorized this on 2026-07-04 ("make note of them all and
-     we will work in next session"), so the no-tests HARD RULE gate is **open** for
-     that session. Start with 🔴 P1: the lazy **effective-neighbour** e2e (LZ-UP /
-     LZ-DOWN) + the **asymmetric-depth** lazy fixture (user confirmed: neighbouring
-     branches of *different* depths, proving depth-independent recursion).
-  2. **M11 — tree/book-level empty state** (new feature, decided 2026-07-04; see
-     the M11 section): a simple default "no results / no data" template + a
-     consumer-overridable render prop. **Code-first** (feature → README ⚠️
-     Experimental → then its E5 test in the same session, since tests are
-     authorized).
+- **Next action:** nothing queued — await user direction. Both 2026-07-04 planned
+  items are DONE (backlog worked in full; M11 coded + tested + Stable). The
+  no-tests HARD RULE gate is **closed again** (that session's authorization was
+  one-time); new owed tests go back into the bottom-of-file backlog.
   (The accessibility pass was **DROPPED 2026-07-02** at user request — do not
   resurrect it.)
 - **🆕 Built 2026-06-30 — lazy tree + search (⚠️ Experimental):**
@@ -352,6 +347,29 @@ the default caret + a11y/keyboard nav unchanged when no override is supplied.
 ---
 
 ## Session log (append newest on top)
+- 2026-07-04 (later) — **Structural refactor: dumb components + organized folders
+  (no behavior change, user-requested).** All React components are now
+  presentation-only; every behavior lives in a hook. New layout:
+  `src/components/` (BookReader + `tree/` TreePane/TreeSearch/TreeOverlay/
+  defaultTreeNode + `content/` ContentPane/ContentNode/LazyContentPlaceholder),
+  `src/hooks/` (all hooks — existing ones moved in, plus **new extractions**:
+  `useBookReader` ← BookReader's entire coordinator logic, `useContentPane` ←
+  sequencing/virtualization wiring/scroll-request/lazy-trigger, `useTreePaneView`
+  ← row flattening + roving-focus keyboard nav, `useTreeSearch` ← query state +
+  SearchApi, `useTreeOverlay` ← dialog focus/Esc/outside-click; renamed
+  `useReaderWidth.ts` → `useElementWidth.ts`), `src/types/` (monolithic
+  `types.ts` split into node/reading/fetching/search/tree/content/cache/props +
+  barrel `index.ts` — old `src/types` import specifiers still resolve;
+  `ScrollRequest` moved here from ContentPane, re-exported for compat),
+  `src/core/` unchanged (+ `flatten.ts` moved in from `tree/` — it's pure),
+  `src/utils/` (`sanitize.ts`, `prefetchNodeContent.ts`, `length.ts` =
+  lengthToPx/toCssLength, `cx.ts` classname join). **Public API unchanged**
+  (index.ts exports identical). All moves via `git mv`; test files untouched
+  except import paths. Build + lint + typecheck green; **suite NOT run** (test
+  HARD RULE — user should run `pnpm test` + `pnpm test:e2e` to confirm the
+  refactor, all 205 unit + 48 e2e are expected to pass as-is). **UPDATE (same
+  day): the user ran both suites — all 205 unit + 48 e2e PASS.** No new tests
+  owed (pure restructure, no new behavior).
 - 2026-07-04 — **Test-bookkeeping audit (no tests written or run).** Rebuilt the
   mandatory **⏸ PENDING TESTS backlog at the bottom of this file** — it had been
   cleared 2026-07-01 (when the M10 tests landed) while real gaps remained, violating

@@ -10,7 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import { createTreeStore } from '../../src/core/treeStore';
 import { createContentCache } from '../../src/core/cache';
-import { ContentPane } from '../../src/content/ContentPane';
+import { ContentPane } from '../../src/components/content/ContentPane';
 import type { BookNode, FetchContent } from '../../src/types';
 
 const NODE_HEIGHT = 100;

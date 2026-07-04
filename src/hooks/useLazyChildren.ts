@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
-import type { TreeStore } from './core/treeStore';
-import type { FetchChildren, FetchContext } from './types';
+import type { TreeStore } from '../core/treeStore';
+import type { FetchChildren, FetchContext } from '../types';
 
 export interface UseLazyChildren {
   /** Fire-and-forget: ensure a lazy node's children are loaded (dedup + retry). */

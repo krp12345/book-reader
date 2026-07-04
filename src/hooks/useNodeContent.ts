@@ -8,7 +8,7 @@ import type {
   ReadingDirection,
   SanitizeOption,
 } from '../types';
-import { resolveSanitizer } from './sanitize';
+import { resolveSanitizer } from '../utils/sanitize';
 
 export interface UseNodeContentOptions<Meta = unknown, Content = string> {
   node: BookNode<Meta>;

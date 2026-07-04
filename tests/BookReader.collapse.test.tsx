@@ -7,7 +7,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { render, fireEvent } from '@testing-library/react';
-import { BookReader } from '../src/BookReader';
+import { BookReader } from '../src/components/BookReader';
 import type { BookNode, FetchContent } from '../src/types';
 
 const book: BookNode = {

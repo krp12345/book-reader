@@ -27,7 +27,8 @@
 ### Other TS rules
 - `strict: true` (all strict flags), `noUncheckedIndexedAccess: true`.
 - No non-null `!` assertions unless provably safe with a short comment.
-- Public API types live in `src/types.ts` and are exported.
+- Public API types live in `src/types/` (split by domain, re-exported through the
+  `src/types/index.ts` barrel) and are exported from `src/index.ts`.
 - Prefer `type` for unions/props, `interface` for extendable object contracts —
   be consistent within a file.
 
@@ -62,7 +63,8 @@ is expected. But the test follows approval — it never gates the implementation
 
 ### Test mechanics (for when tests are written)
 - Vitest + React Testing Library + `@testing-library/user-event`.
-- Tests sit next to source: `cache.ts` → `cache.test.ts`.
+- Tests live in the top-level `tests/` directory, mirroring `src/` by topic:
+  `src/core/cache.ts` → `tests/core/cache.test.ts`.
 - Test **behavior and public contracts**, not private internals.
 - Name tests as behavior statements: `evicts least-recently-used node when
   maxChars exceeded`.
