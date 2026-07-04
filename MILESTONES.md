@@ -8,18 +8,8 @@
 ---
 
 ## ▶ STATUS — keep this block current (update at end of every session)
-- **Current milestone:** none open — **M11 shipped + Stable and the ⏸ PENDING
-  TESTS backlog cleared (2026-07-04)**; the same day (later) a **structural
-  refactor** landed: dumb components + `components/`/`hooks/`/`types/`/`utils/`
-  folders, public API unchanged (see session log + `CLAUDE.md` architecture map).
-  **Suite: 205 unit + 48 e2e green — re-run by the user after the refactor
-  (2026-07-04), all passing.** A second refactor pass (2026-07-04, latest)
-  extracted the hooks' pure logic into `core/`/`utils/` (headline: `core/
-  anchoring.ts` — the direction-aware anchor-correction policy out of
-  `useVirtualList`); public API unchanged, build+lint+typecheck green, and the
-  **user authorized a same-session suite run: 205 unit + 48 e2e ALL PASS**.
-- **Overall progress:** M0–M11 complete (M1's types landed incrementally across
-  milestones). No milestone in flight.
+- **Current milestone:** none open — **Project Restructuring (`RESTRUCTURE.md`) completed (2026-07-05)**: reorganized `src/` so every layer folder (`components/`, `hooks/`, `core/`, `utils/`, `types/`) shares the same uniform feature buckets (`bookReader`, `tree`, `content`, `common`), mirroring the `<BookReader>` view hierarchy. Phase 1 through Phase 6 completed and cleanly committed phase-by-phase on branch `refactor/project-restructure`. Public API (`src/index.ts`) is byte-for-byte identical. Verified with clean `pnpm run build && pnpm run lint && pnpm run typecheck`. (Note: per strict rules, test suite was not run; test paths in `tests/` were verified clean).
+- **Overall progress:** M0–M11 complete. Project Restructuring (`RESTRUCTURE.md`) complete. No milestone in flight.
 - **🆕 Tested 2026-07-01 — M10 lazy tree + search + selection/staging.** New coverage:
   `tests/core/treeStore.lazy.test.ts` (mutation/subscription/lazy status),
   `tests/useLazyChildren.test.tsx` (dedup, missing fetcher, error+retry, abort→reset),
@@ -351,6 +341,13 @@ the default caret + a11y/keyboard nav unchanged when no override is supplied.
 ---
 
 ## Session log (append newest on top)
+- 2026-07-05 (latest) — **Project Restructuring (`RESTRUCTURE.md`) completed.** Executed all 6 phases on branch `refactor/project-restructure` (no behavior change, public API byte-for-byte identical):
+  - **Phase 1 (`core/`)**: Organized into `core/tree/` (`treeStore`, `traversal`, `flatten`) and `core/content/` (`virtualizer`, `anchoring`, `scrollSync`, `cache`).
+  - **Phase 2 (`utils/`)**: Organized into `utils/content/` (`sanitize`, `content`, `prefetchNodeContent`), `utils/tree/` (`collapse`), and `utils/common/` (`cx`, `length`, `thenable`).
+  - **Phase 3 (`types/`)**: Re-cut internal layer types into feature buckets (`types/{layer}/{bucket}/`) with bucket barrels, preserving `types/public/` and top-level `types/index.ts` barrel untouched.
+  - **Phase 4 (`hooks/`)**: Organized into `hooks/bookReader/`, `hooks/tree/` (with nested `view/`, `search/`, `overlay/`), `hooks/content/` (with nested `node/`), and `hooks/common/`.
+  - **Phase 5 (`components/`)**: Organized into `components/bookReader/` (extracted `TreeToggleBar`), `components/tree/` (split `TreePaneView` out of `TreePane`, nested `view/`, `search/`, `overlay/`), and `components/content/` (extracted `ContentLoading`, `ContentEmpty`, `ContentError` into `node/`).
+  - **Phase 6 (final)**: Updated architecture documentation (`CLAUDE.md`, `CONVENTIONS.md`) and verified all test import paths in `tests/` point cleanly to the new feature-uniform layout. Verified green with `pnpm run build && pnpm run lint && pnpm run typecheck`. (Per strict repo rules, test suite execution was deferred to user request).
 - 2026-07-04 (latest) — **Pure-logic extraction: hooks → `core/`/`utils/` (no
   behavior change, user-requested).** Freed the hooks of inline algorithms so
   they only do React wiring (SOLID/separation-of-concerns pass, follow-up to the

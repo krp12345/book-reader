@@ -32,62 +32,40 @@ hold it. Trust them; update them when reality changes.
 
 ```
 src/
-  index.ts            # public exports
-  components/         # DUMB components — render-only; every behavior lives in a
-                      #   hook (refactor 2026-07-04). Each names its logic hook.
-    BookReader.tsx    #   shell/layout only → hooks/useBookReader
-    tree/             #   TreePane(+View) → useTreePaneView; TreeSearch →
-                      #   useTreeSearch; TreeOverlay → useTreeOverlay;
-                      #   defaultTreeNode.tsx
-    content/          #   ContentPane → useContentPane; ContentNode →
-                      #   useNodeContent; LazyContentPlaceholder.tsx
-  hooks/              # ALL React logic
-    useBookReader.ts  #   store+cache ownership, location (controlled/echo-guard),
-                      #   deep-link nav, search/reset replace, responsive collapse
-    useContentPane.ts #   reading order, lazy filtering, virtual-list wiring,
-                      #   scroll requests, lazy scroll-trigger, active reporting
-    useTreePaneView.ts#   visible-row flattening + roving-focus keyboard nav
-    useTreeSearch.ts  #   query state + SearchApi
-    useTreeOverlay.ts #   popover dialog behavior (focus/Esc/outside-click)
-    useVirtualList.ts #   windowing + measurement + pin/prefetch; anchor-
-                      #   correction *policy* lives in core/anchoring (hook only
-                      #   feeds it DOM truth + applies the returned scrollTop)
-    useNodeContent.ts #   fetch+sanitize+cache pipeline per node
-    useTreeState.ts   #   expanded/selected state
-    useLazyChildren.ts#   lazy children fetch orchestration (dedupe/abort/status)
-    useStoreVersion.ts / useElementWidth.ts
-  core/               # pure logic, React-free
-    treeStore.ts      # normalized id-indexed tree; mutable + subscribable
-                      #   (setChildren/replaceTree/setLazyStatus + version/notify)
-                      #   so lazy branches & search can swap subtrees at runtime
-    traversal.ts      # depth-first next/prev reading order + resolveToNode /
-                      #   findFirstShowable / resolveToShowable (lazy-aware walks)
-    anchoring.ts      # direction-aware anchor correction (pure): height-change
-                      #   (RO path) + sequence-swap policies — the LZ-UP fix
-    cache.ts          # bounded LRU content cache (maxChars), pinning, dedup;
-                      #   `load(id, factory(signal))` = refcounted, abortable load
-                      #   that owns the signal & never caches an aborted result
-    virtualizer.ts    # windowing + height map + anchor correction + offsetAt
-    scrollSync.ts     # active-node detection, near-bottom, reading-order overrides
-    flatten.ts        # expanded-set → visible tree rows (incl. lazy status rows)
-  types/              # ALL interface/type declarations live here (2026-07-04
-                      #   consolidation), grouped by layer into subfolders:
-                      #   public/  — the API surface split by domain (node / reading /
-                      #             fetching / search / tree / content / cache / props);
-                      #             its index is the barrel the root `./index.ts`
-                      #             re-exports, so `../types` still resolves ONLY public.
-                      #   core/    — React-free module contracts (treeStore / traversal /
-                      #             scrollSync / cache / virtualizer / anchoring).
-                      #   hooks/   — hook option+state shapes (+ prefetch.ts).
-                      #   components/ — dumb-component prop types.
+  index.ts            # public exports (re-exports from types/public + core/*)
+  components/         # DUMB components — render-only; uniform feature buckets:
+    bookReader/       #   BookReader.tsx (shell/layout) → hooks/bookReader/useBookReader;
+                      #   TreeToggleBar.tsx (collapsed toggle-bar)
+    tree/             #   TreePane.tsx; view/TreePaneView.tsx → useTreePaneView +
+                      #   view/defaultTreeNode.tsx; search/TreeSearch.tsx →
+                      #   useTreeSearch; overlay/TreeOverlay.tsx → useTreeOverlay
+    content/          #   ContentPane.tsx → useContentPane; node/ContentNode.tsx →
+                      #   useNodeContent + ContentLoading/Empty/Error/LazyContentPlaceholder
+  hooks/              # ALL React logic, grouped into uniform feature buckets:
+    bookReader/       #   useBookReader.ts (store+cache ownership, location, deep-link nav)
+    tree/             #   useTreeState.ts, useLazyChildren.ts; view/useTreePaneView.ts;
+                      #   search/useTreeSearch.ts; overlay/useTreeOverlay.ts
+    content/          #   useContentPane.ts, useVirtualList.ts; node/useNodeContent.ts
+    common/           #   useElementWidth.ts, useStoreVersion.ts
+  core/               # pure logic, React-free; single-level feature buckets:
+    tree/             #   treeStore.ts (normalized id-indexed tree), traversal.ts
+                      #   (DFS reading order + walks), flatten.ts (expanded → visible rows)
+    content/          #   virtualizer.ts (windowing + height map + anchor correction),
+                      #   anchoring.ts (direction-aware anchor correction — LZ-UP fix),
+                      #   scrollSync.ts (active-node detection, reading-order overrides),
+                      #   cache.ts (bounded LRU content cache)
+  types/              # ALL interface/type declarations, cut into feature buckets:
+                      #   public/     — UNCHANGED API surface split by domain; re-exported by
+                      #                src/index.ts via root ./index.ts barrel.
+                      #   core/       — React-free module contracts in {tree,content}/ buckets.
+                      #   hooks/      — hook option+state shapes in {common,tree,content}/ buckets.
+                      #   components/ — dumb-component prop types in {tree,content}/ buckets.
                       #   Each impl module IMPORTS its own moved types back for local use
-                      #   and RE-EXPORTS them (`export type { X } from '../types/core'`), so
-                      #   existing `from './core/treeStore'` etc. + `src/index.ts` are
-                      #   unchanged. Internal (unexported) shapes are imported, not re-exported.
-  utils/              # sanitize.ts (+resolveContentSanitizer), prefetchNodeContent.ts,
-                      #   length.ts (lengthToPx/toCssLength), cx.ts (classname join),
-                      #   collapse.ts (shouldCollapseTree), thenable.ts (isThenable),
-                      #   content.ts (isEmptyContent)
+                      #   and RE-EXPORTS them, so existing consumers + src/index.ts are unchanged.
+  utils/              # pure utilities grouped into feature buckets:
+    content/          #   sanitize.ts, content.ts (isEmptyContent), prefetchNodeContent.ts
+    tree/             #   collapse.ts (shouldCollapseTree)
+    common/           #   cx.ts, length.ts, thenable.ts
   styles/             # book-reader.css: default skin (presentation only) +
                       #   --reader-* tokens; emitted to dist/book-reader.css by a
                       #   Vite plugin, exported as `book-reader/styles.css` (opt-in)

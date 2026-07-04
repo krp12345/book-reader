@@ -27,10 +27,13 @@
 ### Other TS rules
 - `strict: true` (all strict flags), `noUncheckedIndexedAccess: true`.
 - No non-null `!` assertions unless provably safe with a short comment.
-- Public API types live in `src/types/` (split by domain, re-exported through the
-  `src/types/index.ts` barrel) and are exported from `src/index.ts`.
 - Prefer `type` for unions/props, `interface` for extendable object contracts —
   be consistent within a file.
+
+### Types layout & barrel structure
+- **Public API surface (`src/types/public/`)**: Split by domain (`node.ts`, `reading.ts`, `fetching.ts`, etc.). The root barrel `src/types/index.ts` re-exports ONLY from `public/`, ensuring `src/index.ts` and external consumers only see public contracts.
+- **Internal layer types (`core`, `hooks`, `components`)**: Organized by layer and further cut into uniform feature buckets (`{layer}/{bucket}/`, e.g., `types/core/tree/`, `types/hooks/content/`, `types/components/tree/`) with a small barrel per bucket.
+- **Module re-exports**: Each implementation module in `src/` imports its own type definitions from `types/{layer}/{bucket}/` and re-exports them (`export type { X } from '../../types/core/tree/treeStore'`). This preserves existing import contracts for consumers of implementation modules while keeping all type definitions centralized in `src/types/`.
 
 ## Testing — code first, tests after approval
 
