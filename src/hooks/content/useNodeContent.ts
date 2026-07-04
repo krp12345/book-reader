@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { FetchContext } from '../types';
+import type { FetchContext } from '../../types';
 import type {
   InternalState,
   NodeContent,
   UseNodeContentOptions,
-} from '../types/hooks';
-import { resolveContentSanitizer } from '../utils/content/sanitize';
-import { isThenable } from '../utils/common/thenable';
-import { isEmptyContent } from '../utils/content/content';
+} from '../../types/hooks';
+import { resolveContentSanitizer } from '../../utils/content/sanitize';
+import { isThenable } from '../../utils/common/thenable';
+import { isEmptyContent } from '../../utils/content/content';
 
-export type { NodeContent, UseNodeContentOptions } from '../types/hooks';
+export type { NodeContent, UseNodeContentOptions } from '../../types/hooks';
 
 const LOADING: InternalState<never> = {
   status: 'loading',

@@ -3,7 +3,7 @@ import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
 /**
  * Observe an element's content-box width. Sets the initial width before paint
  * (so the responsive collapse decision doesn't flash) and tracks resizes via a
- * ResizeObserver — mirrors the measurement pattern in hooks/useVirtualList.ts.
+ * ResizeObserver — mirrors the measurement pattern in hooks/content/useVirtualList.ts.
  */
 export function useElementWidth<T extends HTMLElement>(): [
   RefObject<T>,

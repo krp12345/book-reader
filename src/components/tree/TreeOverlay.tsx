@@ -1,5 +1,5 @@
 import type { CSSProperties, JSX } from 'react';
-import { useTreeOverlay } from '../../hooks/useTreeOverlay';
+import { useTreeOverlay } from '../../hooks/tree/useTreeOverlay';
 import type { TreeOverlayProps } from '../../types/components';
 
 export type { TreeOverlayProps } from '../../types/components';
@@ -10,7 +10,7 @@ export type { TreeOverlayProps } from '../../types/components';
  * context). It is its own stacking context (`isolation:isolate` + z-index) and
  * lives inside the reader subtree, so the skin's scoped selectors + `--reader-*`
  * tokens reach it without a portal. Purely presentational: the dialog behavior
- * (focus, Esc, outside click) lives in `hooks/useTreeOverlay.ts`.
+ * (focus, Esc, outside click) lives in `hooks/tree/useTreeOverlay.ts`.
  */
 export function TreeOverlay(props: TreeOverlayProps): JSX.Element {
   const { treeSide, width, minWidth, minHeight, className, children } = props;

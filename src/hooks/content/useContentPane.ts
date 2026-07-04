@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { createReadingOrder, resolveToShowable } from '../core/tree/traversal';
-import { withReadingOverrides } from '../core/content/scrollSync';
-import { prefetchNodeContent } from '../utils/content/prefetchNodeContent';
+import { createReadingOrder, resolveToShowable } from '../../core/tree/traversal';
+import { withReadingOverrides } from '../../core/content/scrollSync';
+import { prefetchNodeContent } from '../../utils/content/prefetchNodeContent';
 import { useVirtualList } from './useVirtualList';
-import { useStoreVersion } from './useStoreVersion';
+import { useStoreVersion } from '../common/useStoreVersion';
 import type {
   ContentPaneState,
   UseContentPaneOptions,
-} from '../types/hooks';
+} from '../../types/hooks';
 
 export type {
   ContentPaneState,
   UseContentPaneOptions,
-} from '../types/hooks';
+} from '../../types/hooks';
 
 /**
  * All of `ContentPane`'s behavior: reading-order sequence (override-aware,

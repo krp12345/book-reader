@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createContentCache, type ContentCache } from '../core/content/cache';
-import { createTreeStore } from '../core/tree/treeStore';
-import { findFirstShowable, resolveToNode } from '../core/tree/traversal';
-import { useTreeState } from './useTreeState';
-import { useLazyChildren } from './useLazyChildren';
+import { createContentCache, type ContentCache } from '../../core/content/cache';
+import { createTreeStore } from '../../core/tree/treeStore';
+import { findFirstShowable, resolveToNode } from '../../core/tree/traversal';
+import { useTreeState } from '../tree/useTreeState';
+import { useLazyChildren } from '../tree/useLazyChildren';
 import { useElementWidth } from './useElementWidth';
-import { toCssLength } from '../utils/common/length';
-import { shouldCollapseTree } from '../utils/tree/collapse';
+import { toCssLength } from '../../utils/common/length';
+import { shouldCollapseTree } from '../../utils/tree/collapse';
 import type {
   BookLocation,
   BookNode,
@@ -14,10 +14,10 @@ import type {
   ScrollRequest,
   SearchContext,
   TreeToggleApi,
-} from '../types';
-import type { BookReaderState } from '../types/hooks';
+} from '../../types';
+import type { BookReaderState } from '../../types/hooks';
 
-export type { BookReaderState } from '../types/hooks';
+export type { BookReaderState } from '../../types/hooks';
 
 /**
  * All of `<BookReader>`'s behavior: store + cache ownership, lazy-children

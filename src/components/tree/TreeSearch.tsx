@@ -1,5 +1,5 @@
 import type { JSX } from 'react';
-import { useTreeSearch } from '../../hooks/useTreeSearch';
+import { useTreeSearch } from '../../hooks/tree/useTreeSearch';
 import { cx } from '../../utils/common/cx';
 import type { TreeSearchProps } from '../../types/components';
 
@@ -10,7 +10,7 @@ export type { TreeSearchProps } from '../../types/components';
  * whole book via the consumer's `onSearch`; Reset restores it via `onReset`.
  * There are no result lists — search *replaces* the tree. A `renderSearch` prop
  * can replace this entire UI; it receives the same {@link SearchApi}. Purely
- * presentational: the query state lives in `hooks/useTreeSearch.ts`.
+ * presentational: the query state lives in `hooks/tree/useTreeSearch.ts`.
  */
 export function TreeSearch(props: TreeSearchProps): JSX.Element {
   const { placeholder = 'Search…', renderSearch, className } = props;

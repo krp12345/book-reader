@@ -1,5 +1,5 @@
 import type { JSX } from 'react';
-import { useContentPane } from '../../hooks/useContentPane';
+import { useContentPane } from '../../hooks/content/useContentPane';
 import { cx } from '../../utils/common/cx';
 import { ContentNode } from './ContentNode';
 import { LazyContentPlaceholder } from './LazyContentPlaceholder';
@@ -11,7 +11,7 @@ export type { ContentPaneProps } from '../../types/components';
 /**
  * The virtualized reading surface. Purely presentational: sequencing,
  * windowing, prefetch, scroll requests and lazy triggers live in
- * `hooks/useContentPane.ts` — this component only renders the window.
+ * `hooks/content/useContentPane.ts` — this component only renders the window.
  */
 export function ContentPane<Meta = unknown, Content = string>(
   props: ContentPaneProps<Meta, Content>,

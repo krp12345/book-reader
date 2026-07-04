@@ -1,7 +1,7 @@
 import { useEffect, useRef, type KeyboardEvent } from 'react';
-import type { TreeOverlayState, UseTreeOverlayOptions } from '../types/hooks';
+import type { TreeOverlayState, UseTreeOverlayOptions } from '../../types/hooks';
 
-export type { TreeOverlayState, UseTreeOverlayOptions } from '../types/hooks';
+export type { TreeOverlayState, UseTreeOverlayOptions } from '../../types/hooks';
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';

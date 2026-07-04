@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
-import type { TreeState, UseTreeStateOptions } from '../types/hooks';
+import type { TreeState, UseTreeStateOptions } from '../../types/hooks';
 
-export type { TreeState, UseTreeStateOptions } from '../types/hooks';
+export type { TreeState, UseTreeStateOptions } from '../../types/hooks';
 
 export function useTreeState<Meta = unknown>(
   options: UseTreeStateOptions<Meta>,

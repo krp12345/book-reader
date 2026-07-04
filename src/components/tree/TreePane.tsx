@@ -4,8 +4,8 @@ import type {
   TreePaneProps,
   TreePaneViewProps,
 } from '../../types/components';
-import { useTreeState } from '../../hooks/useTreeState';
-import { useTreePaneView } from '../../hooks/useTreePaneView';
+import { useTreeState } from '../../hooks/tree/useTreeState';
+import { useTreePaneView } from '../../hooks/tree/useTreePaneView';
 import { cx } from '../../utils/common/cx';
 import { defaultTreeNode } from './defaultTreeNode';
 
@@ -35,7 +35,7 @@ export function TreePane<Meta = unknown>(
 
 /**
  * The section tree. Purely presentational: row flattening and keyboard
- * navigation live in `hooks/useTreePaneView.ts` — this component only renders
+ * navigation live in `hooks/tree/useTreePaneView.ts` — this component only renders
  * the rows.
  */
 export function TreePaneView<Meta = unknown>(

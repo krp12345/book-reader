@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import type { TreeStore } from '../core/tree/treeStore';
+import type { TreeStore } from '../../core/tree/treeStore';
 
 /**
  * Re-renders the caller whenever the (mutable) tree store changes, and returns

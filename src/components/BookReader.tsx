@@ -1,5 +1,5 @@
 import type { JSX } from 'react';
-import { useBookReader } from '../hooks/useBookReader';
+import { useBookReader } from '../hooks/common/useBookReader';
 import { cx } from '../utils/common/cx';
 import { TreePaneView } from './tree/TreePane';
 import { TreeSearch } from './tree/TreeSearch';
@@ -10,7 +10,7 @@ import type { BookReaderProps } from '../types';
 /**
  * The two-pane reader shell. Purely presentational: every behavior (store +
  * cache ownership, lazy resolution, location, search/reset, responsive
- * collapse, overlay state) lives in `hooks/useBookReader.ts` — this component
+ * collapse, overlay state) lives in `hooks/common/useBookReader.ts` — this component
  * only composes the panes.
  */
 export function BookReader<Meta = unknown, Content = string>(

@@ -1,15 +1,15 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { flattenVisible } from '../core/tree/flatten';
-import { useStoreVersion } from './useStoreVersion';
+import { flattenVisible } from '../../core/tree/flatten';
+import { useStoreVersion } from '../common/useStoreVersion';
 import type {
   TreePaneViewState,
   UseTreePaneViewOptions,
-} from '../types/hooks';
+} from '../../types/hooks';
 
 export type {
   TreePaneViewState,
   UseTreePaneViewOptions,
-} from '../types/hooks';
+} from '../../types/hooks';
 
 /**
  * All of `TreePaneView`'s behavior: flattening the visible rows (recomputed

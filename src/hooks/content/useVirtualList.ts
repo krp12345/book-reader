@@ -10,21 +10,21 @@ import {
   createVirtualizer,
   pinnedIds,
   prefetchIds,
-} from '../core/content/virtualizer';
-import { activeNodeByCoverage, isNearBottom } from '../core/content/scrollSync';
+} from '../../core/content/virtualizer';
+import { activeNodeByCoverage, isNearBottom } from '../../core/content/scrollSync';
 import {
   applyHeightMeasurements,
   reconcileSequenceSwap,
   type HeightMeasurement,
   type ScrollDirection,
-} from '../core/content/anchoring';
+} from '../../core/content/anchoring';
 import type {
   Metrics,
   UseVirtualListOptions,
   VirtualList,
-} from '../types/hooks';
+} from '../../types/hooks';
 
-export type { UseVirtualListOptions, VirtualList } from '../types/hooks';
+export type { UseVirtualListOptions, VirtualList } from '../../types/hooks';
 
 const readHeight = (el: HTMLElement): number =>
   el.getBoundingClientRect().height;

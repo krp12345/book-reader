@@ -1,8 +1,8 @@
 import { useState, type KeyboardEvent } from 'react';
-import type { SearchApi } from '../types';
-import type { TreeSearchState, UseTreeSearchOptions } from '../types/hooks';
+import type { SearchApi } from '../../types';
+import type { TreeSearchState, UseTreeSearchOptions } from '../../types/hooks';
 
-export type { TreeSearchState, UseTreeSearchOptions } from '../types/hooks';
+export type { TreeSearchState, UseTreeSearchOptions } from '../../types/hooks';
 
 /**
  * The search box's behavior: query state + the {@link SearchApi} control
