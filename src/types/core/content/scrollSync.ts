@@ -1,4 +1,4 @@
-import type { GetNextNode, GetPrevNode } from '../public';
+import type { GetNextNode, GetPrevNode } from '../../public';
 
 export interface NodeSpan {
   id: string;

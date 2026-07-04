@@ -1,6 +1,6 @@
 import type { RefObject } from 'react';
-import type { ContentCache } from '../core/cache';
-import type { VirtualItem } from '../core/virtualizer';
+import type { ContentCache } from '../../core/content/cache';
+import type { VirtualItem } from '../../core/content/virtualizer';
 
 export interface UseVirtualListOptions<Content = string> {
   ids: string[];

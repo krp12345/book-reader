@@ -1,7 +1,7 @@
 // Prop types for the dumb components in `components/`.
-export * from './treeOverlay';
-export * from './treePane';
-export * from './treeSearch';
-export * from './lazyContentPlaceholder';
-export * from './contentPane';
-export * from './contentNode';
+export * from './tree/treeOverlay';
+export * from './tree/treePane';
+export * from './tree/treeSearch';
+export * from './content/lazyContentPlaceholder';
+export * from './content/contentPane';
+export * from './content/contentNode';

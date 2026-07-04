@@ -1,4 +1,4 @@
-import type { TreeStore } from '../core/treeStore';
+import type { TreeStore } from '../../core/tree/treeStore';
 
 export interface UseTreeStateOptions<Meta = unknown> {
   store: TreeStore<Meta>;

@@ -1,4 +1,4 @@
-import type { RenderSearch } from '../public';
+import type { RenderSearch } from '../../public';
 
 export interface TreeSearchProps {
   onSearch: (query: string) => void;

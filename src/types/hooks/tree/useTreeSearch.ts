@@ -1,5 +1,5 @@
 import type { KeyboardEvent } from 'react';
-import type { SearchApi } from '../public';
+import type { SearchApi } from '../../public';
 
 export interface UseTreeSearchOptions {
   onSearch: (query: string) => void;

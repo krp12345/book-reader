@@ -1,5 +1,5 @@
-import type { BookNode, FetchContent, SanitizeOption } from '../public';
-import type { ContentCache } from '../core/cache';
+import type { BookNode, FetchContent, SanitizeOption } from '../../public';
+import type { ContentCache } from '../../core/content/cache';
 
 export interface PrefetchOptions<Meta = unknown, Content = string> {
   node: BookNode<Meta>;

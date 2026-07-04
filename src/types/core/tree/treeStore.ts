@@ -1,4 +1,4 @@
-import type { BookNode, LazyStatus } from '../public';
+import type { BookNode, LazyStatus } from '../../public';
 
 export interface TreeStore<Meta = unknown> {
   getNode(id: string): BookNode<Meta> | undefined;

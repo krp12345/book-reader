@@ -1,8 +1,8 @@
 import type { RefObject } from 'react';
-import type { ScrollRequest, TreeToggleApi } from '../public';
-import type { ContentCache } from '../core/cache';
-import type { TreeStore } from '../core/treeStore';
-import type { TreeState } from './useTreeState';
+import type { ScrollRequest, TreeToggleApi } from '../../public';
+import type { ContentCache } from '../../core/content/cache';
+import type { TreeStore } from '../../core/tree/treeStore';
+import type { TreeState } from '../tree/useTreeState';
 
 export interface BookReaderState<Meta = unknown, Content = string> {
   store: TreeStore<Meta>;

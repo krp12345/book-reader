@@ -8,8 +8,8 @@ import type {
   RenderError,
   RenderLoading,
   SanitizeOption,
-} from '../public';
-import type { ContentCache } from '../core/cache';
+} from '../../public';
+import type { ContentCache } from '../../core/content/cache';
 
 export interface ContentNodeProps<Meta = unknown, Content = string> {
   node: BookNode<Meta>;

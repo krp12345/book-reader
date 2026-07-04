@@ -10,9 +10,9 @@ import type {
   RenderNoData,
   SanitizeOption,
   ScrollRequest,
-} from '../public';
-import type { ContentCache } from '../core/cache';
-import type { TreeStore } from '../core/treeStore';
+} from '../../public';
+import type { ContentCache } from '../../core/content/cache';
+import type { TreeStore } from '../../core/tree/treeStore';
 
 export interface ContentPaneProps<Meta = unknown, Content = string> {
   store: TreeStore<Meta>;

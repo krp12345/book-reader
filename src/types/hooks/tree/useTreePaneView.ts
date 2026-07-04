@@ -1,6 +1,6 @@
 import type { KeyboardEvent } from 'react';
-import type { VisibleRow } from '../../core/tree/flatten';
-import type { TreeStore } from '../core/treeStore';
+import type { VisibleRow } from '../../../core/tree/flatten';
+import type { TreeStore } from '../../core/tree/treeStore';
 import type { TreeState } from './useTreeState';
 
 export interface UseTreePaneViewOptions<Meta = unknown> {

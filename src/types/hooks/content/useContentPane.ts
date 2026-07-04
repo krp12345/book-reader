@@ -5,10 +5,10 @@ import type {
   GetPrevNode,
   SanitizeOption,
   ScrollRequest,
-} from '../public';
-import type { ContentCache } from '../core/cache';
-import type { TreeStore } from '../core/treeStore';
-import type { VirtualItem } from '../core/virtualizer';
+} from '../../public';
+import type { ContentCache } from '../../core/content/cache';
+import type { TreeStore } from '../../core/tree/treeStore';
+import type { VirtualItem } from '../../core/content/virtualizer';
 
 export interface UseContentPaneOptions<Meta = unknown, Content = string> {
   store: TreeStore<Meta>;

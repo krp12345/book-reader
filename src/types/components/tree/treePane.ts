@@ -1,9 +1,9 @@
 import type {
   RenderExpandCollapse,
   RenderTreeNode,
-} from '../public';
-import type { TreeStore } from '../core/treeStore';
-import type { TreeState } from '../hooks/useTreeState';
+} from '../../public';
+import type { TreeStore } from '../../core/tree/treeStore';
+import type { TreeState } from '../../hooks/tree/useTreeState';
 
 export interface TreePaneProps<Meta = unknown> {
   store: TreeStore<Meta>;

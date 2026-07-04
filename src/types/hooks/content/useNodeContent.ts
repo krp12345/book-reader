@@ -4,8 +4,8 @@ import type {
   FetchContent,
   ReadingDirection,
   SanitizeOption,
-} from '../public';
-import type { ContentCache } from '../core/cache';
+} from '../../public';
+import type { ContentCache } from '../../core/content/cache';
 
 export interface UseNodeContentOptions<Meta = unknown, Content = string> {
   node: BookNode<Meta>;
