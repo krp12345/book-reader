@@ -7,5 +7,5 @@ export * from './tree/useTreeOverlay';
 export * from './content/useNodeContent';
 export * from './content/useVirtualList';
 export * from './content/useContentPane';
-export * from './common/useBookReader';
+export * from './bookReader/useBookReader';
 export * from './content/prefetch';

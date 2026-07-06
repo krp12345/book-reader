@@ -4,7 +4,7 @@ import { createTreeStore } from '../../core/tree/treeStore';
 import { findFirstShowable, resolveToNode } from '../../core/tree/traversal';
 import { useTreeState } from '../tree/useTreeState';
 import { useLazyChildren } from '../tree/useLazyChildren';
-import { useElementWidth } from './useElementWidth';
+import { useElementWidth } from '../common/useElementWidth';
 import { toCssLength } from '../../utils/common/length';
 import { shouldCollapseTree } from '../../utils/tree/collapse';
 import type {
